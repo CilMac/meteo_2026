@@ -1,5 +1,10 @@
 // Fenêtre d'information : <dialog> natif (focus, Échap, retour du focus), deux onglets accessibles, date du jour.
-const $ = (id) => document.getElementById(id);
+const $ = (id) => {
+  const el = document.getElementById(id);
+  // Un élément absent signale presque toujours des fichiers publiés de versions différentes (index.html ancien avec app.js récent, par exemple).
+  if (!el) throw new Error(`élément « #${id} » introuvable : les fichiers du site ne sont pas tous de la même version (republiez-les tous, puis rechargez avec Cmd+Maj+R)`);
+  return el;
+};
 
 export function initInfo() {
   const dlg = $("info"), openBtn = $("info-open");

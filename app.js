@@ -8,10 +8,15 @@ import { createLoader } from "./loading.js";
 import { chooseView } from "./device.js";
 import { TABS, buildTopPlace, buildTopNow, buildCurrent, buildHourly, buildWeek, buildTrend, buildCompact, COMPACT_HELP_ITEMS, buildSources, buildWarnings, buildAttribution, warningsStatus, formatLocal } from "./weather-render.js";
 
-const $ = (id) => document.getElementById(id);
+const $ = (id) => {
+  const el = document.getElementById(id);
+  // Un élément absent signale presque toujours des fichiers publiés de versions différentes (index.html ancien avec app.js récent, par exemple).
+  if (!el) throw new Error(`élément « #${id} » introuvable : les fichiers du site ne sont pas tous de la même version (republiez-les tous, puis rechargez avec Cmd+Maj+R)`);
+  return el;
+};
 const PLACE_KEY = "meteo.lastPlace", CUSTOM_KEY = "meteo.customPlace", TAB_DEFAULT = "precip", STALE_MS = 30 * 60 * 1000;
 
-const loader = createLoader(document.getElementById("loader"));
+const loader = createLoader($("loader"));
 const state = { place: null, data: null, warnings: null, ensemble: undefined, view: "detail", tab: TAB_DEFAULT, loading: false, loadId: 0 };
 
 // Dernier lieu validé : favori, ou lieu libre relu et revalidé (jamais pris tel quel dans le stockage).
