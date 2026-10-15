@@ -1,7 +1,7 @@
 /* Charte « Carnet pastel » (CHARTE_GRAPHIQUE_REUTILISABLE.md) appliquée à la météo.
-   Les jetons de couleur sont centralisés ici. La charte ne prévoit pas de mode sombre : le mode nuit
-   ci-dessous en reprend les rôles (papier, surface, sauge, lavande, bleu, pêche) avec des valeurs foncées.
-   Le jour est le mode par défaut ; la nuit ne s'active que par le choix fait dans la fenêtre « i » (html[data-theme="dark"]). */
+   Les jetons de couleur sont centralisés ici. La charte ne prévoit pas de mode sombre : le mode sombre
+   ci-dessous en reprend les rôles (papier, surface, sauge, lavande, bleu, pêche) avec des valeurs foncées ;
+   il suit automatiquement le réglage du système (prefers-color-scheme). */
 :root {
   --paper: #f6f3eb; --surface: #fffefb; --ink: #343c38; --muted: #5f665d; --line: #dedfd5;
   --link: #415f66; --focus: #698794; --summary: #526d62;
@@ -32,24 +32,26 @@
   --column: 760px;
   color-scheme: light;
 }
-:root[data-theme="dark"] {
-  color-scheme: dark;
-  --paper: #1b201d; --surface: #252b27; --ink: #eceee8; --muted: #a9b0a6; --line: #3a423d;
-  --link: #a5c9d2; --focus: #8fb3c1; --summary: #b4cfc2;
-  --button: #2f3830; --button-border: #404a42;
-  --help: #342f3e; --help-border: #4b4358; --help-active: #443a55; --help-active-border: #a994c2;
-  --navigation: #2a3540; --navigation-border: #3d4b59;
-  --selected: #3b4c37; --selected-border: #93b08b;
-  --primary: #9cc5e0; --on-primary: #10202b; --primary-border: #9cc5e0;
-  --success: #2a3626; --success-border: #91a583;
-  --error: #3e2b23; --error-border: #d39a7c;
-  --information: #263039; --information-border: #86a0b3;
-  --attention: #3a3120; --attention-border: #d0a65c; --attention-ink: #f0d7a0;
-  --note: #2b312c;
-  --precip-bg: #27313a; --precip-sel: #33485a; --precip-border: #86a9c0;
-  --temp-bg: #342e22; --temp-sel: #4a3f28; --temp-border: #cdab6e;
-  --wind-bg: #2a322b; --wind-sel: #3a4b36; --wind-border: #93b08b;
-  --rain: #7fb3d6; --wind: #52c0b0; --wind-2: #2c6a62; --alert-yellow: #e6b800; --alert-orange: #e8923a; --alert-red: #e05a4b;
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --paper: #1b201d; --surface: #252b27; --ink: #eceee8; --muted: #a9b0a6; --line: #3a423d;
+    --link: #a5c9d2; --focus: #8fb3c1; --summary: #b4cfc2;
+    --button: #2f3830; --button-border: #404a42;
+    --help: #342f3e; --help-border: #4b4358; --help-active: #443a55; --help-active-border: #a994c2;
+    --navigation: #2a3540; --navigation-border: #3d4b59;
+    --selected: #3b4c37; --selected-border: #93b08b;
+    --primary: #9cc5e0; --on-primary: #10202b; --primary-border: #9cc5e0;
+    --success: #2a3626; --success-border: #91a583;
+    --error: #3e2b23; --error-border: #d39a7c;
+    --information: #263039; --information-border: #86a0b3;
+    --attention: #3a3120; --attention-border: #d0a65c; --attention-ink: #f0d7a0;
+    --note: #2b312c;
+    --precip-bg: #27313a; --precip-sel: #33485a; --precip-border: #86a9c0;
+    --temp-bg: #342e22; --temp-sel: #4a3f28; --temp-border: #cdab6e;
+    --wind-bg: #2a322b; --wind-sel: #3a4b36; --wind-border: #93b08b;
+    --rain: #7fb3d6; --wind: #52c0b0; --wind-2: #2c6a62; --alert-yellow: #e6b800; --alert-orange: #e8923a; --alert-red: #e05a4b;
+  }
 }
 
 * { box-sizing: border-box; }
@@ -198,7 +200,6 @@ h2 .h2-main { display: block; }
 
 /* barre fixe : lieu + situation, puis onglets ; reste visible au défilement */
 .topbar { position: sticky; top: 0; z-index: 20; margin: 0 0 16px; padding: 8px 0 10px; background: var(--paper); box-shadow: 0 8px 8px -8px #39433033; }
-.top-inner { display: flex; align-items: center; gap: 12px; min-height: 40px; padding: 0 4px 6px; }
 .top-place { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 8px; }
 .top-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 700 25px/1.3 var(--font-title); text-decoration: underline; text-decoration-color: var(--primary); text-decoration-thickness: 3px; text-underline-offset: 6px; }
 .pin { font-size: 20px; line-height: 1; flex: none; }
@@ -206,7 +207,7 @@ h2 .h2-main { display: block; }
 .top-now strong { font-size: 18px; }
 .top-icon { font-size: 22px; line-height: 1; }
 .top-desc { min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--muted); font-size: 14px; }
-@media (max-width: 420px) { .top-name { font-size: 21px; } .pin { font-size: 17px; } .top-desc { max-width: 7em; } }
+@media (max-width: 420px) { .top-name { font-size: 16.5px; text-decoration-thickness: 2px; text-underline-offset: 5px; } .pin { font-size: 12px; } .top-place { gap: 4px; } .top-row { gap: 6px; padding: 0; } }
 
 /* « Autre lieu » : même langage que replier/déplier (pastille lavande + flèche), avec un libellé qui dit quoi faire */
 .other { border-top: 0; padding-top: 0; margin-top: 14px; }
@@ -252,13 +253,6 @@ body:has(dialog.modal[open]) { overflow: hidden; }
   .modal-head h2 { font-size: 20px; }
 }
 
-/* choix Jour / Nuit dans la fenêtre d'information (boutons à bascule) */
-.theme-row { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 8px 12px; margin-bottom: 8px; }
-.theme-label { font-size: 14px; font-weight: 600; }
-.theme-btn { min-height: 44px; padding: 9px 16px; border: 1px solid var(--button-border); border-radius: var(--radius-control); background: var(--button); color: var(--ink); font: inherit; cursor: pointer; }
-.theme-btn:hover { filter: brightness(.96); }
-.theme-btn[aria-pressed="true"] { background: var(--selected); border: 2px solid var(--selected-border); font-weight: 700; }
-.theme-btn[aria-pressed="true"]::after { content: " ✓"; }
 
 /* explications repliables sous les prévisions : bouton lavande, fermé par défaut */
 .howto { margin-top: 12px; padding-top: 0; border-top: 0; }
@@ -268,4 +262,94 @@ body:has(dialog.modal[open]) { overflow: hidden; }
 .howto > summary:hover { filter: brightness(.96); }
 .howto[open] > summary { background: var(--help-active); border-color: var(--help-active-border); }
 .howto[open] > summary::after { content: "▴"; }
-.howto > p { margin: 10px 0 0; }
+.howto-list { margin: 10px 0 0; padding-left: 20px; }
+.howto-list li { margin: 4px 0; line-height: 1.5; }
+
+/* ligne d'état visible dans l'en-tête des cartes repliées (vigilances, sources) */
+.fold > summary .fold-status { grid-column: 1 / -1; margin: 0; font-size: 14px; line-height: 1.5; color: var(--muted); }
+.fold > summary .fold-status.is-alert { padding: 10px 14px; border-left: 4px solid var(--attention-border); border-radius: var(--radius-control); background: var(--attention); color: var(--attention-ink); font-weight: 600; }
+#warnings-status:not(.is-alert) { font-weight: 600; color: var(--ink); }
+.attrib { margin: 0 0 16px; padding: 0 4px; text-align: center; }
+.sources ul { margin-top: 0; }
+
+/* bouton de bascule vue détaillée / vue compacte (au-dessus des onglets) */
+
+/* pavé compact : 15 jours, une ligne par jour, séparateurs entre les trois blocs */
+.compact-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+.compact-head h2 { margin: 0; }
+.compact-info-btn { flex: none; width: 44px; height: 44px; padding: 0; border: 1px solid var(--help-border); border-radius: 50%; background: var(--help); color: var(--ink); font: italic 700 20px/1 var(--font-title); cursor: pointer; }
+.compact-info-btn:hover { filter: brightness(.96); }
+.compact-info-btn[aria-expanded="true"] { background: var(--help-active); border: 2px solid var(--help-active-border); }
+.compact-help { margin: 8px 0 12px; padding: 10px 14px; border-left: 4px solid var(--information-border); border-radius: var(--radius-control); background: var(--information); font-size: 14px; line-height: 1.55; }
+.compact-help ul { margin: 0; padding-left: 18px; }
+.compact-help li { margin: 3px 0; }
+.compact-list { list-style: none; margin: 0; padding: 0; }
+.compact-day { display: grid; grid-template-columns: 82px 28px minmax(40px, 1fr) minmax(0, auto); align-items: center; column-gap: 10px; padding: 7px 0; }
+.compact-day .hbar-box { margin: 0; }
+.c-name { font-weight: 600; text-transform: capitalize; font-size: 15px; white-space: nowrap; }
+.c-icon { font-size: 1.2rem; line-height: 1; text-align: center; }
+.c-val { font-size: 15px; font-weight: 600; text-align: right; white-space: nowrap; }
+@media (max-width: 420px) { .compact-day { grid-template-columns: 74px 24px minmax(24px, 1fr) minmax(0, auto); column-gap: 8px; } .c-name { font-size: 14px; } .c-val { font-size: 14px; } }
+
+/* ligne du haut : lieu à gauche, bouton de vue centré, situation à droite */
+.top-row { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 8px; min-height: 44px; margin: 0 0 8px; padding: 0 4px; }
+.top-cell-place { justify-self: start; min-width: 0; max-width: 100%; }
+.top-cell-now { justify-self: end; min-width: 0; max-width: 100%; }
+@media (max-width: 640px) { .top-desc { display: none; } }
+/* séparateurs de la vue compacte : plus hauts, avec une courte explication */
+.compact-sep { height: auto; min-height: 44px; margin: 10px 0; padding: 10px 14px; border: 0; border-left: 4px solid var(--information-border); border-radius: var(--radius-control); background: var(--information); font-size: 14px; font-weight: 600; line-height: 1.45; }
+.compact-sep-2 { border-left-color: var(--attention-border); background: var(--attention); color: var(--attention-ink); }
+
+
+/* vue compacte : situation actuelle et 24 heures condensées (la température et le ciel sont déjà dans la barre du haut) */
+.is-compact .current .cur-icon, .is-compact .current .cur-temp, .is-compact .current .cur-note, .is-compact #hourly .h-note { display: none; }
+.is-compact .current { padding: 12px 14px; }
+.is-compact .current .cur-main { margin-bottom: 2px; }
+.is-compact .current .cur-desc { display: inline; font-size: 1rem; }
+.is-compact .current .cur-main > div > .muted { display: inline; }
+.is-compact .current .cur-main > div > .muted::before { content: " · "; }
+.is-compact .current .cur-note-short { margin: 0 0 8px; }
+.is-compact .cur-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 6px; }
+.is-compact .stat { padding: 8px 10px; }
+.is-compact .stat .l-long, .is-compact .stat .tag { display: none; }
+.is-compact .stat .stat-label { font-size: 12px; line-height: 1.3; }
+.is-compact .stat-val { font-size: .95rem; white-space: nowrap; }
+.is-compact .outlook { margin-top: 8px; padding: 6px 12px; font-size: 14px; line-height: 1.45; }
+.stat .l-short { display: none; } .is-compact .stat .l-short { display: inline; }
+.cur-note-short { display: none; } .is-compact .cur-note-short { display: block; }
+.is-compact #hourly-card { padding: 12px 14px; }
+.is-compact #hourly-card h2 { margin-bottom: 6px; }
+.is-compact #hourly-card h2 .h2-main { display: inline; margin-right: 6px; font-size: 17px; }
+.is-compact #hourly-card .rubric { margin-top: 0; }
+.is-compact .strip { gap: 6px; padding-bottom: 4px; }
+.is-compact .hcell { flex-basis: 52px; padding: 5px 2px; }
+.is-compact .hicon { font-size: 1.15rem; }
+.is-compact .vbar-box { height: 26px; margin: 1px 0; }
+.is-compact .vbar { width: 14px; }
+.is-compact .vbars .vbar-box { width: 11px; }
+.is-compact .hv1 { font-size: .85rem; } .is-compact .hv2 { font-size: 11px; }
+
+/* sélecteur de vue : deux icônes côte à côte ; la vue en cours est enfoncée (fond, bordure intérieure, icône pleine) */
+.view-switch { display: inline-flex; overflow: hidden; border: 1px solid var(--help-border); border-radius: var(--radius-control); background: var(--help); }
+.view-seg { display: inline-flex; align-items: center; justify-content: center; width: 42px; height: 44px; padding: 0; border: 0; background: transparent; color: var(--muted); cursor: pointer; }
+.view-seg + .view-seg { border-left: 1px solid var(--help-border); }
+.view-seg:hover:not([aria-pressed="true"]) { filter: brightness(.94); }
+.view-seg:focus-visible { outline-offset: -3px; }
+.view-seg[aria-pressed="true"] { background: var(--help-active); color: var(--ink); box-shadow: inset 0 0 0 2px var(--help-active-border); }
+.vb-svg { fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.view-seg[aria-pressed="true"] .vb-svg { fill: currentColor; fill-opacity: .22; stroke-width: 2.6; }
+
+/* fenêtre de chargement : petite carte au centre, non bloquante (les clics la traversent) */
+.loader { position: fixed; z-index: 40; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(340px, calc(100vw - 32px)); padding: 16px 18px; border: 1px solid var(--line); border-radius: var(--radius-panel); background: var(--surface); box-shadow: 0 16px 50px #1d302c40; pointer-events: none; }
+.loader-title { margin: 0 0 10px; font-weight: 700; line-height: 1.35; overflow-wrap: anywhere; }
+.loader-bar { height: 10px; overflow: hidden; border-radius: 5px; background: color-mix(in srgb, var(--line) 70%, transparent); }
+.loader-fill { height: 100%; border-radius: 5px; background: var(--primary); transition: width .35s ease; }
+.loader-steps { list-style: none; margin: 10px 0 0; padding: 0; font-size: 14px; }
+.loader-step { display: flex; align-items: center; gap: 8px; margin: 3px 0; color: var(--muted); }
+.loader-step.is-ok { color: var(--ink); } .loader-step.is-ko { color: var(--attention-ink); }
+.loader-icon { width: 1.2em; text-align: center; font-weight: 700; }
+.loader-time { margin: 8px 0 0; text-align: right; }
+@media (prefers-reduced-motion: no-preference) {
+  .loader-fill { background-image: linear-gradient(90deg, transparent 0, rgba(255,255,255,.35) 50%, transparent 100%); background-size: 200% 100%; animation: loader-shimmer 1.4s linear infinite; }
+  @keyframes loader-shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+}

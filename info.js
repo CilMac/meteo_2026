@@ -34,7 +34,6 @@ export function initInfo() {
     selectTab(tabs[0]);
     dlg.showModal();
   });
-  initTheme(dlg);
   $("info-close").addEventListener("click", () => dlg.close());
   dlg.addEventListener("close", () => openBtn.focus()); // le focus revient toujours au bouton « i »
   // Clic sur le voile : fermeture. Seule la cible « le dialogue lui-même » compte : un bouton activé au clavier envoie
@@ -45,24 +44,4 @@ export function initInfo() {
     const outside = e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom;
     if (outside) dlg.close();
   });
-}
-
-// Jour par défaut ; « Nuit » seulement si choisi. Le choix est mémorisé (localStorage dans un try/catch : il peut être indisponible).
-const THEME_KEY = "meteo.theme";
-function initTheme(dlg) {
-  const buttons = [...dlg.querySelectorAll(".theme-btn")];
-  const apply = (value) => {
-    if (value === "dark") document.documentElement.dataset.theme = "dark";
-    else delete document.documentElement.dataset.theme;
-    for (const b of buttons) b.setAttribute("aria-pressed", String(b.dataset.themeValue === (value === "dark" ? "dark" : "light")));
-  };
-  let stored = null;
-  try { stored = localStorage.getItem(THEME_KEY); } catch { /* stockage indisponible : on reste en mode jour */ }
-  apply(stored === "dark" ? "dark" : "light");
-  for (const b of buttons) {
-    b.addEventListener("click", () => {
-      apply(b.dataset.themeValue);
-      try { localStorage.setItem(THEME_KEY, b.dataset.themeValue); } catch { /* ignoré */ }
-    });
-  }
 }

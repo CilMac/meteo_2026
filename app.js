@@ -4,12 +4,15 @@ import { fetchForecast } from "./weather-provider.js";
 import { loadWarnings } from "./warnings.js";
 import { fetchEnsemble } from "./ensemble.js";
 import { initInfo } from "./info.js";
-import { TABS, buildTopLine, buildCurrent, buildHourly, buildWeek, buildTrend, buildSources, buildWarnings, formatLocal } from "./weather-render.js";
+import { createLoader } from "./loading.js";
+import { chooseView } from "./device.js";
+import { TABS, buildTopPlace, buildTopNow, buildCurrent, buildHourly, buildWeek, buildTrend, buildCompact, COMPACT_HELP_ITEMS, buildSources, buildWarnings, buildAttribution, warningsStatus, formatLocal } from "./weather-render.js";
 
 const $ = (id) => document.getElementById(id);
 const PLACE_KEY = "meteo.lastPlace", CUSTOM_KEY = "meteo.customPlace", TAB_DEFAULT = "precip", STALE_MS = 30 * 60 * 1000;
 
-const state = { place: null, data: null, warnings: null, ensemble: undefined, tab: TAB_DEFAULT, loading: false, loadId: 0 };
+const loader = createLoader(document.getElementById("loader"));
+const state = { place: null, data: null, warnings: null, ensemble: undefined, view: "detail", tab: TAB_DEFAULT, loading: false, loadId: 0 };
 
 // Dernier lieu validé : favori, ou lieu libre relu et revalidé (jamais pris tel quel dans le stockage).
 function readLastPlace() {
@@ -57,7 +60,7 @@ function selectTab(id, focus = false) {
 // Le titre de chaque section nomme la rubrique active (précipitations, températures, vent).
 const RUBRIC = { precip: "précipitations", temp: "températures", wind: "vent" };
 function renderTitles() {
-  for (const id of ["h-24", "h-7", "h-15"]) {
+  for (const id of ["h-24", "h-7", "h-15", "h-compact"]) {
     const pill = $(id).querySelector(".rubric");
     pill.textContent = RUBRIC[state.tab];
     pill.className = `rubric fam-${state.tab}`;
@@ -70,6 +73,7 @@ function renderTabbed() {
   $("hourly").replaceChildren(buildHourly(state.data, state.tab));
   $("week").replaceChildren(buildWeek(state.data, state.tab, state.ensemble));
   $("trend").replaceChildren(buildTrend(state.data, state.tab, state.ensemble));
+  $("compact").replaceChildren(buildCompact(state.data, state.tab, state.ensemble));
 }
 
 function renderAll() {
@@ -78,7 +82,8 @@ function renderAll() {
   $("where").textContent = `${d.location.name} (${d.location.country}) · fuseau ${d.location.timezone} · ` +
     formatLocal(new Date(), d.location.timezone, { dateStyle: "full", timeStyle: "short" });
   $("current").replaceChildren(buildCurrent(d));
-  $("topline").replaceChildren(buildTopLine(d));
+  $("top-place").replaceChildren(buildTopPlace(d));
+  $("top-now").replaceChildren(buildTopNow(d));
   renderTabs();
   renderTabbed();
   renderWarnings();
@@ -90,7 +95,11 @@ function renderAll() {
 function renderWarnings() {
   if (!state.data) return;
   $("warnings").replaceChildren(buildWarnings(state.data, state.warnings));
+  const st = warningsStatus(state.data, state.warnings);
+  $("warnings-status").textContent = st.text;
+  $("warnings-status").classList.toggle("is-alert", st.alert);
   $("sources").replaceChildren(buildSources(state.data, state.warnings, state.ensemble));
+  $("attribution").replaceChildren(buildAttribution(state.data, state.warnings, state.ensemble));
 }
 
 // Données périmées ou premier jour ≠ aujourd'hui : signalé, jamais masqué.
@@ -108,21 +117,26 @@ async function load(place) {
   state.loading = true;
   setStatus("Chargement…");
   // Vigilance en parallèle : n'attend pas la météo et ne la bloque pas (loadWarnings ne lève jamais).
+  loader.start(place.name);
   const warningsP = loadWarnings(place);
   try {
     const data = await fetchForecast(place);
     if (id !== state.loadId) return; // un lieu plus récent a été demandé entre-temps
+    loader.done("forecast");
+    loader.begin("ensemble");
     state.place = place; state.data = data; state.warnings = null; state.ensemble = undefined; state.loading = false;
     setStatus("");
     renderAll();
-    warningsP.then((w) => { if (id === state.loadId) { state.warnings = w; renderWarnings(); } });
+    warningsP.then((w) => { if (id === state.loadId) { state.warnings = w; renderWarnings(); loader.done("warnings", true); } });
     // Scénarios d'ensemble (J+4 à J+14) : chargés après l'affichage de la prévision, sans la bloquer.
     fetchEnsemble(place, data.daily.map((d) => d.date)).then((e) => {
       if (id !== state.loadId) return;
       state.ensemble = e; renderTabbed(); renderWarnings();
+      loader.done("ensemble", e.status === "ok");
     });
   } catch (e) {
     if (id !== state.loadId) return;
+    loader.fail(); // l'erreur est affichée ci-dessous : la fenêtre de chargement se ferme
     state.loading = false;
     // L'erreur reste visible ; les anciennes données éventuelles restent affichées mais signalées.
     setStatus(`Impossible de récupérer la météo (${e.kind ?? "erreur"}) : ${e.message}.${state.data ? ` Les données affichées (${state.data.location.name}) sont celles de la dernière consultation réussie.` : ""}`, "err");
@@ -184,6 +198,45 @@ $("search").addEventListener("submit", async (ev) => {
 $("refresh").addEventListener("click", () => state.place && load(state.place));
 document.addEventListener("visibilitychange", () => { if (!document.hidden) updateFreshness(); });
 
+// Vue détaillée (par défaut) ou compacte (15 jours dans un seul pavé). Le choix est retenu sur l'appareil.
+const VIEW_KEY = "meteo.view";
+function applyView() {
+  const compact = state.view === "compact";
+  $("detail-only").hidden = compact; // situation et 24 h restent visibles dans les deux vues (condensées en compact)
+  $("compact-card").hidden = !compact;
+  $("content").classList.toggle("is-compact", compact);
+  // La vue en cours est signalée sur le sélecteur lui-même (aria-pressed, rendu enfoncé).
+  $("view-detail").setAttribute("aria-pressed", String(!compact));
+  $("view-compact").setAttribute("aria-pressed", String(compact));
+}
+function setView(view) {
+  if (state.view === view) return;
+  state.view = view;
+  try { localStorage.setItem(VIEW_KEY, state.view); } catch { /* ignoré */ }
+  applyView();
+  window.scrollTo({ top: 0 });
+}
+{
+  // Choix mémorisé s'il existe ; sinon compacte sur iOS, détaillée ailleurs.
+  let stored = null;
+  try { stored = localStorage.getItem(VIEW_KEY); } catch { /* stockage indisponible : défaut de l'appareil */ }
+  state.view = chooseView(stored);
+}
+{
+  const ul = document.createElement("ul");
+  for (const t of COMPACT_HELP_ITEMS) { const li = document.createElement("li"); li.textContent = t; ul.append(li); }
+  $("compact-help").replaceChildren(ul);
+}
+$("view-detail").addEventListener("click", () => setView("detail"));
+$("view-compact").addEventListener("click", () => setView("compact"));
+$("compact-info-btn").addEventListener("click", () => {
+  const open = $("compact-help").hidden; // hidden = fermé : un clic l'ouvre
+  $("compact-help").hidden = !open;
+  $("compact-info-btn").setAttribute("aria-expanded", String(open));
+});
+applyView();
+
+try { localStorage.removeItem("meteo.theme"); } catch { /* ignoré */ }
 initInfo();
 
 // Premier lancement : lieu mémorisé (Bar-le-Duc par défaut).

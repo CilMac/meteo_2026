@@ -3,8 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="color-scheme" content="light">
-<script>try{if(localStorage.getItem("meteo.theme")==="dark")document.documentElement.dataset.theme="dark"}catch(e){}</script>
+<meta name="color-scheme" content="light dark">
 <title>Météo</title>
 <link rel="stylesheet" href="styles.css">
 </head>
@@ -45,16 +44,44 @@
   <div id="content" hidden>
     <!-- Barre fixe : lieu + situation en une ligne, puis les onglets (toujours visibles au défilement) -->
     <div class="topbar">
-      <div id="topline" class="top-line" aria-live="polite"></div>
+      <div class="top-row">
+        <div id="top-place" class="top-cell top-cell-place" aria-live="polite"></div>
+        <div class="view-switch" role="group" aria-label="Type d'affichage">
+          <!-- deux états côte à côte : la vue en cours est enfoncée (fond, bordure et icône pleine) -->
+          <button type="button" id="view-detail" class="view-seg" aria-pressed="true" aria-label="Vue détaillée" title="Vue détaillée">
+            <svg class="vb-svg" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false"><rect x="4" y="3.5" width="16" height="7.5" rx="2"/><rect x="4" y="13" width="16" height="7.5" rx="2"/></svg>
+          </button>
+          <button type="button" id="view-compact" class="view-seg" aria-pressed="false" aria-label="Vue compacte (15 jours)" title="Vue compacte (15 jours)">
+            <svg class="vb-svg" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false"><path d="M4.5 6h15M4.5 10h15M4.5 14h15M4.5 18h15"/></svg>
+          </button>
+        </div>
+        <div id="top-now" class="top-cell top-cell-now" aria-live="polite"></div>
+      </div>
       <div id="tabs" class="tabs" role="tablist" aria-label="Rubrique affichée"></div>
     </div>
+
+
 
     <!-- B. Situation actuelle -->
     <section aria-labelledby="h-now"><h2 id="h-now" class="sr-only">Situation actuelle</h2><div id="current"></div></section>
 
 
     <!-- D. 24 heures -->
-    <section class="card" aria-labelledby="h-24"><h2 id="h-24"><span class="h2-main">Prochaines 24 heures</span> <span class="rubric rubric-precip">précipitations</span></h2><div id="hourly" role="tabpanel"></div></section>
+    <section class="card" id="hourly-card" aria-labelledby="h-24"><h2 id="h-24"><span class="h2-main">Prochaines 24 heures</span> <span class="rubric rubric-precip">précipitations</span></h2><div id="hourly" role="tabpanel"></div></section>
+
+
+    <!-- Vue compacte : 15 jours dans un seul pavé, sans commentaire (masquée par défaut) -->
+    <section class="card compact-card" id="compact-card" aria-labelledby="h-compact" hidden>
+      <div class="compact-head">
+        <h2 id="h-compact"><span class="h2-main">15 jours</span> <span class="rubric rubric-precip">précipitations</span></h2>
+        <button type="button" id="compact-info-btn" class="compact-info-btn" aria-expanded="false" aria-controls="compact-help" aria-label="Explications de cette vue" title="Explications">i</button>
+      </div>
+      <div class="compact-help" id="compact-help" hidden></div>
+      <div id="compact"></div>
+    </section>
+
+    <!-- Vue détaillée seulement : 7 jours et jours 8 à 15 -->
+    <div id="detail-only">
 
     <!-- E. 7 jours -->
     <details class="card fold" open>
@@ -71,14 +98,37 @@
       <div id="trend"></div>
     </details>
 
+    </div><!-- /detail-only -->
+
     <!-- G. Vigilances -->
-    <section id="warnings" aria-label="Vigilances"></section>
+    <details class="card fold" id="warnings-fold">
+      <summary>
+        <h2 id="h-warn">Vigilances et informations utiles</h2>
+        <span class="fold-status" id="warnings-status">Vérification de la vigilance officielle en cours…</span>
+      </summary>
+      <div id="warnings"></div>
+    </details>
 
     <!-- H. Sources -->
-    <section id="sources" aria-label="Sources"></section>
+    <details class="card fold" id="sources-fold">
+      <summary>
+        <h2 id="h-sources">Sources et limites</h2>
+        <span class="fold-status">Modèles utilisés, dates, données manquantes, limites</span>
+      </summary>
+      <div id="sources"></div>
+    </details>
+    <div id="attribution" aria-label="Attributions"></div>
   </div>
 </div>
 </main>
+
+<!-- Chargement en cours : petite fenêtre non bloquante avec barre d'avancement (étapes réellement terminées) -->
+<div id="loader" class="loader" role="status" aria-live="polite" hidden>
+  <p class="loader-title">Chargement de la météo…</p>
+  <div class="loader-bar" role="progressbar" aria-label="Avancement du chargement" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="loader-fill"></div></div>
+  <ul class="loader-steps"></ul>
+  <p class="loader-time muted small"></p>
+</div>
 
 <!-- Fenêtre d'information : deux onglets (fonctionnement, sous le capot) -->
 <dialog id="info" class="modal" aria-labelledby="info-title">
@@ -101,10 +151,11 @@
 
       <h3>Lire l'écran</h3>
       <ul>
-        <li><strong>Barre du haut</strong> : le lieu et la situation estimée, toujours visible, avec les trois onglets Précipitations, Température et Vent.</li>
+        <li><strong>Barre du haut</strong> : le lieu et la situation du moment, toujours visible, avec les trois onglets Précipitations, Température et Vent.</li>
         <li><strong>Les onglets</strong> pilotent en même temps les prochaines 24 heures, les 7 jours et les jours 8 à 15. Changer d'onglet est instantané : rien n'est rechargé.</li>
-        <li><strong>« Situation actuelle »</strong> est une estimation calculée par un modèle, pas une mesure.</li>
-        <li><strong>Jour ou nuit</strong> : l'affichage est en mode jour par défaut. En bas de cette fenêtre, le bouton « Nuit » passe l'interface en couleurs sombres ; le choix est retenu sur cet appareil.</li>
+        <li><strong>« Situation actuelle »</strong> : valeurs calculées par un modèle pour l'heure en cours (pas un relevé de station).</li>
+        <li><strong>Vue compacte</strong> : le sélecteur à deux icônes au centre de la ligne du lieu (deux cartes empilées pour la vue détaillée, des lignes serrées pour la vue compacte ; la vue en cours est enfoncée) condense la situation actuelle et les 24 heures, et remplace le détail des 7 jours et des tendances par un seul pavé de 15 jours en trois blocs (4 jours, 3 jours, puis la suite). Chaque séparateur dit en une phrase ce qui change à partir de là ; le petit « i » du pavé rappelle ce que signifient les chiffres. Un clic sur l'icône de la vue détaillée y revient. Par défaut, la vue compacte s'ouvre sur iPhone et iPad, la vue détaillée sur ordinateur ; votre choix est ensuite retenu.</li>
+        <li><strong>Jour ou nuit</strong> : l'interface suit le réglage de votre appareil (apparence claire ou sombre) ; il n'y a rien à régler dans la page.</li>
         <li><strong>« — »</strong> veut dire « donnée absente ». Ce n'est jamais un zéro déguisé : un vrai « 0 mm » est affiché « 0 mm ».</li>
       </ul>
 
@@ -147,7 +198,7 @@
 
       <h3>Fichiers</h3>
       <ul class="code-list">
-        <li><code>index.html</code>, <code>styles.css</code> : structure, charte « Carnet pastel », mode jour par défaut et mode nuit (jetons de couleur sous <code>html[data-theme="dark"]</code>), mise en page responsive.</li>
+        <li><code>index.html</code>, <code>styles.css</code> : structure, charte « Carnet pastel », mode clair et mode sombre selon le réglage du système (<code>prefers-color-scheme</code>), mise en page responsive.</li>
         <li><code>app.js</code> : orchestration, lieu, onglets, états chargement, erreur et périmé.</li>
         <li><code>weather-provider.js</code> : appel de prévision, normalisation, choix du modèle pour chaque valeur.</li>
         <li><code>ensemble.js</code> : scénarios d'ensemble et statistiques.</li>
@@ -175,7 +226,7 @@
 
       <h3>Stockage et sécurité</h3>
       <ul>
-        <li>Le dernier lieu est retenu dans <code>localStorage</code> (<code>meteo.lastPlace</code> et, pour un lieu libre, <code>meteo.customPlace</code>), relu et revalidé à chaque fois ; un stockage absent ou corrompu retombe sur Bar-le-Duc. Le choix jour ou nuit y est aussi retenu (<code>meteo.theme</code>) ; sans lui, c'est le jour. Ni cookie, ni suivi.</li>
+        <li>Le dernier lieu est retenu dans <code>localStorage</code> (<code>meteo.lastPlace</code> et, pour un lieu libre, <code>meteo.customPlace</code>), relu et revalidé à chaque fois ; un stockage absent ou corrompu retombe sur Bar-le-Duc. La vue détaillée ou compacte (<code>meteo.view</code>) y est aussi retenue ; sans choix, la vue compacte est le défaut sur iOS et la vue détaillée ailleurs. Le mode sombre suit le système : rien n'est stocké pour lui. Ni cookie, ni suivi.</li>
         <li>Tout texte venant du réseau ou de la saisie est inséré avec <code>textContent</code>, jamais en HTML. La saisie d'un lieu est nettoyée et un lieu sans coordonnées ni fuseau valides est refusé.</li>
         <li>Les erreurs réseau ne sont jamais avalées : elles s'affichent, et les anciennes données restent signalées comme telles.</li>
       </ul>
@@ -190,11 +241,6 @@
   </div>
 
   <div class="modal-foot">
-    <div class="theme-row" role="group" aria-label="Affichage">
-      <span class="theme-label" id="theme-label">Affichage</span>
-      <button type="button" class="theme-btn" id="theme-day" data-theme-value="light" aria-pressed="true">☀️ Jour</button>
-      <button type="button" class="theme-btn" id="theme-night" data-theme-value="dark" aria-pressed="false">🌙 Nuit</button>
-    </div>
     <p>Par CilMac et Claude Sonnet 5.5 · <time id="info-date"></time></p>
   </div>
 </dialog>

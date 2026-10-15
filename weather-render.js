@@ -145,29 +145,33 @@ export function buildCurrent(data, now = new Date()) {
       h("span", { class: "cur-temp", text: deg(c.temp) }),
       h("div", {}, h("div", { class: "cur-desc", text: info.label }),
         h("div", { class: "muted", text: `Ressenti ${deg(c.apparent)}` }))),
-    h("p", { class: "muted small", text: c.time ? `Conditions estimées à ${hourLabel(c.time)} par un modèle (pas une mesure). Heure locale : ${formatLocal(now, tz, { hour: "2-digit", minute: "2-digit" })}.` : "Heure de la situation indisponible." }),
+    h("p", { class: "muted small cur-note", text: c.time ? `Valeurs calculées pour ${hourLabel(c.time)} (modèle). Heure locale : ${formatLocal(now, tz, { hour: "2-digit", minute: "2-digit" })}.` : "Heure de la situation indisponible." }),
+    // Version courte (vue compacte) : l'origine « modèle » reste signalée.
+    h("p", { class: "muted small cur-note-short", text: c.time ? `Valeurs calculées pour ${hourLabel(c.time)} (modèle).` : "Heure de la situation indisponible." }),
     h("div", { class: "cur-grid" },
-      stat("precip", "Risque de pluie (max horaire du jour)", isNum(d0.precipProbMax.value) ? `${num0(d0.precipProbMax.value)} %` : "—", modelsLine(d0, [["", "precipProbMax"]])),
-      stat("temp", "Min / max du jour", `${deg(d0.tempMin.value)} / ${deg(d0.tempMax.value)}`, modelsLine(d0, [["min", "tempMin"], ["max", "tempMax"]])),
-      stat("wind", "Vent actuel · rafales", `${num0(c.wind)} · ${num0(c.gust)} km/h`, "")),
+      stat("precip", "Risque de pluie (max horaire du jour)", "Risque de pluie", isNum(d0.precipProbMax.value) ? `${num0(d0.precipProbMax.value)} %` : "—", modelsLine(d0, [["", "precipProbMax"]])),
+      stat("temp", "Min / max du jour", "Min / max", `${deg(d0.tempMin.value)} / ${deg(d0.tempMax.value)}`, modelsLine(d0, [["min", "tempMin"], ["max", "tempMax"]])),
+      stat("wind", "Vent actuel · rafales", "Vent · raf.", `${num0(c.wind)} · ${num0(c.gust)} km/h`, "")),
     outlook ? h("p", { class: "outlook", text: outlook }) : null);
 }
-function stat(family, label, value, model) {
-  return h("div", { class: `stat fam-${family}` }, h("div", { class: "muted small", text: label }), h("div", { class: "stat-val", text: value }), model ? h("div", { class: "tag", text: model }) : null);
+function stat(family, label, shortLabel, value, model) {
+  return h("div", { class: `stat fam-${family}` },
+    h("div", { class: "muted small stat-label" }, h("span", { class: "l-long", text: label }), h("span", { class: "l-short", text: shortLabel })), h("div", { class: "stat-val", text: value }), model ? h("div", { class: "tag", text: model }) : null);
 }
 
-// Ligne fixe du haut : lieu + situation estimée (icône, température, ciel).
-export function buildTopLine(data) {
+// Ligne fixe du haut : lieu (à gauche) et situation calculée (à droite) ; le bouton de vue est entre les deux.
+export function buildTopPlace(data) {
+  return h("span", { class: "top-place", title: `${data.location.name} (${data.location.country})` },
+    h("span", { class: "pin", "aria-hidden": "true", text: "📍" }),
+    h("span", { class: "top-name", text: data.location.name }));
+}
+export function buildTopNow(data) {
   const c = data.current;
   const info = weatherInfo(c.weatherCode, c.time ? isNight(c.time, data.daily) : false);
-  return h("div", { class: "top-inner" },
-    h("span", { class: "top-place", title: `${data.location.name} (${data.location.country})` },
-      h("span", { class: "pin", "aria-hidden": "true", text: "📍" }),
-      h("span", { class: "top-name", text: data.location.name })),
-    h("span", { class: "top-now", title: "Estimation de modèle, pas une mesure" },
-      h("span", { class: "top-icon", "aria-hidden": "true", text: info.icon }),
-      h("strong", { text: deg(c.temp) }),
-      h("span", { class: "top-desc", text: info.label })));
+  return h("span", { class: "top-now", title: "Valeurs calculées (modèle)" },
+    h("span", { class: "top-icon", "aria-hidden": "true", text: info.icon }),
+    h("strong", { text: deg(c.temp) }),
+    h("span", { class: "top-desc", text: info.label }));
 }
 
 // Bandeau 24 h piloté par l'onglet actif.
@@ -208,16 +212,66 @@ export function buildHourly(data, tab) {
   const labelOf = (k) => { const ms = new Set(hours.map((x) => x[k].model).filter(Boolean)); return ms.size ? [...ms].map(modelShort).join(" puis ") : null; };
   const modelNotes = fieldsByTab.map(([l, k]) => `${l} : ${labelOf(k) ?? "indisponible"}`).join(" · ");
   const notes = [`Pas de 1 h · ${modelNotes}.`];
-  if (hours.length < 24) notes.push(`Données horaires disponibles seulement jusqu'à ${hourLabel(hours[hours.length - 1].time)}.`);
-  const missing = hours.filter((x) => x[{ precip: "precip", temp: "temp", wind: "wind" }[tab]].value === null).length;
-  if (missing) notes.push(`${missing} plage(s) sans donnée (affichées « — »).`);
   if (tab === "precip") notes.push("Barres proportionnelles à la quantité (mm), pas au pourcentage.");
-  wrap.append(h("p", { class: "muted small", text: notes.join(" ") }));
+  wrap.append(h("p", { class: "muted small h-note", text: notes.join(" ") }));
+  // Données manquantes : toujours signalées, même en vue compacte.
+  const warn = [];
+  if (hours.length < 24) warn.push(`Données horaires disponibles seulement jusqu'à ${hourLabel(hours[hours.length - 1].time)}.`);
+  const missing = hours.filter((x) => x[{ precip: "precip", temp: "temp", wind: "wind" }[tab]].value === null).length;
+  if (missing) warn.push(`${missing} plage(s) sans donnée (affichées « — »).`);
+  if (warn.length) wrap.append(h("p", { class: "muted small h-warn", text: warn.join(" ") }));
   return wrap;
 }
 function vbar(pct, color) {
   return h("div", { class: "vbar-box" }, pct === null ? null : h("div", { class: "vbar", style: { height: `${minVisible(pct)}%`, background: color } }));
 }
+
+// Valeurs effectivement affichées pour chaque jour : la médiane des scénarios à partir de J+8, sinon la valeur d'un seul scénario.
+export function dayViews(days, ensemble) {
+  const ensDays = ensemble?.status === "ok" ? ensemble.days : {};
+  return days.map((d) => {
+    const ens = ensDays[d.date] ?? null;
+    const median = Boolean(ens) && d.dayIndex >= ENSEMBLE_MEDIAN_FROM;
+    const range = Boolean(ens) && d.dayIndex >= ENSEMBLE_FIRST_DAY && !median;
+    return {
+      d, ens, median, range,
+      tmin: median ? ens.tmin?.median ?? null : d.tempMin.value,
+      tmax: median ? ens.tmax?.median ?? null : d.tempMax.value,
+      mm: median ? ens.precip?.mean ?? null : d.precipSum.value,
+      pct: median ? (isNum(ens.precip?.probWet) ? ens.precip.probWet * 100 : null) : d.precipProbMax.value,
+    };
+  });
+}
+
+// Vue compacte : trois blocs (4 premiers jours, 3 suivants, le reste jusqu'à J+14), séparés par un simple trait.
+export const COMPACT_BLOCKS = [[0, 3], [4, 6], [7, 14]];
+export function compactBlocks(views) {
+  return COMPACT_BLOCKS.map(([a, b]) => views.filter((v) => v.d.dayIndex >= a && v.d.dayIndex <= b)).filter((g) => g.length);
+}
+// Texte de valeur d'une ligne compacte, sans commentaire (les définitions sont dans le petit « i »).
+export function compactValue(v, tab) {
+  const { d } = v;
+  if (tab === "precip") return `${isNum(v.mm) ? `${num1(v.mm)} mm` : "—"}${isNum(v.pct) ? ` · ${num0(v.pct)} %` : ""}`;
+  if (tab === "temp") return `${deg(v.tmin)} / ${deg(v.tmax)}`;
+  return `vent ${num0(d.windMax.value)} · raf. ${num0(d.gustMax.value)} km/h`;
+}
+// Texte des deux séparateurs de la vue compacte (avant J+4, avant J+7).
+export function compactSepTexts(ensemble) {
+  const sample = ensemble?.status === "ok" ? Object.values(ensemble.days).find((d) => d.nMembers) : null;
+  const second = sample
+    ? `Dès J+7 : tendance. À partir de J+8, médiane d'environ ${sample.nMembers} scénarios (${sample.nModels} modèles).`
+    : "Dès J+7 : tendance. À partir de J+8, valeur d'un seul scénario (scénarios indisponibles).";
+  return ["Dès J+4 : fiabilité en baisse, valeurs d'un seul modèle.", second];
+}
+export const COMPACT_HELP_ITEMS = [
+  "3 blocs : J à J+3, J+4 à J+6, J+7 à J+14.",
+  "Pluie : mm, puis %.",
+  "Jusqu'à J+7, le % est la probabilité horaire maximale du jour.",
+  `Dès J+${ENSEMBLE_MEDIAN_FROM}, le % est la part des scénarios à ${WET_MM} mm ou plus ; les mm sont leur moyenne.`,
+  `Températures : minimale / maximale (médiane des scénarios dès J+${ENSEMBLE_MEDIAN_FROM}).`,
+  "Vent : maxima du jour.",
+  "Détails et modèles : vue détaillée.",
+];
 
 // Lignes de jours (7 jours ou 8-15 jours) : même construction, échelles propres à la section.
 // `ensemble` : undefined = scénarios en cours de chargement ; { status: "unavailable" } ; { status: "ok", days, models }.
@@ -225,18 +279,7 @@ function vbar(pct, color) {
 //  - à partir de J+8 : la médiane des scénarios remplace la valeur d'un seul scénario (températures et pluie).
 function buildPeriod(days, tab, { sectionLabel, summary, ensemble }) {
   const wrap = h("div", {});
-  const ensDays = ensemble?.status === "ok" ? ensemble.days : {};
-  const views = days.map((d) => {
-    const ens = ensDays[d.date] ?? null;
-    const median = ens && d.dayIndex >= ENSEMBLE_MEDIAN_FROM;
-    const range = ens && d.dayIndex >= ENSEMBLE_FIRST_DAY && !median;
-    return {
-      d, ens, median, range,
-      tmin: median ? ens.tmin?.median ?? null : d.tempMin.value,
-      tmax: median ? ens.tmax?.median ?? null : d.tempMax.value,
-      mm: median ? ens.precip?.mean ?? null : d.precipSum.value,
-    };
-  });
+  const views = dayViews(days, ensemble);
   const pMax = scaleMax(views.map((v) => v.mm), 5);
   const tMins = views.map((v) => v.tmin).filter(isNum), tMaxs = views.map((v) => v.tmax).filter(isNum);
   const gmin = Math.min(...tMins, ...tMaxs), gmax = Math.max(...tMins, ...tMaxs);
@@ -296,31 +339,50 @@ function buildPeriod(days, tab, { sectionLabel, summary, ensemble }) {
       bar, h("div", { class: "dval", text: value }), h("div", { class: "tag dmodel", text: tag.filter(Boolean).join(" · ") })));
   }
   wrap.append(list);
-  const hasMedian = views.some((v) => v.median);
-  const notes = [];
-  if (tab === "precip") {
-    notes.push(hasMedian
-      ? `À partir de J+${ENSEMBLE_MEDIAN_FROM}, le pourcentage est la part des scénarios donnant au moins ${WET_MM} mm sur le jour ; « moy. » est la moyenne des scénarios (la médiane vaut souvent 0 mm).`
-      : "Le pourcentage est la probabilité horaire maximale du jour, pas la probabilité de pluie sur toute la journée.");
-    if (hasMedian) notes.push("Avant J+8, le pourcentage est la probabilité horaire maximale du jour.");
-    if (views.some((v) => v.d.trend && !v.median)) notes.push(`Jours en tendance : la quantité est moins fiable ; la classe entre parenthèses aide à la lire : ${RAIN_LEGEND}.`);
-  }
-  if (tab === "wind") notes.push("Valeurs quotidiennes = maxima (vent max, rafales max), jamais des moyennes. Barre foncée : vent max ; claire : rafales max. Secteur = direction dominante d'où vient le vent.");
-  if (tab === "temp") notes.push("Barres : de la minimale à la maximale du jour.");
-  if (tab !== "wind" && views.some((v) => v.ens)) {
-    notes.push(`Scénarios : médiane et fourchette (80 % des cas) de plusieurs modèles, chacun pesant autant ; scénarios bruts, non calibrés. Dispersion : faible si l'écart des maximales est de moins de 4 °C, forte au-delà de 8 °C.`);
-  }
-  notes.push(`Échelle des barres propre à ${sectionLabel}.`);
-  wrap.append(howTo(sectionLabel, notes.join(" ")));
+  wrap.append(howTo(sectionLabel, howToItems(tab, {
+    sectionLabel,
+    hasMedian: views.some((v) => v.median),
+    hasEns: views.some((v) => v.ens),
+    hasSingleTrend: views.some((v) => v.d.trend && !v.median),
+    hasLateDays: days.some((d) => d.dayIndex >= ENSEMBLE_MEDIAN_FROM),
+  })));
   const text = summary(days, ensemble);
   if (text) wrap.append(h("p", { class: "summary", text }));
   return wrap;
 }
 
+// « Comment lire ces valeurs » : une idée par ligne, adaptée à l'onglet et à ce qui est réellement affiché.
+export function howToItems(tab, { sectionLabel = "cette liste", hasMedian = false, hasEns = false, hasSingleTrend = false, hasLateDays = false } = {}) {
+  const items = [];
+  if (tab === "precip") {
+    items.push(`Barres : quantité de pluie en mm, pas le pourcentage (échelle propre à ${sectionLabel}).`);
+    if (hasMedian) {
+      items.push("Jusqu'à J+7 : le % est la probabilité horaire maximale du jour.");
+      items.push(`Dès J+${ENSEMBLE_MEDIAN_FROM} : le % est la part des scénarios à ${WET_MM} mm ou plus ; « moy. » est leur moyenne.`);
+    } else items.push("Le % est la probabilité horaire maximale du jour, pas celle de toute la journée.");
+    if (hasSingleTrend) items.push(`Jours en tendance : mm moins fiables. Classes : ${RAIN_LEGEND}.`);
+    if (hasEns) items.push("Scénarios : plusieurs modèles à poids égal, bruts, non calibrés.");
+  } else if (tab === "temp") {
+    items.push(`Barres : de la minimale à la maximale du jour (échelle propre à ${sectionLabel}).`);
+    if (hasEns) {
+      items.push("« T max 11–18 °C » : 80 % des scénarios tombent dans cet intervalle.");
+      items.push(`Dès J+${ENSEMBLE_MEDIAN_FROM} : médiane de plusieurs modèles, brute, non calibrée.`);
+      items.push("Dispersion : faible sous 4 °C d'écart sur la maximale, forte au-delà de 8 °C.");
+    }
+  } else {
+    items.push("Valeurs : maxima du jour, jamais des moyennes.");
+    items.push(`Barre foncée : vent max ; claire : rafales max (échelle propre à ${sectionLabel}).`);
+    items.push("Secteur : d'où vient le vent (direction dominante du jour).");
+    if (hasLateDays) items.push(`Dès J+${ENSEMBLE_MEDIAN_FROM} : valeur d'un seul scénario, sans dispersion.`);
+  }
+  return items;
+}
+
 // Explications repliées par défaut ; l'état choisi est conservé quand la section est reconstruite (onglet, scénarios chargés).
 const howToOpen = {};
-function howTo(key, text) {
-  const d = h("details", { class: "howto" }, h("summary", { text: "Comment lire ces valeurs" }), h("p", { class: "muted small", text }));
+function howTo(key, items) {
+  const d = h("details", { class: "howto" }, h("summary", { text: "Comment lire ces valeurs" }),
+    h("ul", { class: "howto-list muted small" }, items.map((t) => h("li", { text: t }))));
   d.open = Boolean(howToOpen[key]);
   d.addEventListener("toggle", () => { howToOpen[key] = d.open; });
   return d;
@@ -328,6 +390,35 @@ function howTo(key, text) {
 
 const tmaxRange = (ens) => (ens?.tmax ? `T max ${num0(ens.tmax.p10)}–${num0(ens.tmax.p90)} °C (80 % des cas)${ens.spread ? ` · dispersion ${ens.spread}` : ""}` : null);
 const ensembleTag = (ens) => `médiane de ${ens.nMembers} scénarios (${ens.nModels} modèle${ens.nModels > 1 ? "s" : ""})`;
+
+// Pavé compact : 15 jours, un seul bloc ; une courte explication sur chacun des deux séparateurs entre les trois groupes de jours.
+export function buildCompact(data, tab, ensemble) {
+  const views = dayViews(data.daily, ensemble);
+  const pMax = scaleMax(views.map((v) => v.mm), 5);
+  const tMins = views.map((v) => v.tmin).filter(isNum), tMaxs = views.map((v) => v.tmax).filter(isNum);
+  const gmin = Math.min(...tMins, ...tMaxs), gmax = Math.max(...tMins, ...tMaxs);
+  const wMax = scaleMax(views.map((v) => v.d.gustMax.value ?? v.d.windMax.value), 20);
+  const list = h("ol", { class: "compact-list" });
+  const seps = compactSepTexts(ensemble);
+  compactBlocks(views).forEach((block, i) => {
+    if (i > 0) list.append(h("li", { class: `compact-sep compact-sep-${i}`, text: seps[i - 1] }));
+    for (const v of block) {
+      const { d } = v;
+      const info = weatherInfo(d.weatherCode.value, false);
+      let bar;
+      if (tab === "precip") bar = hbar(barPct(v.mm, pMax), "var(--rain)");
+      else if (tab === "temp") bar = rangeBar(v.tmin, v.tmax, gmin, gmax);
+      else bar = h("div", { class: "hbar-box" },
+        isNum(d.gustMax.value) ? h("div", { class: "hbar", style: { width: `${minVisible(barPct(d.gustMax.value, wMax))}%`, background: "var(--wind-2)" } }) : null,
+        isNum(d.windMax.value) ? h("div", { class: "hbar over", style: { width: `${minVisible(barPct(d.windMax.value, wMax))}%`, background: "var(--wind)" } }) : null);
+      list.append(h("li", { class: "compact-day" },
+        h("span", { class: "c-name", text: d.dayIndex === 0 ? "Auj." : dayLabel(d.date) }),
+        h("span", { class: "c-icon", "aria-hidden": "true", title: info.label, text: info.icon }),
+        bar, h("span", { class: "c-val", text: compactValue(v, tab) })));
+    }
+  });
+  return list;
+}
 
 // Cas observé à Montréal (GEM) : rafales max inférieures au vent max. Signalé, jamais retouché.
 export const gustBelowWind = (d) => isNum(d.windMax.value) && isNum(d.gustMax.value) && d.gustMax.value < d.windMax.value;
@@ -414,20 +505,36 @@ export function buildSources(data, warnings = null, ensemble = null, now = new D
   }
   items.push(h("li", { text: "La résolution du modèle (1,5 à 25 km selon les cas) ne rend pas compte des microclimats locaux, notamment sur le littoral." }));
 
-  const attribution = h("p", {}, h("a", { href: "https://open-meteo.com/", rel: "noopener", text: "Weather data by Open-Meteo.com" }), " · ",
+  return h("div", { class: "sources" }, h("ul", {}, items));
+}
+
+// Attributions obligatoires : toujours visibles, même quand « Sources et limites » est replié.
+export function buildAttribution(data, warnings = null, ensemble = null) {
+  const models = displayedModels(data);
+  const attribution = h("p", { class: "attrib muted small" }, h("a", { href: "https://open-meteo.com/", rel: "noopener", text: "Weather data by Open-Meteo.com" }), " · ",
     h("a", { href: "https://open-meteo.com/en/terms", rel: "noopener", text: "conditions d'utilisation" }));
   if (models.includes("meteofrance_seamless")) attribution.append(" · Source : Météo-France");
   if (ensemble?.status === "ok") attribution.append(" · Scénarios : ECMWF, NOAA, Environnement et Changement climatique Canada (via Open-Meteo)");
   if (warnings?.status === "confirmed") {
     attribution.append(` · ${ECCC_ATTRIBUTION} `, h("a", { href: ECCC_LICENCE_URL, rel: "noopener", text: "(licence)" }));
   }
-  return h("div", { class: "card sources" }, h("h2", { text: "Sources et limites" }), attribution, h("ul", {}, items));
+  return attribution;
+}
+
+// Ligne d'état visible même quand « Vigilances » est replié : une alerte en vigueur ne doit jamais se cacher.
+export function warningsStatus(data, warnings) {
+  if (!warnings) return { text: "Vérification de la vigilance officielle en cours…", alert: false };
+  if (warnings.status !== "confirmed") return { text: "Vigilance officielle : non confirmée", alert: false };
+  const n = warnings.alerts.length;
+  if (n) return { text: `⚠ ${n} alerte${n > 1 ? "s" : ""} en vigueur publiée${n > 1 ? "s" : ""} par ECCC : déplier pour le détail`, alert: true };
+  const when = formatLocal(new Date(warnings.checkedAt), data.location.timezone, { hour: "2-digit", minute: "2-digit" });
+  return { text: `Aucune alerte publiée par ECCC à ${when} (heure locale)`, alert: false };
 }
 
 // G. Vigilances : officielle seulement si vérifiée ; sinon « non confirmée » + lien. `warnings` null = vérification en cours.
 export function buildWarnings(data, warnings) {
   const tz = data.location.timezone;
-  const card = h("div", { class: "card warnings" }, h("h2", { text: "Vigilances et informations utiles" }));
+  const card = h("div", { class: "warnings" });
   if (!warnings) {
     card.append(h("p", { class: "muted", text: "Vérification de la vigilance officielle en cours…" }));
     return card;
