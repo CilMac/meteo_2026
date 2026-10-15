@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lot 0 — vérifications des sources</title>
+<style>
+  :root { color-scheme: light dark; --bg:#fff; --fg:#1c1c1e; --muted:#6b7280; --line:#d1d5db; --ok:#15803d; --ko:#b91c1c; --warn:#a16207; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#111418; --fg:#f2f2f7; --muted:#9ca3af; --line:#374151; --ok:#4ade80; --ko:#f87171; --warn:#facc15; } }
+  body { font: 15px/1.45 -apple-system, system-ui, sans-serif; background:var(--bg); color:var(--fg); margin:0 auto; max-width:960px; padding:16px; }
+  h1 { font-size:1.3rem; } h2 { font-size:1.1rem; margin-top:2rem; border-bottom:1px solid var(--line); padding-bottom:4px; }
+  h3 { font-size:1rem; margin:1.2rem 0 .3rem; }
+  button { font:inherit; min-height:44px; padding:0 18px; }
+  table { border-collapse:collapse; width:100%; font-size:.85rem; display:block; overflow-x:auto; }
+  th, td { border:1px solid var(--line); padding:3px 6px; text-align:left; white-space:nowrap; }
+  .ok { color:var(--ok); } .ko { color:var(--ko); } .warn { color:var(--warn); } .muted { color:var(--muted); }
+  pre { overflow-x:auto; font-size:.8rem; background:rgba(128,128,128,.12); padding:8px; }
+</style>
+</head>
+<body>
+<h1>Lot 0 — vérifications par appels réels</h1>
+<p class="muted">Page : <span id="origin"></span>. Chaque test est un vrai appel réseau depuis ce navigateur ; un échec CORS apparaît comme « Failed to fetch ».</p>
+<button id="run">Lancer tous les tests</button>
+<div id="out"></div>
+
+<script>
+// Lieux testés : coordonnées, fuseau, modèle court national + modèle long.
+const PLACES = [
+  { name: "Bar-le-Duc", lat: 48.7726, lon: 5.1608, tz: "Europe/Paris",  models: ["meteofrance_seamless", "ecmwf_ifs025"] },
+  { name: "Agay",       lat: 43.43248, lon: 6.85564, tz: "Europe/Paris", models: ["meteofrance_seamless", "ecmwf_ifs025"] },
+  { name: "Montréal",   lat: 45.5017, lon: -73.5673, tz: "America/Toronto", models: ["gem_seamless", "ecmwf_ifs025"] },
+  { name: "Tokyo",      lat: 35.6895, lon: 139.6917, tz: "Asia/Tokyo",  models: ["jma_seamless", "ecmwf_ifs025"] },
+];
+const DAILY = ["weather_code", "temperature_2m_max", "temperature_2m_min", "apparent_temperature_max", "apparent_temperature_min",
+  "precipitation_sum", "precipitation_probability_max", "wind_speed_10m_max", "wind_gusts_10m_max", "wind_direction_10m_dominant", "sunrise"];
+const HOURLY = ["temperature_2m", "apparent_temperature", "precipitation", "precipitation_probability", "wind_speed_10m", "wind_gusts_10m", "weather_code"];
+
+const out = document.getElementById("out");
+document.getElementById("origin").textContent = location.origin + " (protocole " + location.protocol + ")";
+
+const esc = s => String(s).replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+const add = html => out.insertAdjacentHTML("beforeend", html);
+const status = (ok, txt) => `<span class="${ok === true ? "ok" : ok === false ? "ko" : "warn"}">${esc(txt)}</span>`;
+
+async function getJson(url) {
+  const t0 = performance.now();
+  const r = await fetch(url);
+  const ms = Math.round(performance.now() - t0);
+  const text = await r.text();
+  let json = null;
+  try { json = JSON.parse(text); } catch (e) {}
+  return { status: r.status, ms, json, text };
+}
+
+// Dernier indice non nul d'une série (-1 si tout est nul).
+const lastNonNull = a => { for (let i = a.length - 1; i >= 0; i--) if (a[i] !== null && a[i] !== undefined) return i; return -1; };
+const countNull = a => a.filter(v => v === null || v === undefined).length;
+
+async function testPlace(p) {
+  add(`<h2>${esc(p.name)} <span class="muted">(${p.lat}, ${p.lon} — ${p.tz})</span></h2>`);
+  const url = "https://api.open-meteo.com/v1/forecast?" + new URLSearchParams({
+    latitude: p.lat, longitude: p.lon, timezone: p.tz, forecast_days: 16,
+    models: p.models.join(","), daily: DAILY.join(","), hourly: HOURLY.join(","), current: "temperature_2m,weather_code",
+  });
+  let res;
+  try { res = await getJson(url); }
+  catch (e) { add(`<p>${status(false, "ÉCHEC réseau/CORS : " + e.message)}</p>`); return; }
+  if (res.status !== 200 || !res.json) { add(`<p>${status(false, "HTTP " + res.status)} <pre>${esc(res.text.slice(0, 400))}</pre></p>`); return; }
+  const d = res.json;
+  add(`<p>${status(true, "HTTP 200 en " + res.ms + " ms — CORS OK")} · élévation du point de grille : ${d.elevation} m · fuseau renvoyé : ${esc(d.timezone)} · récupéré le ${new Date().toLocaleString("fr-FR")}</p>`);
+  add(`<p class="muted">current.time = ${esc(JSON.stringify(d.current))} (valeur de modèle, pas une observation)</p>`);
+
+  // Horizon par modèle et variable quotidienne : premier/dernier jour renseigné + nombre de null.
+  const days = d.daily.time;
+  let rows = "";
+  for (const v of DAILY) {
+    for (const m of p.models) {
+      const arr = d.daily[`${v}_${m}`] ?? d.daily[v];
+      if (!arr) { rows += `<tr><td>${v}</td><td>${m}</td><td colspan="3" class="ko">colonne absente</td></tr>`; continue; }
+      const last = lastNonNull(arr);
+      rows += `<tr><td>${v}</td><td>${m}</td><td>${last < 0 ? "—" : "J+" + last + " (" + days[last] + ")"}</td><td>${countNull(arr)} / ${arr.length}</td></tr>`;
+    }
+  }
+  add(`<h3>Quotidien : dernier jour renseigné (J+0 = aujourd'hui local)</h3><table><tr><th>variable</th><th>modèle</th><th>dernier jour non nul</th><th>nuls</th></tr>${rows}</table>`);
+
+  // Horizon horaire par modèle : dernière heure avec température.
+  const h = d.hourly;
+  let hrows = "";
+  for (const v of HOURLY) for (const m of p.models) {
+    const arr = h[`${v}_${m}`] ?? h[v];
+    if (!arr) { hrows += `<tr><td>${v}</td><td>${m}</td><td class="ko">absente</td></tr>`; continue; }
+    const last = lastNonNull(arr);
+    hrows += `<tr><td>${v}</td><td>${m}</td><td>${last < 0 ? "—" : h.time[last] + " (+" + (last / 24).toFixed(1) + " j depuis minuit)"}</td></tr>`;
+  }
+  add(`<h3>Horaire : dernière heure renseignée</h3><table><tr><th>variable</th><th>modèle</th><th>dernière heure non nulle</th></tr>${hrows}</table>`);
+
+  // Frontière modèle court → long pour la sélection par jour (règle 3.2) sur température max et pluie.
+  const prio = p.models;
+  const pick = v => days.map((_, i) => { for (const m of prio) { const a = d.daily[`${v}_${m}`]; if (a && a[i] != null) return m; } return null; });
+  const tMod = pick("temperature_2m_max"), pMod = pick("precipitation_sum"), prMod = pick("precipitation_probability_max");
+  const wMod = pick("wind_speed_10m_max"), gMod = pick("wind_gusts_10m_max");
+  const short = n => n ? n.split("_")[0] : "—";
+  let t = `<table><tr><th>jour</th><th>date</th><th>T max</th><th>pluie mm</th><th>proba %</th><th>vent max</th><th>rafales max</th><th>modèle T</th><th>modèle pluie</th><th>modèle proba</th><th>modèle vent</th><th>modèle rafales</th></tr>`;
+  days.forEach((day, i) => {
+    const g = (v, m) => (m ? d.daily[`${v}_${m}`][i] : null);
+    const f = x => (x === null || x === undefined ? "—" : x);
+    t += `<tr><td>J+${i}</td><td>${day}</td><td>${f(g("temperature_2m_max", tMod[i]))}</td><td>${f(g("precipitation_sum", pMod[i]))}</td><td>${f(g("precipitation_probability_max", prMod[i]))}</td><td>${f(g("wind_speed_10m_max", wMod[i]))}</td><td>${f(g("wind_gusts_10m_max", gMod[i]))}</td><td>${short(tMod[i])}</td><td>${short(pMod[i])}</td><td>${short(prMod[i])}</td><td>${short(wMod[i])}</td><td>${short(gMod[i])}</td></tr>`;
+  });
+  add(`<h3>Application de la règle « premier modèle de la liste ayant une valeur »</h3>${t}</table>`);
+}
+
+// Vigilance Japon : JSON JMA (Tokyo = 130000).
+async function testJma() {
+  add(`<h2>Vigilance Japon (JMA)</h2>`);
+  try {
+    const r = await getJson("https://www.jma.go.jp/bosai/warning/data/warning/130000.json");
+    if (r.status !== 200 || !r.json) { add(`<p>${status(false, "HTTP " + r.status)}</p>`); return; }
+    const j = r.json;
+    add(`<p>${status(true, "HTTP 200 — CORS OK")} · reportDatetime : <b>${esc(j.reportDatetime)}</b> · bureau : ${esc(j.publishingOffice)} · clés : ${esc(Object.keys(j).join(", "))}</p>`);
+    add(`<p class="muted">Vérifier que reportDatetime est récent : un fichier ancien ne doit pas être présenté comme une alerte en vigueur.</p><pre>${esc(r.text.slice(0, 700))}…</pre>`);
+  } catch (e) { add(`<p>${status(false, "ÉCHEC réseau/CORS : " + e.message)}</p>`); }
+}
+
+// Vigilance Canada : GeoMet-OGC-API, collection weather-alerts, autour de Montréal.
+async function testEccc() {
+  add(`<h2>Vigilance Canada (ECCC GeoMet)</h2>`);
+  try {
+    const r = await getJson("https://api.weather.gc.ca/collections/weather-alerts/items?f=json&limit=5&bbox=-74.2,45.2,-73.2,45.8");
+    if (r.status !== 200 || !r.json) { add(`<p>${status(false, "HTTP " + r.status)} <pre>${esc(r.text.slice(0, 300))}</pre></p>`); return; }
+    const j = r.json;
+    add(`<p>${status(true, "HTTP 200 — CORS OK")} · alertes autour de Montréal : <b>${j.numberMatched ?? j.features.length}</b> (0 est un résultat valide)</p>`);
+    if (j.features.length) add(`<pre>${esc(JSON.stringify(j.features[0].properties, null, 1).slice(0, 900))}</pre>`);
+  } catch (e) { add(`<p>${status(false, "ÉCHEC réseau/CORS : " + e.message)}</p>`); }
+}
+
+// Géocodage : candidats pour Agay (homonymie à lever).
+async function testGeocode() {
+  add(`<h2>Géocodage Open-Meteo</h2>`);
+  try {
+    const r = await getJson("https://geocoding-api.open-meteo.com/v1/search?name=Agay&count=10&language=fr&countryCode=FR");
+    add(`<p>${status(r.status === 200, "HTTP " + r.status)}</p>`);
+    add(`<pre>${esc((r.json.results || []).map(x => `${x.name} | ${x.latitude}, ${x.longitude} | alt ${x.elevation} m | ${x.admin1} | ${x.timezone}`).join("\n") || "aucun résultat")}</pre>`);
+  } catch (e) { add(`<p>${status(false, "ÉCHEC : " + e.message)}</p>`); }
+}
+
+document.getElementById("run").addEventListener("click", async () => {
+  out.innerHTML = "";
+  for (const p of PLACES) await testPlace(p);
+  await testGeocode();
+  await testJma();
+  await testEccc();
+  add(`<p class="muted">Terminé à ${new Date().toLocaleString("fr-FR")}. Relancer à une autre heure de la journée pour observer le déplacement de la frontière des modèles.</p>`);
+  window.__done = true;
+});
+</script>
+</body>
+</html>

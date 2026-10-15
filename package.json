@@ -1,0 +1,9 @@
+{
+  "name": "meteo-ia",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/*.test.js",
+    "live": "node tests/live-check.mjs"
+  }
+}

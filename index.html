@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light">
+<script>try{if(localStorage.getItem("meteo.theme")==="dark")document.documentElement.dataset.theme="dark"}catch(e){}</script>
+<title>Météo</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<main class="shell">
+<div class="column">
+  <div class="page-head">
+    <div>
+      <h1>Météo</h1>
+      <p class="muted small">Prévisions personnelles, modèles étiquetés valeur par valeur.</p>
+    </div>
+    <button type="button" id="info-open" class="info-btn" aria-haspopup="dialog" aria-label="Informations sur l'application" title="Informations">i</button>
+  </div>
+
+  <!-- A. Lieu, date/heure locale, choix du lieu -->
+  <header class="card place">
+    <form id="form" class="place-form">
+      <label for="place">Lieu</label>
+      <select id="place"></select>
+      <button type="submit" class="btn primary">Afficher la météo</button>
+      <button type="button" id="refresh" class="btn" hidden>Actualiser</button>
+    </form>
+    <p id="where" class="muted"></p>
+    <details id="other" class="other">
+      <summary><span>Autre lieu</span><span class="summary-hint">rechercher une ville</span></summary>
+      <form id="search" class="search-form" role="search">
+        <label for="q" class="sr-only">Ville ou commune</label>
+        <input id="q" type="search" maxlength="80" autocomplete="off" placeholder="Ville ou commune">
+        <button type="submit" class="btn">Rechercher</button>
+      </form>
+      <p id="search-msg" class="muted small" role="status"></p>
+      <ul id="results" class="results"></ul>
+    </details>
+  </header>
+
+  <div id="status" role="status" aria-live="polite"></div>
+
+  <div id="content" hidden>
+    <!-- Barre fixe : lieu + situation en une ligne, puis les onglets (toujours visibles au défilement) -->
+    <div class="topbar">
+      <div id="topline" class="top-line" aria-live="polite"></div>
+      <div id="tabs" class="tabs" role="tablist" aria-label="Rubrique affichée"></div>
+    </div>
+
+    <!-- B. Situation actuelle -->
+    <section aria-labelledby="h-now"><h2 id="h-now" class="sr-only">Situation actuelle</h2><div id="current"></div></section>
+
+
+    <!-- D. 24 heures -->
+    <section class="card" aria-labelledby="h-24"><h2 id="h-24"><span class="h2-main">Prochaines 24 heures</span> <span class="rubric rubric-precip">précipitations</span></h2><div id="hourly" role="tabpanel"></div></section>
+
+    <!-- E. 7 jours -->
+    <details class="card fold" open>
+      <summary><h2 id="h-7"><span class="h2-main">Prévisions sur 7 jours</span> <span class="rubric rubric-precip">précipitations</span></h2></summary>
+      <div id="week"></div>
+    </details>
+
+    <!-- F. Jours 8 à 15 -->
+    <details class="card fold" id="trend-fold">
+      <summary>
+        <h2 id="h-15"><span class="h2-main">Tendances, jours 8 à 15</span> <span class="rubric rubric-precip">précipitations</span></h2>
+        <span class="trend-warning">Au-delà de 7 jours, la fiabilité baisse nettement : ces prévisions sont des tendances susceptibles d'évoluer.</span>
+      </summary>
+      <div id="trend"></div>
+    </details>
+
+    <!-- G. Vigilances -->
+    <section id="warnings" aria-label="Vigilances"></section>
+
+    <!-- H. Sources -->
+    <section id="sources" aria-label="Sources"></section>
+  </div>
+</div>
+</main>
+
+<!-- Fenêtre d'information : deux onglets (fonctionnement, sous le capot) -->
+<dialog id="info" class="modal" aria-labelledby="info-title">
+  <div class="modal-head">
+    <h2 id="info-title">À propos de cette application</h2>
+    <button type="button" id="info-close" class="btn">Fermer</button>
+  </div>
+  <div class="m-tabs" role="tablist" aria-label="Rubriques d'information">
+    <button type="button" class="m-tab" role="tab" id="m-tab-how" aria-controls="m-panel-how" aria-selected="true">Fonctionnement</button>
+    <button type="button" class="m-tab" role="tab" id="m-tab-tech" aria-controls="m-panel-tech" aria-selected="false" tabindex="-1">Sous le capot</button>
+  </div>
+
+  <div class="modal-body">
+    <section id="m-panel-how" role="tabpanel" aria-labelledby="m-tab-how" tabindex="0">
+      <h3>À quoi ça sert</h3>
+      <p>Un tableau de bord météo personnel, pensé pour iPhone et Mac : situation actuelle, prochaines 24 heures, 7 jours, puis une tendance jusqu'à 15 jours. Usage personnel et non commercial, sans publicité ni compte, et sans collecte de données.</p>
+
+      <h3>Choisir un lieu</h3>
+      <p>Huit lieux sont proposés dans la liste (Bar-le-Duc par défaut). « Autre lieu » permet de chercher n'importe quelle ville : si plusieurs lieux portent le même nom, on choisit le bon dans la liste. Rien n'est chargé tant qu'on n'a pas cliqué sur « Afficher la météo ». Le dernier lieu validé est retenu sur cet appareil.</p>
+
+      <h3>Lire l'écran</h3>
+      <ul>
+        <li><strong>Barre du haut</strong> : le lieu et la situation estimée, toujours visible, avec les trois onglets Précipitations, Température et Vent.</li>
+        <li><strong>Les onglets</strong> pilotent en même temps les prochaines 24 heures, les 7 jours et les jours 8 à 15. Changer d'onglet est instantané : rien n'est rechargé.</li>
+        <li><strong>« Situation actuelle »</strong> est une estimation calculée par un modèle, pas une mesure.</li>
+        <li><strong>Jour ou nuit</strong> : l'affichage est en mode jour par défaut. En bas de cette fenêtre, le bouton « Nuit » passe l'interface en couleurs sombres ; le choix est retenu sur cet appareil.</li>
+        <li><strong>« — »</strong> veut dire « donnée absente ». Ce n'est jamais un zéro déguisé : un vrai « 0 mm » est affiché « 0 mm ».</li>
+      </ul>
+
+      <h3>D'où viennent les valeurs</h3>
+      <p>Chaque valeur est suivie du modèle qui l'a fournie (« ECMWF », « Météo-France »…). Pour la France, Météo-France (AROME et ARPEGE) fournit les premiers jours, jusqu'à environ J+3 ; au-delà, c'est ECMWF. Pour le Japon c'est la JMA, pour le Canada le modèle GEM, puis ECMWF. Le séparateur « Tendance — fiabilité moindre » apparaît à l'endroit où le modèle court s'arrête, au plus tard à J+5. Météo-France n'est jamais présenté comme source d'une valeur venant d'un autre modèle.</p>
+
+      <h3>Au-delà d'une semaine : des scénarios</h3>
+      <p>Une prévision unique perd son sens après une semaine. De J+4 à J+7, la fourchette de plusieurs dizaines de scénarios s'affiche à côté de la valeur. À partir de J+8, la valeur affichée pour les températures et la pluie est la <strong>médiane de ces scénarios</strong> (quatre systèmes : ECMWF IFS et AIFS, GFS, GEM), avec la fourchette où se trouvent 80 % des cas, la part des scénarios qui donnent au moins 1 mm de pluie, et une dispersion « faible », « moyenne » ou « forte ». Ces scénarios sont bruts, non calibrés : une médiane n'est pas la prévision d'un modèle précis.</p>
+
+      <h3>Pluie, vent, températures</h3>
+      <ul>
+        <li><strong>Pluie</strong> : les barres sont proportionnelles à la quantité (mm), jamais au pourcentage. Pour les jours jusqu'à J+7, le pourcentage est la probabilité horaire maximale du jour, pas la probabilité de pluie sur toute la journée. Les classes (sec, faible, modéré, fort) aident à lire les quantités.</li>
+        <li><strong>Vent</strong> : seuls des maxima quotidiens existent (« vent max », « rafales max »), jamais une moyenne. Le vent n'a pas de dispersion : au-delà de J+7, c'est la valeur d'un seul scénario.</li>
+        <li><strong>Température</strong> : minimale et maximale du jour local, ressenti pour les heures.</li>
+      </ul>
+
+      <h3>Vigilances</h3>
+      <p>La vigilance officielle n'est affichée que si elle peut être vérifiée. Pour le Canada, les alertes d'Environnement et Changement climatique Canada sont lues et reproduites sans modification. Pour la France, le Japon et les autres pays, la page indique « Vigilance officielle : non confirmée » avec un lien vers le service officiel. Elle ne déduit jamais une vigilance « verte » du beau temps.</p>
+
+      <h3>Sources et licences</h3>
+      <ul>
+        <li><a href="https://open-meteo.com/" rel="noopener">Weather data by Open-Meteo.com</a> : prévisions, scénarios d'ensemble et recherche de lieux (<a href="https://open-meteo.com/en/terms" rel="noopener">conditions d'utilisation</a>, usage non commercial).</li>
+        <li><strong>Météo-France</strong> (AROME, ARPEGE, via Open-Meteo), sous Licence Ouverte : « Source : Météo-France », mentionné seulement quand ses valeurs sont affichées.</li>
+        <li><strong>ECMWF</strong>, <strong>NOAA (GFS)</strong>, <strong>JMA</strong> et <strong>Environnement et Changement climatique Canada (GEM)</strong>, via Open-Meteo.</li>
+        <li>Alertes canadiennes : <em>Contains information licenced under the Data Server End-use Licence of Environment and Climate Change Canada.</em></li>
+      </ul>
+
+      <h3>Ses limites</h3>
+      <ul>
+        <li>Au-delà de J+7, ce sont des tendances ; au-delà de J+10, les scénarios divergent tellement que la médiane n'apporte plus guère d'information de jour en jour.</li>
+        <li>Les modèles ne rendent pas compte des microclimats (littoral d'Agay, relief, ville).</li>
+        <li>Les sources peuvent se contredire ; la page signale, par exemple, des rafales annoncées plus faibles que le vent max, sans les corriger.</li>
+        <li>Aucun pourcentage de fiabilité n'est affiché : il n'existe pas de source sûre pour le justifier.</li>
+      </ul>
+    </section>
+
+    <section id="m-panel-tech" role="tabpanel" aria-labelledby="m-tab-tech" tabindex="0" hidden>
+      <h3>Principes</h3>
+      <p>HTML, CSS et JavaScript natifs (modules ES) : pas de framework, pas de compilation, pas de serveur. Le site est statique et peut être hébergé tel quel sur GitHub Pages. Aucune clé ni secret n'existe dans le code : toutes les requêtes partent du navigateur vers des API publiques.</p>
+
+      <h3>Fichiers</h3>
+      <ul class="code-list">
+        <li><code>index.html</code>, <code>styles.css</code> : structure, charte « Carnet pastel », mode jour par défaut et mode nuit (jetons de couleur sous <code>html[data-theme="dark"]</code>), mise en page responsive.</li>
+        <li><code>app.js</code> : orchestration, lieu, onglets, états chargement, erreur et périmé.</li>
+        <li><code>weather-provider.js</code> : appel de prévision, normalisation, choix du modèle pour chaque valeur.</li>
+        <li><code>ensemble.js</code> : scénarios d'ensemble et statistiques.</li>
+        <li><code>weather-render.js</code> : construction des sections, valeurs manquantes, textes.</li>
+        <li><code>warnings.js</code> : vigilances. <code>places.js</code> : favoris et géocodage. <code>info.js</code> : cette fenêtre.</li>
+      </ul>
+
+      <h3>Appels réseau (tous depuis le navigateur)</h3>
+      <ul>
+        <li><strong>Prévision</strong> : un seul appel par lieu à Open-Meteo, 16 jours demandés (15 gardés), plusieurs modèles en une requête, avec la liste de priorité du pays : France Météo-France puis ECMWF, Japon JMA puis ECMWF, Canada GEM puis ECMWF, ailleurs ECMWF seul. Variables horaires, quotidiennes et « current », fuseau du lieu obligatoire.</li>
+        <li><strong>Scénarios</strong> : un appel à l'API d'ensemble, chargé après l'affichage de la prévision, pour les jours J+4 à J+14, quatre modèles, variables quotidiennes (maximale, minimale, cumul de pluie). Délai maximal de 12 secondes ; en cas d'échec la page garde la valeur d'un seul scénario et le dit.</li>
+        <li><strong>Géocodage</strong> : à chaque recherche d'un autre lieu, jusqu'à 10 résultats.</li>
+        <li><strong>Alertes ECCC</strong> : pour les lieux du Canada seulement, avec un délai de 8 secondes.</li>
+        <li>Changer d'onglet ne fait aucun appel : toutes les données du lieu sont déjà en mémoire.</li>
+      </ul>
+
+      <h3>Choix du modèle, valeur par valeur</h3>
+      <p>Pour chaque jour et chaque variable, on retient le premier modèle de la liste qui fournit une valeur non nulle, et le modèle est mémorisé dans la donnée. Aucune moyenne n'est faite à ce stade. La frontière « tendance » est le premier jour où le modèle court n'a plus de température, plafonnée à J+5. Une donnée absente reste <code>null</code>, jamais 0.</p>
+
+      <h3>Scénarios : le calcul</h3>
+      <p>Chaque modèle d'ensemble compte autant, quel que soit son nombre de scénarios (51, 31, 21…) : le poids d'un modèle se partage entre ses scénarios. Les valeurs sont combinées par quantiles pondérés : médiane, 10 % et 90 %. La probabilité de pluie est la part pondérée des scénarios donnant au moins 1 mm sur le jour. Un modèle qui a moins de 5 scénarios pour un jour est ignoré. La dispersion compare l'écart des températures maximales entre le 10<sup>e</sup> et le 90<sup>e</sup> centile : moins de 4 °C faible, jusqu'à 8 °C moyenne, au-delà forte.</p>
+
+      <h3>Dates et fuseaux</h3>
+      <p>Les jours sont ceux du fuseau du lieu, tels que renvoyés par l'API ; la date locale d'aujourd'hui est calculée avec <code>Intl</code> et sert à détecter des données qui ne commencent plus aujourd'hui. Les 24 heures glissantes se calculent sur les heures locales ISO, ce qui évite les erreurs de changement d'heure et de frontière de date (Tokyo vu de France).</p>
+
+      <h3>Stockage et sécurité</h3>
+      <ul>
+        <li>Le dernier lieu est retenu dans <code>localStorage</code> (<code>meteo.lastPlace</code> et, pour un lieu libre, <code>meteo.customPlace</code>), relu et revalidé à chaque fois ; un stockage absent ou corrompu retombe sur Bar-le-Duc. Le choix jour ou nuit y est aussi retenu (<code>meteo.theme</code>) ; sans lui, c'est le jour. Ni cookie, ni suivi.</li>
+        <li>Tout texte venant du réseau ou de la saisie est inséré avec <code>textContent</code>, jamais en HTML. La saisie d'un lieu est nettoyée et un lieu sans coordonnées ni fuseau valides est refusé.</li>
+        <li>Les erreurs réseau ne sont jamais avalées : elles s'affichent, et les anciennes données restent signalées comme telles.</li>
+      </ul>
+
+      <h3>Qualité</h3>
+      <ul>
+        <li>Plus de 60 tests automatiques (<code>npm test</code>, Node, sans dépendance) sur les règles métier, avec des données synthétiques.</li>
+        <li>Un script de contrôle sur de vraies données pour les 8 favoris (<code>npm run live</code>) : couverture des 15 jours, cohérence des valeurs, scénarios.</li>
+        <li>Accessibilité : onglets et fenêtre utilisables au clavier, états signalés autrement que par la couleur, zones tactiles d'au moins 44 px, contrastes texte et fond mesurés au-dessus de 4,5:1.</li>
+      </ul>
+    </section>
+  </div>
+
+  <div class="modal-foot">
+    <div class="theme-row" role="group" aria-label="Affichage">
+      <span class="theme-label" id="theme-label">Affichage</span>
+      <button type="button" class="theme-btn" id="theme-day" data-theme-value="light" aria-pressed="true">☀️ Jour</button>
+      <button type="button" class="theme-btn" id="theme-night" data-theme-value="dark" aria-pressed="false">🌙 Nuit</button>
+    </div>
+    <p>Par CilMac et Claude Sonnet 5.5 · <time id="info-date"></time></p>
+  </div>
+</dialog>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>
