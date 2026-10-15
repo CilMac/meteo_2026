@@ -311,10 +311,19 @@ function buildPeriod(days, tab, { sectionLabel, summary, ensemble }) {
     notes.push(`Scénarios : médiane et fourchette (80 % des cas) de plusieurs modèles, chacun pesant autant ; scénarios bruts, non calibrés. Dispersion : faible si l'écart des maximales est de moins de 4 °C, forte au-delà de 8 °C.`);
   }
   notes.push(`Échelle des barres propre à ${sectionLabel}.`);
-  wrap.append(h("p", { class: "muted small", text: notes.join(" ") }));
+  wrap.append(howTo(sectionLabel, notes.join(" ")));
   const text = summary(days, ensemble);
   if (text) wrap.append(h("p", { class: "summary", text }));
   return wrap;
+}
+
+// Explications repliées par défaut ; l'état choisi est conservé quand la section est reconstruite (onglet, scénarios chargés).
+const howToOpen = {};
+function howTo(key, text) {
+  const d = h("details", { class: "howto" }, h("summary", { text: "Comment lire ces valeurs" }), h("p", { class: "muted small", text }));
+  d.open = Boolean(howToOpen[key]);
+  d.addEventListener("toggle", () => { howToOpen[key] = d.open; });
+  return d;
 }
 
 const tmaxRange = (ens) => (ens?.tmax ? `T max ${num0(ens.tmax.p10)}–${num0(ens.tmax.p90)} °C (80 % des cas)${ens.spread ? ` · dispersion ${ens.spread}` : ""}` : null);
