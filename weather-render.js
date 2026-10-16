@@ -91,7 +91,7 @@ export function weekSummary(days) {
   const maxes = days.map((d) => d.tempMax.value).filter(isNum);
   const parts = [];
   if (maxes.length) parts.push(`Maximales de ${num0(Math.min(...maxes))} à ${num0(Math.max(...maxes))} °C sur la période.`);
-  const wet = solid.filter((d) => d.precipSum.value >= 2);
+  const wet = solid.filter((d) => d.dayIndex <= RAIN_MM_UNTIL && d.precipSum.value >= 2);
   if (wet.length) parts.push(`Pluie la plus notable : ${wet.map((d) => dayLabel(d.date)).join(", ")}.`);
   else if (solid.some((d) => isNum(d.precipSum.value))) parts.push("Pas de pluie notable sur les jours les plus fiables.");
   if (days.some((d) => d.trend)) parts.push("Les derniers jours sont une tendance : à confirmer.");
@@ -118,6 +118,8 @@ export function displayedModels(data) {
   return [...new Set([...modelsOf(data.daily, DAILY_SHOWN), ...modelsOf(next24h(data), HOURLY_SHOWN)])];
 }
 
+// Quantité de pluie du jour affichée jusqu'à ce jour inclus (mesure sur pluviomètres : au-delà, la quantité ne bat plus « toujours sec »).
+export const RAIN_MM_UNTIL = 3;
 export const RAIN_LEGEND = "sec < 0,2 mm · faible 0,2 à 2 mm · modéré 2 à 10 mm · fort > 10 mm";
 
 // ---------- construction DOM ----------
@@ -182,14 +184,14 @@ export function buildHourly(data, tab) {
   const get = { precip: (x) => x.precip.value, temp: (x) => x.temp.value, wind: (x) => Math.max(x.gust.value ?? -Infinity, x.wind.value ?? -Infinity) };
   const vals = hours.map(get[tab]).filter((v) => isNum(v) && v > -Infinity);
   const tmin = Math.min(...vals), tmax = Math.max(...vals);
-  const pMax = scaleMax(hours.map((x) => x.precip.value), 1), wMax = scaleMax(hours.map((x) => x.gust.value ?? x.wind.value), 10);
+  const wMax = scaleMax(hours.map((x) => x.gust.value ?? x.wind.value), 10);
 
   const strip = h("div", { class: "strip", role: "list", tabindex: "0", "aria-label": "Prévisions horaires, défilement horizontal" });
   for (const x of hours) {
     const info = weatherInfo(x.weatherCode.value, isNight(x.time, data.daily));
     let bars, l1, l2;
     if (tab === "precip") {
-      bars = vbar(barPct(x.precip.value, pMax), "var(--rain)");
+      bars = vbar(isNum(x.precipProb.value) ? Math.max(0, Math.min(100, x.precipProb.value)) : null, "var(--rain)");
       l1 = isNum(x.precipProb.value) ? `${num0(x.precipProb.value)} %` : "— %";
       l2 = isNum(x.precip.value) ? `${num1(x.precip.value)} mm` : "— mm";
     } else if (tab === "temp") {
@@ -212,7 +214,7 @@ export function buildHourly(data, tab) {
   const labelOf = (k) => { const ms = new Set(hours.map((x) => x[k].model).filter(Boolean)); return ms.size ? [...ms].map(modelShort).join(" puis ") : null; };
   const modelNotes = fieldsByTab.map(([l, k]) => `${l} : ${labelOf(k) ?? "indisponible"}`).join(" · ");
   const notes = [`Pas de 1 h · ${modelNotes}.`];
-  if (tab === "precip") notes.push("Barres proportionnelles à la quantité (mm), pas au pourcentage.");
+  if (tab === "precip") notes.push("Barres proportionnelles au pourcentage (risque de pluie), pas à la quantité.");
   wrap.append(h("p", { class: "muted small h-note", text: notes.join(" ") }));
   // Données manquantes : toujours signalées, même en vue compacte.
   const warn = [];
@@ -233,11 +235,13 @@ export function dayViews(days, ensemble) {
     const ens = ensDays[d.date] ?? null;
     const median = Boolean(ens) && d.dayIndex >= ENSEMBLE_MEDIAN_FROM;
     const range = Boolean(ens) && d.dayIndex >= ENSEMBLE_FIRST_DAY && !median;
+    const showMm = d.dayIndex <= RAIN_MM_UNTIL;
     return {
-      d, ens, median, range,
+      d, ens, median, range, showMm,
+      cls: !showMm && !median ? d.precipClass ?? null : null,
       tmin: median ? ens.tmin?.median ?? null : d.tempMin.value,
       tmax: median ? ens.tmax?.median ?? null : d.tempMax.value,
-      mm: median ? ens.precip?.mean ?? null : d.precipSum.value,
+      mm: !showMm ? null : median ? ens.precip?.mean ?? null : d.precipSum.value,
       pct: median ? (isNum(ens.precip?.probWet) ? ens.precip.probWet * 100 : null) : d.precipProbMax.value,
     };
   });
@@ -251,7 +255,10 @@ export function compactBlocks(views) {
 // Texte de valeur d'une ligne compacte, sans commentaire (les définitions sont dans le petit « i »).
 export function compactValue(v, tab) {
   const { d } = v;
-  if (tab === "precip") return `${isNum(v.mm) ? `${num1(v.mm)} mm` : "—"}${isNum(v.pct) ? ` · ${num0(v.pct)} %` : ""}`;
+  if (tab === "precip") {
+    if (!v.showMm) return [v.cls, isNum(v.pct) ? `${num0(v.pct)} %` : null].filter(Boolean).join(" · ") || "—";
+    return `${isNum(v.mm) ? `${num1(v.mm)} mm` : "—"}${isNum(v.pct) ? ` · ${num0(v.pct)} %` : ""}`;
+  }
   if (tab === "temp") return `${deg(v.tmin)} / ${deg(v.tmax)}`;
   return `vent ${num0(d.windMax.value)} · raf. ${num0(d.gustMax.value)} km/h`;
 }
@@ -259,15 +266,15 @@ export function compactValue(v, tab) {
 export function compactSepTexts(ensemble) {
   const sample = ensemble?.status === "ok" ? Object.values(ensemble.days).find((d) => d.nMembers) : null;
   const second = sample
-    ? `Dès J+7 : tendance. À partir de J+8, médiane d'environ ${sample.nMembers} scénarios (${sample.nModels} modèles).`
-    : "Dès J+7 : tendance. À partir de J+8, valeur d'un seul scénario (scénarios indisponibles).";
-  return ["Dès J+4 : fiabilité en baisse, valeurs d'un seul modèle.", second];
+    ? "Dès J+7 : tendance · J+8 : médiane"
+    : "Dès J+7 : tendance · J+8 : 1 scénario";
+  return ["Dès J+4 : fiabilité en baisse.", second];
 }
 export const COMPACT_HELP_ITEMS = [
   "3 blocs : J à J+3, J+4 à J+6, J+7 à J+14.",
-  "Pluie : mm, puis %.",
+  `Pluie : mm et % jusqu'à J+${RAIN_MM_UNTIL} ; ensuite classe (sec, faible, modéré, fort) et %, sans mm.`,
   "Jusqu'à J+7, le % est la probabilité horaire maximale du jour.",
-  `Dès J+${ENSEMBLE_MEDIAN_FROM}, le % est la part des scénarios à ${WET_MM} mm ou plus ; les mm sont leur moyenne.`,
+  `Dès J+${ENSEMBLE_MEDIAN_FROM}, le % est la part des scénarios à ${WET_MM} mm ou plus.`,
   `Températures : minimale / maximale (médiane des scénarios dès J+${ENSEMBLE_MEDIAN_FROM}).`,
   "Vent : maxima du jour.",
   "Détails et modèles : vue détaillée.",
@@ -280,7 +287,6 @@ export const COMPACT_HELP_ITEMS = [
 function buildPeriod(days, tab, { sectionLabel, summary, ensemble }) {
   const wrap = h("div", {});
   const views = dayViews(days, ensemble);
-  const pMax = scaleMax(views.map((v) => v.mm), 5);
   const tMins = views.map((v) => v.tmin).filter(isNum), tMaxs = views.map((v) => v.tmax).filter(isNum);
   const gmin = Math.min(...tMins, ...tMaxs), gmax = Math.max(...tMins, ...tMaxs);
   const wMax = scaleMax(days.map((d) => d.gustMax.value ?? d.windMax.value), 20);
@@ -294,15 +300,21 @@ function buildPeriod(days, tab, { sectionLabel, summary, ensemble }) {
     let bar, value, tag = [], keepConfidence = true;
     if (tab === "precip") {
       if (v.median) {
-        bar = hbar(barPct(v.mm, pMax), "var(--rain)");
         const p = ens.precip?.probWet;
-        value = [isNum(p) ? `${num0(p * 100)} % des scénarios ≥ ${WET_MM} mm` : null, isNum(v.mm) ? `moy. ${num1(v.mm)} mm` : null].filter(Boolean).join(" · ") || "—";
-        tag.push(ensembleTag(ens), isNum(ens.precip?.p90) ? `1 cas sur 10 : ${num1(ens.precip.p90)} mm ou plus` : null);
+        bar = probBar(isNum(p) ? p * 100 : null);
+        value = isNum(p) ? `${num0(p * 100)} % des scénarios ≥ ${WET_MM} mm` : "—";
+        tag.push(ensembleTag(ens));
         keepConfidence = false;
+      } else if (!v.showMm) {
+        // Au-delà de RAIN_MM_UNTIL : classe et pourcentage, pas de quantité.
+        bar = probBar(d.precipProbMax.value);
+        value = compactValue(v, "precip");
+        tag.push(modelsLine(d, [["%", "precipProbMax"]]));
+        if (v.range && isNum(ens.precip?.probWet)) tag.push(`scénarios : ${num0(ens.precip.probWet * 100)} % ≥ ${WET_MM} mm`);
       } else {
-        bar = hbar(barPct(d.precipSum.value, pMax), "var(--rain)");
+        bar = probBar(d.precipProbMax.value);
         const prob = isNum(d.precipProbMax.value) ? `${num0(d.precipProbMax.value)} %` : null;
-        // Tendance : la quantité reste affichée (moins fiable) ; la classe qualitative l'accompagne.
+        // Tendance courte (≤ J+3) : la quantité reste affichée ; la classe qualitative l'accompagne.
         const mm = isNum(d.precipSum.value) ? `${num1(d.precipSum.value)} mm` : "—";
         value = [d.trend && d.precipClass ? `${mm} (${d.precipClass})` : mm, prob].filter(Boolean).join(" · ");
         tag.push(modelsLine(d, [["mm", "precipSum"], ["%", "precipProbMax"]]));
@@ -345,6 +357,8 @@ function buildPeriod(days, tab, { sectionLabel, summary, ensemble }) {
     hasEns: views.some((v) => v.ens),
     hasSingleTrend: views.some((v) => v.d.trend && !v.median),
     hasLateDays: days.some((d) => d.dayIndex >= ENSEMBLE_MEDIAN_FROM),
+    hasMm: views.some((v) => v.showMm),
+    hasNoMm: views.some((v) => !v.showMm),
   })));
   const text = summary(days, ensemble);
   if (text) wrap.append(h("p", { class: "summary", text }));
@@ -352,15 +366,18 @@ function buildPeriod(days, tab, { sectionLabel, summary, ensemble }) {
 }
 
 // « Comment lire ces valeurs » : une idée par ligne, adaptée à l'onglet et à ce qui est réellement affiché.
-export function howToItems(tab, { sectionLabel = "cette liste", hasMedian = false, hasEns = false, hasSingleTrend = false, hasLateDays = false } = {}) {
+export function howToItems(tab, { sectionLabel = "cette liste", hasMedian = false, hasEns = false, hasSingleTrend = false, hasLateDays = false, hasMm = true, hasNoMm = false } = {}) {
   const items = [];
   if (tab === "precip") {
-    items.push(`Barres : quantité de pluie en mm, pas le pourcentage (échelle propre à ${sectionLabel}).`);
+    items.push("Barres : le pourcentage de risque de pluie, sur tous les jours (0 % à 100 %).");
+    if (hasMm && hasNoMm) items.push(`Les mm sont écrits jusqu'à J+${RAIN_MM_UNTIL} ; dès J+${RAIN_MM_UNTIL + 1}, classe et % (mm non fiables). ${RAIN_LEGEND}.`);
+    else if (hasNoMm) items.push(`Pas de mm à cette échéance (non fiables) : classe et %. ${RAIN_LEGEND}.`);
+    else if (hasMm) items.push("Les mm sont écrits en texte, sans barre.");
     if (hasMedian) {
       items.push("Jusqu'à J+7 : le % est la probabilité horaire maximale du jour.");
       items.push(`Dès J+${ENSEMBLE_MEDIAN_FROM} : le % est la part des scénarios à ${WET_MM} mm ou plus ; « moy. » est leur moyenne.`);
     } else items.push("Le % est la probabilité horaire maximale du jour, pas celle de toute la journée.");
-    if (hasSingleTrend) items.push(`Jours en tendance : mm moins fiables. Classes : ${RAIN_LEGEND}.`);
+    if (hasSingleTrend && hasMm) items.push("Jours en tendance : mm moins fiables.");
     if (hasEns) items.push("Scénarios : plusieurs modèles à poids égal, bruts, non calibrés.");
   } else if (tab === "temp") {
     items.push(`Barres : de la minimale à la maximale du jour (échelle propre à ${sectionLabel}).`);
@@ -394,7 +411,6 @@ const ensembleTag = (ens) => `médiane de ${ens.nMembers} scénarios (${ens.nMod
 // Pavé compact : 15 jours, un seul bloc ; une courte explication sur chacun des deux séparateurs entre les trois groupes de jours.
 export function buildCompact(data, tab, ensemble) {
   const views = dayViews(data.daily, ensemble);
-  const pMax = scaleMax(views.map((v) => v.mm), 5);
   const tMins = views.map((v) => v.tmin).filter(isNum), tMaxs = views.map((v) => v.tmax).filter(isNum);
   const gmin = Math.min(...tMins, ...tMaxs), gmax = Math.max(...tMins, ...tMaxs);
   const wMax = scaleMax(views.map((v) => v.d.gustMax.value ?? v.d.windMax.value), 20);
@@ -406,7 +422,7 @@ export function buildCompact(data, tab, ensemble) {
       const { d } = v;
       const info = weatherInfo(d.weatherCode.value, false);
       let bar;
-      if (tab === "precip") bar = hbar(barPct(v.mm, pMax), "var(--rain)");
+      if (tab === "precip") bar = probBar(v.pct);
       else if (tab === "temp") bar = rangeBar(v.tmin, v.tmax, gmin, gmax);
       else bar = h("div", { class: "hbar-box" },
         isNum(d.gustMax.value) ? h("div", { class: "hbar", style: { width: `${minVisible(barPct(d.gustMax.value, wMax))}%`, background: "var(--wind-2)" } }) : null,
@@ -471,6 +487,10 @@ export function trendSummary(days, ensemble) {
 
 function hbar(pct, color) {
   return h("div", { class: "hbar-box" }, pct === null ? null : h("div", { class: "hbar", style: { width: `${minVisible(pct)}%`, background: color } }));
+}
+// Barre de probabilité : la longueur suit toujours le % (0 à 100), jamais une quantité.
+function probBar(pct) {
+  return h("div", { class: "hbar-box prob" }, isNum(pct) ? h("div", { class: "hbar", style: { width: `${minVisible(Math.max(0, Math.min(100, pct)))}%`, background: "var(--rain)" } }) : null);
 }
 function rangeBar(lo, hi, gmin, gmax) {
   const span = gmax - gmin || 1;

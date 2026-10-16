@@ -172,7 +172,7 @@
 
       <h3>Pluie, vent, températures</h3>
       <ul>
-        <li><strong>Pluie</strong> : les barres sont proportionnelles à la quantité (mm), jamais au pourcentage. Pour les jours jusqu'à J+7, le pourcentage est la probabilité horaire maximale du jour, pas la probabilité de pluie sur toute la journée. Les classes (sec, faible, modéré, fort) aident à lire les quantités.</li>
+        <li><strong>Pluie</strong> : jusqu'à J+3, la quantité (mm) est affichée, écrite en texte. À partir de J+4, la quantité n'est plus donnée : mesurée sur des pluviomètres de Météo-France (2,5 ans, 5 villes), elle ne fait pas mieux que d'annoncer « sec » à 5 jours et n'est pas fiable à 7 jours. On affiche alors la classe (sec, faible, modéré, fort) et le pourcentage. Les barres de pluie suivent toujours le pourcentage, jamais la quantité. Jusqu'à J+7, ce pourcentage est la probabilité horaire maximale du jour, pas la probabilité de pluie sur toute la journée ; il n'a pas été mesuré de la même façon.</li>
         <li><strong>Vent</strong> : seuls des maxima quotidiens existent (« vent max », « rafales max »), jamais une moyenne. Le vent n'a pas de dispersion : au-delà de J+7, c'est la valeur d'un seul scénario.</li>
         <li><strong>Température</strong> : minimale et maximale du jour local, ressenti pour les heures.</li>
       </ul>
