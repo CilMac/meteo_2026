@@ -357,13 +357,11 @@ body:has(dialog.modal[open]) { overflow: hidden; }
 /* Vue minimale : les prochaines heures, un tableau et rien d'autre */
 .head-actions { display: flex; align-items: center; gap: 8px; flex: none; margin-top: 4px; }
 .head-actions .info-btn { margin-top: 0; }
-.mini-t-short { display: none; }
 .mini-btn { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; font-weight: 600; background: var(--precip-bg); border-color: var(--precip-border); }
 .mini-ico-boot { flex: none; font-size: 24px; line-height: 1; }
 @media (max-width: 520px) {
   .mini-btn { width: 44px; padding: 0; justify-content: center; } .mini-lbl { display: none; }
   /* Petit écran : titre court et boutons réduits à leur icône (le texte reste lu par les lecteurs d'écran) */
-  .mini-t-long { display: none; } .mini-t-short { display: inline; }
   .mini-act { width: 46px; padding: 0; justify-content: center; }
   .mini-side .btn { justify-content: center; }
   /* Petit écran : Actualiser puis Retour sur la ligne du titre, Retour tout à droite */
@@ -374,7 +372,22 @@ body:has(dialog.modal[open]) { overflow: hidden; }
 .mini { max-width: 1160px; margin-inline: auto; padding: 32px 32px 18px; }
 /* En-tête : titre à gauche ; à droite Retour puis Actualiser, l'un sous l'autre ; nom du lieu suivi du bouton Carte */
 .mini-top { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "title side" "where side" "gps gps"; column-gap: 12px; align-items: start; }
-.mini-top h2 { grid-area: title; margin: 0; font-family: var(--font-title); font-size: 26px; line-height: 1.25; min-width: 0; align-self: center; }
+.mini-titlebar { grid-area: title; display: flex; align-items: baseline; flex-wrap: wrap; gap: 0 12px; min-width: 0; align-self: center; }
+.mini-top h2 { margin: 0; font-family: var(--font-title); font-size: 26px; line-height: 1.25; min-width: 0; }
+.mini-pressure { font: inherit; font-size: 15px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; padding: 6px 4px; min-height: 32px; background: none; border: 0; border-bottom: 1.5px dotted var(--muted); border-radius: 0; cursor: pointer; }
+.mini-pressure:disabled { cursor: default; border-bottom-color: transparent; }
+.mini-pressure:not(:disabled):hover { color: var(--ink); border-bottom-color: var(--ink); }
+/* Baromètre */
+dialog.baro-modal { width: min(440px, calc(100vw - 24px)); }
+.baro-body { text-align: center; }
+.baro-dial { width: min(340px, 100%); margin: 6px auto 0; }
+.baro-svg { display: block; width: 100%; height: auto; filter: drop-shadow(0 6px 10px #0004); }
+/* Position finale = style de base de l'aiguille ; l'animation ne fait que partir de 950 hPa (-135°) */
+.baro-needle { animation: baro-sweep 1.8s cubic-bezier(.2, .9, .25, 1.12) backwards; }
+@keyframes baro-sweep { from { transform: rotate(-135deg); } }
+@media (prefers-reduced-motion: reduce) { .baro-needle { animation: none; } }
+.baro-value { margin: 10px 0 0; font: 700 26px/1.2 var(--font-title); }
+.baro-note { margin: 8px 0 0; }
 .mini-side { grid-area: side; display: flex; flex-direction: column; gap: 8px; }
 @media (min-width: 521px) { .mini-side .btn { justify-content: flex-start; } }
 .mini-where { grid-area: where; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin: 10px 0 2px; min-width: 0; }

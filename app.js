@@ -4,10 +4,11 @@ import { fetchForecast } from "./weather-provider.js";
 import { loadWarnings } from "./warnings.js";
 import { fetchEnsemble } from "./ensemble.js";
 import { initInfo } from "./info.js";
+import { initBarometer } from "./barometer.js";
 import { getPosition, reverseGeocode, placeFromPosition, formatCoords, deniedHelp, GEO_MAX_AGE_MS } from "./geo.js";
 import { createLoader } from "./loading.js";
 import { chooseView, isIOS } from "./device.js";
-import { TABS, buildTopPlace, buildTopNow, buildCurrent, buildHourly, buildWeek, buildTrend, buildCompact, buildMini, COMPACT_HELP_ITEMS, buildSources, buildWarnings, buildAttribution, warningsStatus, formatLocal } from "./weather-render.js";
+import { TABS, buildTopPlace, buildTopNow, buildCurrent, buildHourly, buildWeek, buildTrend, buildCompact, buildMini, pressureText, COMPACT_HELP_ITEMS, buildSources, buildWarnings, buildAttribution, warningsStatus, formatLocal } from "./weather-render.js";
 
 const $ = (id) => {
   const el = document.getElementById(id);
@@ -150,6 +151,8 @@ async function toggleMap() {
   finally { btn.disabled = !geo.coords; }
 }
 function showMiniPlace(data, coords, named) {
+  $("mini-pressure").textContent = pressureText(data);
+  $("mini-pressure").disabled = typeof data.current.pressure !== "number"; // sans valeur, rien à montrer sur le cadran
   $("mini-place").textContent = `📍 ${data.location.name}${data.location.country ? ` (${data.location.country})` : ""}`;
   $("mini-gps").textContent = `GPS : ${formatCoords(coords.latitude, coords.longitude)}${coords.accuracy !== null ? ` · précision ± ${Math.round(coords.accuracy)} m` : ""}${named ? "" : " · nom du lieu indisponible"}`;
   $("mini-body").replaceChildren(buildMini(data));
@@ -159,7 +162,7 @@ async function locate(force = false) {
   const id = ++geo.loadId;
   $("mini-refresh").disabled = true;
   $("mini-map-btn").disabled = true;
-  $("mini-place").textContent = ""; $("mini-gps").textContent = ""; $("mini-body").replaceChildren();
+  $("mini-place").textContent = ""; $("mini-gps").textContent = ""; $("mini-pressure").textContent = ""; $("mini-pressure").disabled = true; $("mini-body").replaceChildren();
   miniMessage("Recherche de votre position…");
   try {
     const coords = await getPosition();
@@ -195,6 +198,7 @@ function setMini(open) {
   window.scrollTo({ top: 0 });
   if (open) { locate(false); $("mini-close").focus(); } else { geo.loadId++; $("mini-open").focus(); } // fermer abandonne une recherche en cours
 }
+initBarometer({ getPressure: () => geo.data?.current.pressure ?? null, openBtn: $("mini-pressure") });
 $("mini-open").addEventListener("click", () => setMini(true));
 $("mini-close").addEventListener("click", () => setMini(false));
 $("mini-refresh").addEventListener("click", () => locate(true));

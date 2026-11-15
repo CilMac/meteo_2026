@@ -183,6 +183,9 @@ export function buildTopNow(data) {
     h("span", { class: "top-desc", text: info.label }));
 }
 
+// Pression au niveau de la mer, en hPa entiers, sans séparateur de milliers (« 1013 hPa ») ; absente : « — hPa ».
+export const pressureText = (data) => (isNum(data?.current?.pressure) ? `${Math.round(data.current.pressure)} hPa` : "— hPa");
+
 // Vue minimale : une ligne par heure à venir (précipitations, température, vent), sans rien d'autre.
 export const MINI_HOURS = 12;
 const hourOf = (timeISO) => parseInt(timeISO.slice(11, 13), 10);

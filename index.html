@@ -21,8 +21,8 @@
       <p class="muted small">Prévisions personnelles, modèles étiquetés valeur par valeur.</p>
     </div>
     <div class="head-actions">
-      <button type="button" id="mini-open" class="btn mini-btn" aria-label="Prochaines heures - lieu actuel" title="Prochaines heures - lieu actuel : précipitations, température et vent">
-        <span class="mini-ico-boot" aria-hidden="true">🥾</span><span class="mini-lbl">Prochaines heures - lieu actuel</span>
+      <button type="button" id="mini-open" class="btn mini-btn" aria-label="Lieu actuel" title="Lieu actuel : précipitations, température et vent des prochaines heures">
+        <span class="mini-ico-boot" aria-hidden="true">🥾</span><span class="mini-lbl">Lieu actuel</span>
       </button>
       <button type="button" id="info-open" class="info-btn" aria-haspopup="dialog" aria-label="Informations sur l'application" title="Informations">i</button>
     </div>
@@ -136,7 +136,10 @@
 <section id="mini" class="mini" aria-labelledby="mini-title" hidden>
   <div class="column">
     <div class="mini-top">
-      <h2 id="mini-title" aria-label="Prochaines heures - lieu actuel"><span class="mini-t-long">Prochaines heures - lieu actuel</span><span class="mini-t-short">Lieu actuel</span></h2>
+      <div class="mini-titlebar">
+        <h2 id="mini-title">Lieu actuel</h2>
+        <button type="button" id="mini-pressure" class="mini-pressure" aria-haspopup="dialog" title="Pression au niveau de la mer (valeur calculée par le modèle). Toucher pour voir le baromètre." disabled></button>
+      </div>
       <div class="mini-side">
         <button type="button" id="mini-close" class="btn nav mini-act" title="Revenir à la page météo">
           <svg class="mini-svg" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path d="M19 12H5M11 6l-6 6 6 6"/></svg><span>Retour</span>
@@ -163,6 +166,20 @@
   </div>
 </section>
 
+<!-- Baromètre marin : s'ouvre depuis la pression affichée dans « Lieu actuel » -->
+<dialog id="baro" class="modal baro-modal" aria-labelledby="baro-title">
+  <div class="modal-head">
+    <h2 id="baro-title">Baromètre</h2>
+    <button type="button" id="baro-close" class="btn">Fermer</button>
+  </div>
+  <div class="modal-body baro-body">
+    <div id="baro-dial" class="baro-dial"></div>
+    <p class="baro-value" id="baro-value"></p>
+    <p class="muted small baro-note">Pression atmosphérique au niveau de la mer, valeur calculée par le modèle (pas une mesure). Les mots du cadran sont les indications traditionnelles des baromètres : une pression seule ne fait pas une prévision.</p>
+    <p class="muted small baro-note" id="baro-range" hidden>Valeur hors de l'échelle du cadran (950 à 1050 hPa) : l'aiguille est arrêtée à l'extrémité.</p>
+  </div>
+</dialog>
+
 <!-- Chargement en cours : petite fenêtre non bloquante avec barre d'avancement (étapes réellement terminées) -->
 <div id="loader" class="loader" role="status" aria-live="polite" hidden>
   <p class="loader-title">Chargement de la météo…</p>
@@ -185,16 +202,16 @@
   <div class="modal-body">
     <section id="m-panel-how" role="tabpanel" aria-labelledby="m-tab-how" tabindex="0">
       <h3>À quoi ça sert</h3>
-      <p>Un tableau de bord météo personnel, pensé pour iPhone et Mac : situation actuelle, prochaines 24 heures, 7 jours, puis une tendance jusqu'à 15 jours. Une vue à part, « Prochaines heures - lieu actuel », donne les 12 prochaines heures à l'endroit où vous êtes. Usage personnel et non commercial, sans publicité ni compte, et sans collecte de données.</p>
+      <p>Un tableau de bord météo personnel, pensé pour iPhone et Mac : situation actuelle, prochaines 24 heures, 7 jours, puis une tendance jusqu'à 15 jours. Une vue à part, « Lieu actuel », donne les 12 prochaines heures à l'endroit où vous êtes. Usage personnel et non commercial, sans publicité ni compte, et sans collecte de données.</p>
 
       <h3>Choisir un lieu</h3>
       <p>Huit lieux sont proposés dans la liste (Bar-le-Duc par défaut). « Autre lieu » permet de chercher n'importe quelle ville : si plusieurs lieux portent le même nom, on choisit le bon dans la liste. Rien n'est chargé tant qu'on n'a pas cliqué sur « Afficher la météo ». Le dernier lieu validé est retenu sur cet appareil.</p>
-      <p>L'icône de chaussure de randonnée (🥾), en haut à droite, ouvre <strong>« Prochaines heures - lieu actuel »</strong> : une vue minimale des 12 prochaines heures à votre <strong>position réelle</strong> (celle de l'appareil ; le navigateur demande l'autorisation). Elle ne change pas le lieu choisi dans la liste. Le haut de la vue donne le nom du lieu, ses coordonnées GPS et la précision de la position. Si la position n'est pas disponible, le motif est affiché et la vue montre alors le lieu choisi sur la page, signalé comme n'étant pas votre position.</p>
+      <p>L'icône de chaussure de randonnée (🥾), en haut à droite, ouvre <strong>« Lieu actuel »</strong> : une vue minimale des 12 prochaines heures à votre <strong>position réelle</strong> (celle de l'appareil ; le navigateur demande l'autorisation). Elle ne change pas le lieu choisi dans la liste. Le haut de la vue donne le nom du lieu, ses coordonnées GPS et la précision de la position, et, à droite du titre, la pression atmosphérique au niveau de la mer en hPa (une valeur calculée par le modèle, pas une mesure). Toucher cette pression ouvre un baromètre à aiguille, avec l'aiguille sur la valeur. Si la position n'est pas disponible, le motif est affiché et la vue montre alors le lieu choisi sur la page, signalé comme n'étant pas votre position.</p>
       <ul>
         <li><strong>Une ligne par heure</strong> : le pictogramme du temps, puis les précipitations (mm, avec le risque en % dessous), la température et le vent (km/h, avec les rafales dessous). Sous chaque valeur, une petite barre : pour la pluie elle suit le pourcentage, pour la température elle va de la plus basse à la plus haute de ces heures, pour le vent la partie foncée est le vent et la claire les rafales.</li>
         <li><strong>L'étiquette de l'heure</strong> est ambrée quand le soleil est levé et bleu nuit quand il est couché, d'après le lever et le coucher du jour du lieu. Si ces heures manquent, l'étiquette reste neutre.</li>
         <li><strong>Un trait épais</strong> sépare la ligne de 12 h de celle de 13 h : le matin d'un côté, l'après-midi de l'autre.</li>
-        <li>Sur un petit écran (téléphone), le titre se réduit à « Lieu actuel » et les trois boutons n'affichent que leur icône : flèche pour <strong>Retour</strong>, flèche circulaire pour <strong>Actualiser</strong>, carte pliée pour <strong>Carte</strong>. <strong>Retour</strong> ferme la vue (la touche Échap aussi). <strong>Actualiser</strong> relit la position et recharge la météo ; sans cela, une même position est gardée 10 minutes. <strong>Carte</strong> (à droite du nom du lieu) affiche une carte centrée sur la position, avec un zoom (boutons + et −, molette ou deux doigts) ; elle n'est chargée qu'au premier clic et le bouton devient « Masquer la carte ».</li>
+        <li>Sur un petit écran (téléphone), les trois boutons n'affichent que leur icône : flèche circulaire pour <strong>Actualiser</strong>, flèche pour <strong>Retour</strong> (tout à droite de la ligne du titre), carte pliée pour <strong>Carte</strong>. <strong>Retour</strong> ferme la vue (la touche Échap aussi). <strong>Actualiser</strong> relit la position et recharge la météo ; sans cela, une même position est gardée 10 minutes. <strong>Carte</strong> (à droite du nom du lieu) affiche une carte centrée sur la position, avec un zoom (boutons + et −, molette ou deux doigts) ; elle n'est chargée qu'au premier clic et le bouton devient « Masquer la carte ».</li>
       </ul>
 
       <h3>Lire l'écran</h3>
@@ -218,7 +235,7 @@
         <li><strong>Pluie</strong> : jusqu'à J+3, la quantité (mm) est affichée, écrite en texte. À partir de J+4, la quantité n'est plus donnée : mesurée sur des pluviomètres de Météo-France (2,5 ans, 5 villes), elle ne fait pas mieux que d'annoncer « sec » à 5 jours et n'est pas fiable à 7 jours. On affiche alors la classe (sec, faible, modéré, fort) et le pourcentage. Les barres de pluie suivent toujours le pourcentage, jamais la quantité. Jusqu'à J+7, ce pourcentage est la probabilité horaire maximale du jour, pas la probabilité de pluie sur toute la journée ; il n'a pas été mesuré de la même façon.</li>
         <li><strong>Vent</strong> : seuls des maxima quotidiens existent (« vent max », « rafales max »), jamais une moyenne. Le vent n'a pas de dispersion : au-delà de J+7, c'est la valeur d'un seul scénario.</li>
         <li><strong>Température</strong> : minimale et maximale du jour local, ressenti pour les heures.</li>
-        <li><strong>Pluie heure par heure</strong> (24 heures et « Prochaines heures - lieu actuel ») : la quantité par heure n'a pas été mesurée comme celle du jour ; elle est probablement moins fiable, car une averse décalée d'une heure fausse la ligne. Le pourcentage est affiché à côté pour aider à la lire.</li>
+        <li><strong>Pluie heure par heure</strong> (24 heures et « Lieu actuel ») : la quantité par heure n'a pas été mesurée comme celle du jour ; elle est probablement moins fiable, car une averse décalée d'une heure fausse la ligne. Le pourcentage est affiché à côté pour aider à la lire.</li>
       </ul>
 
       <h3>Vigilances</h3>
@@ -249,10 +266,11 @@
       <h3>Fichiers</h3>
       <ul class="code-list">
         <li><code>index.html</code>, <code>styles.css</code> : structure, charte « Carnet pastel », mode clair et mode sombre selon le réglage du système (<code>prefers-color-scheme</code>), mise en page responsive.</li>
-        <li><code>app.js</code> : orchestration, lieu, onglets, états chargement, erreur et périmé ; vue « Prochaines heures - lieu actuel » (position, actualisation, carte).</li>
+        <li><code>app.js</code> : orchestration, lieu, onglets, états chargement, erreur et périmé ; vue « Lieu actuel » (position, actualisation, carte).</li>
         <li><code>weather-provider.js</code> : appel de prévision, normalisation, choix du modèle pour chaque valeur.</li>
         <li><code>ensemble.js</code> : scénarios d'ensemble et statistiques.</li>
         <li><code>weather-render.js</code> : construction des sections, valeurs manquantes, textes, tableau des prochaines heures.</li>
+        <li><code>barometer.js</code> : cadran du baromètre (SVG) et sa fenêtre.</li>
         <li><code>geo.js</code> : position de l'appareil (arrondie avant tout envoi à un service tiers) et nom du lieu.</li>
         <li><code>warnings.js</code> : vigilances. <code>places.js</code> : favoris et géocodage. <code>info.js</code> : cette fenêtre.</li>
       </ul>
@@ -262,7 +280,7 @@
         <li><strong>Prévision</strong> : un seul appel par lieu à Open-Meteo, 16 jours demandés (15 gardés), plusieurs modèles en une requête, avec la liste de priorité du pays : France Météo-France puis ECMWF, Japon JMA puis ECMWF, Canada GEM puis ECMWF, ailleurs ECMWF seul. Variables horaires, quotidiennes et « current », fuseau du lieu obligatoire.</li>
         <li><strong>Scénarios</strong> : un appel à l'API d'ensemble, chargé après l'affichage de la prévision, pour les jours J+4 à J+14, quatre modèles, variables quotidiennes (maximale, minimale, cumul de pluie). Délai maximal de 12 secondes ; en cas d'échec la page garde la valeur d'un seul scénario et le dit.</li>
         <li><strong>Géocodage</strong> : à chaque recherche d'un autre lieu, jusqu'à 10 résultats.</li>
-        <li><strong>Position réelle</strong> (« Prochaines heures - lieu actuel ») : la géolocalisation du navigateur donne les coordonnées de l'appareil. Seules des coordonnées arrondies à 0,01° (environ 1 km) quittent l'appareil, vers Open-Meteo (prévision) et vers le service de noms de lieux OpenStreetMap Nominatim (géocodage inverse, un appel par position, <a href="https://operations.osmfoundation.org/policies/nominatim/" rel="noopener">conditions d'utilisation</a>). Sans nom trouvé, la vue affiche « Position GPS ». Le fuseau est celui de l'appareil.</li>
+        <li><strong>Position réelle</strong> (« Lieu actuel ») : la géolocalisation du navigateur donne les coordonnées de l'appareil. Seules des coordonnées arrondies à 0,01° (environ 1 km) quittent l'appareil, vers Open-Meteo (prévision) et vers le service de noms de lieux OpenStreetMap Nominatim (géocodage inverse, un appel par position, <a href="https://operations.osmfoundation.org/policies/nominatim/" rel="noopener">conditions d'utilisation</a>). Sans nom trouvé, la vue affiche « Position GPS ». Le fuseau est celui de l'appareil.</li>
         <li><strong>Carte</strong> (bouton « Carte », à la demande seulement) : la bibliothèque <a href="https://leafletjs.com/" rel="noopener">Leaflet</a> 1.9.4 est chargée depuis unpkg.com au premier clic, avec contrôle d'intégrité, et les tuiles viennent d'OpenStreetMap (<a href="https://operations.osmfoundation.org/policies/tiles/" rel="noopener">conditions d'utilisation</a>). Le serveur de tuiles voit la zone affichée (environ 1 km au premier zoom) et la page l'adresse ; la position exacte n'est dessinée que sur l'appareil.</li>
         <li><strong>Alertes ECCC</strong> : pour les lieux du Canada seulement, avec un délai de 8 secondes.</li>
         <li>Changer d'onglet ne fait aucun appel : toutes les données du lieu sont déjà en mémoire.</li>
