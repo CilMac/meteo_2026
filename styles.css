@@ -18,6 +18,8 @@
   --attention: #fff4df; --attention-border: #a97930; --attention-ink: #5e4010;
 
   --note: #f1f3ed;
+  --btn-edge: #6f7d73; /* contour commun des boutons de « Lieu actuel » : assez foncé pour se voir sur le papier clair */
+  --pressure: #b3372a; /* pression de « Lieu actuel » : rouge, non gras, pour la distinguer du titre */
   /* une famille de couleur par rubrique : tuile, onglet, pastille de titre */
   --precip-bg: #eef4f8; --precip-sel: #ddebf4; --precip-border: #648599;
   --temp-bg: #faf3e7; --temp-sel: #f2e6ce; --temp-border: #9b8255;
@@ -35,6 +37,8 @@
 @media (prefers-color-scheme: dark) {
   :root {
     color-scheme: dark;
+    --btn-edge: #8e9a90;
+    --pressure: #ff9488;
     --paper: #1b201d; --surface: #252b27; --ink: #eceee8; --muted: #a9b0a6; --line: #3a423d;
     --link: #a5c9d2; --focus: #8fb3c1; --summary: #b4cfc2;
     --button: #2f3830; --button-border: #404a42;
@@ -362,21 +366,29 @@ body:has(dialog.modal[open]) { overflow: hidden; }
 @media (max-width: 520px) {
   .mini-btn { width: 44px; padding: 0; justify-content: center; } .mini-lbl { display: none; }
   /* Petit écran : titre court et boutons réduits à leur icône (le texte reste lu par les lecteurs d'écran) */
-  .mini-act { width: 46px; padding: 0; justify-content: center; }
+  .mini-act { width: 40px; padding: 0; justify-content: center; }
+  .mini-pressure { font-size: 15px; }
+  .mini-top { column-gap: 6px; }
+  .mini-top .mini-titlebar { flex-wrap: nowrap; align-items: center; gap: 6px; }
+  .mini-top h2 { font-size: 17px; white-space: nowrap; flex: none; }
+  .mini-top .mini-side { gap: 4px; }
   .mini-side .btn { justify-content: center; }
   /* Petit écran : Actualiser puis Retour sur la ligne du titre, Retour tout à droite */
   .mini-top .mini-side { flex-direction: row; align-items: center; align-self: center; }
   .mini-side #mini-refresh { order: -1; }
   .mini-act > span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 }
-.mini { max-width: 1160px; margin-inline: auto; padding: 32px 32px 18px; }
+.mini { --mini-pad: 32px; max-width: 1160px; margin-inline: auto; padding: 32px 32px 18px; }
 /* En-tête : titre à gauche ; à droite Retour puis Actualiser, l'un sous l'autre ; nom du lieu suivi du bouton Carte */
+/* Haut de page fixe : titre, boutons, lieu, GPS ; les titres de colonnes se collent juste dessous (--mini-top-h mesurée par app.js), les lignes glissent derrière. */
+.mini-top { position: sticky; top: 0; z-index: 20; margin-inline: calc(-1 * var(--mini-pad)); padding: 8px var(--mini-pad) 8px; background: var(--paper); }
 .mini-top { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "title side" "where side" "gps gps"; column-gap: 12px; align-items: start; }
 .mini-titlebar { grid-area: title; display: flex; align-items: baseline; flex-wrap: wrap; gap: 0 12px; min-width: 0; align-self: center; }
 .mini-top h2 { margin: 0; font-family: var(--font-title); font-size: 26px; line-height: 1.25; min-width: 0; }
-.mini-pressure { font: inherit; font-size: 15px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; padding: 6px 4px; min-height: 32px; background: none; border: 0; border-bottom: 1.5px dotted var(--muted); border-radius: 0; cursor: pointer; }
-.mini-pressure:disabled { cursor: default; border-bottom-color: transparent; }
-.mini-pressure:not(:disabled):hover { color: var(--ink); border-bottom-color: var(--ink); }
+.mini-pressure { font-size: 20px; font-weight: 400; color: var(--pressure); font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* icône seule, à toute largeur (le libellé reste lu par les lecteurs d'écran) */
+.mini-top .mini-baro { flex: none; width: 40px; min-height: 36px; padding: 0; justify-content: center; }
+.mini-baro > span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 /* Baromètre */
 dialog.baro-modal { width: min(440px, calc(100vw - 24px)); }
 .baro-body { text-align: center; }
@@ -402,14 +414,40 @@ dialog.baro-modal { width: min(440px, calc(100vw - 24px)); }
 .mini-map-note { margin: 6px 0 0; }
 .mini-map .leaflet-container, .mini-map.leaflet-container { font: inherit; }
 .mini-map img { max-width: none; }
+/* Calque nuages · pluie, flèche du vent */
+.sky-panel { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; font: 13px/1.25 var(--font-body); color: var(--ink); }
+.sky-switch { white-space: nowrap; display: inline-flex; align-items: center; gap: 8px; min-height: 36px; padding: 4px 6px 4px 10px; font: inherit; font-weight: 600; color: var(--ink); background: var(--surface); border: 2px solid var(--precip-border); border-radius: var(--radius-control); cursor: pointer; box-shadow: 0 1px 4px #0003; }
+.sky-switch-state { min-width: 38px; padding: 3px 8px; border-radius: 999px; font-size: 12px; font-weight: 700; text-align: center; color: var(--muted); background: var(--note); border: 1px solid var(--line); }
+.sky-switch.is-on { background: var(--precip-sel); }
+.sky-switch.is-on .sky-switch-state { color: var(--on-primary); background: var(--primary); border-color: var(--primary-border); }
+.sky-wind { display: flex; align-items: center; gap: 8px; padding: 6px 10px 6px 6px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-control); box-shadow: 0 1px 4px #0003; }
+.sky-wind[hidden], .sky-legend[hidden] { display: none; }
+.sky-wind-text { display: flex; flex-direction: column; gap: 1px; text-align: left; }
+.sky-wind-sub { color: var(--muted); font-size: 12px; }
+.sky-dial { fill: var(--note); stroke: var(--line); stroke-width: 1.5; }
+.sky-n { font: 700 8px var(--font-body); fill: var(--muted); }
+.sky-arrow { fill: var(--primary); stroke: var(--primary); stroke-width: 1.5; stroke-linejoin: round; transform-origin: 24px 24px; }
+.sky-arrow .sky-tail { fill: none; stroke-linecap: round; }
+.sky-legend { width: min(190px, calc(100vw - 80px)); padding: 7px 9px; font: 12px/1.3 var(--font-body); color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-control); box-shadow: 0 1px 4px #0003; }
+.sky-legend p { margin: 0; }
+.sky-leg-title { font-weight: 700; margin-top: 4px !important; }
+.sky-leg-title:first-child { margin-top: 0 !important; }
+.sky-bar { height: 10px; margin-top: 3px; border: 1px solid var(--line); border-radius: 3px; background-color: #fff; }
+.sky-ticks { display: flex; justify-content: space-between; color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+.sky-status { margin: 6px 0 0; }
+.sky-status[hidden] { display: none; }
+.sky-status.is-err { color: var(--ink); background: var(--error); padding: 4px 8px; border-radius: 6px; }
+.leaflet-container .sky-img { max-width: none; }
+.leaflet-control-scale-line { font: 11px var(--font-body); color: #222; }
+@media (max-width: 520px) { .leaflet-bottom.leaflet-left .sky-legend { margin-bottom: 28px; } .sky-panel, .sky-wind-sub { font-size: 12px; } .sky-switch { gap: 6px; padding-left: 8px; } .sky-wind-text { max-width: 8.5em; } .sky-wind { padding-right: 8px; } .sky-legend { width: min(170px, calc(100vw - 90px)); } }
 .mini-place { margin: 0; font-size: 18px; font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
 .mini-gps { margin: 4px 0 14px; font-variant-numeric: tabular-nums; }
 .mini-msg { margin: 10px 0 14px; padding: 10px 14px; border: 1px solid var(--information-border); border-left-width: 4px; border-radius: var(--radius-control); background: var(--information); }
 .mini-msg.is-err { border-color: var(--error-border); background: var(--error); }
-.mini-scroll { overflow-x: auto; }
+.mini-scroll { overflow-x: clip; } /* pas « auto » : un conteneur de défilement empêcherait les titres de colonnes de rester fixes */
 .mini-table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
 .mini-table th, .mini-table td { padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--line); line-height: 1.3; }
-.mini-table thead th { font-size: 13px; font-weight: 600; color: var(--muted); border-bottom-width: 2px; }
+.mini-table thead th { position: sticky; top: var(--mini-top-h, 0px); z-index: 19; background: var(--paper); box-shadow: 0 6px 6px -6px #39433033; font-size: 14px; font-weight: 700; color: var(--ink); border-bottom-width: 2px; vertical-align: bottom; }
 .mini-table tbody th { font-weight: 600; white-space: nowrap; }
 .mini-table td strong { display: block; font-size: 17px; white-space: nowrap; }
 .mini-table td.mini-ico { text-align: center; }
@@ -421,16 +459,21 @@ dialog.baro-modal { width: min(440px, calc(100vw - 24px)); }
 .mini-hour.is-day { background: var(--attention); color: var(--attention-ink); }
 .mini-hour.is-night { background: #2f3a52; color: #e4e9f5; }
 .mini-table tbody tr.mini-noon > * { border-top: 3px solid var(--muted); }
-.mini-table thead th:nth-child(3), .mini-table tbody td:nth-child(3) { width: 28%; }
-.mini-table thead th:nth-child(4), .mini-table tbody td:nth-child(4) { width: 22%; }
-.mini-table thead th:nth-child(5), .mini-table tbody td:nth-child(5) { width: 24%; }
+.mini-table thead th:nth-child(3), .mini-table tbody td:nth-child(3) { width: 20%; }
+.mini-table thead th:nth-child(4), .mini-table tbody td:nth-child(4) { width: 18%; }
+.mini-table thead th:nth-child(5), .mini-table tbody td:nth-child(5) { width: 18%; }
+.mini-table thead th:nth-child(6), .mini-table tbody td:nth-child(6) { width: 22%; }
+.mini-mm { white-space: nowrap; }
+.mini-mm .vbar-box { display: inline-flex; align-items: flex-end; vertical-align: middle; width: 12px; height: 48px; margin-right: 8px; background: color-mix(in srgb, var(--line) 70%, transparent); border-radius: 5px; overflow: hidden; }
+.mini-mm .vbar { width: 100%; background: var(--rain); border-radius: 5px; }
+.mini-mm .vbar.is-over { display: flex; justify-content: center; align-items: flex-start; background: var(--alert-red); color: #fff; font: 700 11px/12px var(--font-body); } /* au-delà de l'échelle : plein, rouge, repère « + » (visible sans la couleur) */
+.mini-mm strong { display: inline-block !important; vertical-align: middle; }
 .mini-sub { display: block; font-size: 13px; color: var(--muted); }
-.mini-table td:nth-child(2) strong { color: var(--rain); }
-.mini-table td:nth-child(4) strong { color: var(--wind); }
+.mini-table td:nth-child(5) strong { color: var(--wind); } /* température : vert, comme avant */
 .mini-table .hbar-box { margin: 5px 0 0; height: 8px; }
 .mini-credit { margin-top: 14px; }
 @media (max-width: 760px) {
-  .mini { padding: 20px 16px 18px; }
+  .mini { --mini-pad: 16px; padding: 20px 16px 18px; }
   .mini-top h2 { font-size: 20px; }
   .mini-top { grid-template-areas: "title side" "where where" "gps gps"; }
   .mini-where { flex-wrap: nowrap; margin-top: 8px; }
@@ -440,7 +483,72 @@ dialog.baro-modal { width: min(440px, calc(100vw - 24px)); }
   .mini-hour { min-width: 2.7em; padding: 2px 5px; font-size: 15px; }
   .mini-table tbody th { padding-inline: 4px; }
   .mini-table thead th:nth-child(1) { padding-inline: 4px; }
-  .mini-table th, .mini-table td { padding: 8px 6px; }
-  .mini-table td strong { font-size: 16px; }
-  .mini-table thead th { font-size: 12px; }
+  .mini-table th, .mini-table td { padding: 8px 3px; }
+  .mini-table td strong { font-size: 14px; }
+  .mini-table thead th { font-size: 11px; padding-inline: 1px; }
+  .mini-ico { min-width: 24px; font-size: 20px; }
+  .mini-table thead th:nth-child(n+3), .mini-table tbody td:nth-child(n+3) { width: auto; }
+  .mini-hour { min-width: 2.4em; padding: 2px 4px; font-size: 14px; }
+  .mini-mm .vbar-box { width: 10px; margin-right: 5px; }
+  .mini-mm .vbar.is-over { font-size: 10px; }
+  .mini-sub { font-size: 12px; }
+}
+
+/* Boutons de « Lieu actuel » : même contour, bien visible (la couleur de fond garde la distinction entre familles) */
+.mini .btn, .mini .btn.nav, .mini .mini-map-btn, .mini-btn { border: 1.5px solid var(--btn-edge); }
+.mini .mini-map-btn[aria-expanded="true"] { border-width: 2px; }
+
+/* Balade dans l'heure : icône d'imperméable discrète à côté de « Carte » ; fenêtre avec verdict, frise de pluie, détails */
+.mini-walk .walk-svg { flex: none; }
+dialog.walk-modal { width: min(480px, calc(100vw - 24px)); }
+.walk-verdict { display: flex; gap: 12px; align-items: center; padding: 12px 14px; border-radius: var(--radius-card); border: 1px solid var(--line); border-left-width: 7px; background: var(--note); }
+.walk-verdict.is-go { border-left-color: var(--success-border); background: var(--success); }
+.walk-verdict.is-short, .walk-verdict.is-light { border-left-color: var(--alert-yellow); background: var(--attention); }
+.walk-verdict.is-wait, .walk-verdict.is-shower, .walk-verdict.is-mixed { border-left-color: var(--alert-orange); background: var(--attention); }
+.walk-verdict.is-no, .walk-verdict.is-storm { border-left-color: var(--alert-red); background: var(--error); }
+.walk-verdict.is-unknown { border-left-color: var(--information-border); background: var(--information); }
+.walk-ico { font-size: 38px; line-height: 1; flex: none; }
+.walk-title { margin: 0; font: 700 19px/1.25 var(--font-title); }
+.walk-text { margin: 4px 0 0; }
+.walk-sub { margin: 14px 0 4px; font-size: 14px; color: var(--muted); }
+.walk-tl { display: flex; gap: 8px; align-items: flex-end; justify-content: space-between; padding: 6px 4px 0; }
+.walk-col { flex: 1 1 0; display: flex; flex-direction: column; align-items: center; min-width: 0; }
+.walk-bar-box { width: 22px; height: 64px; display: flex; align-items: flex-end; background: color-mix(in srgb, var(--line) 70%, transparent); border-radius: 6px; overflow: hidden; }
+.walk-bar { width: 100%; background: var(--rain); border-radius: 6px; }
+.walk-bar.is-over { background: var(--alert-red); }
+.walk-val { margin-top: 3px; font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.walk-time { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.walk-facts { margin: 12px 0 0; padding-left: 20px; font-size: 14px; }
+.walk-h { margin: 16px 0 4px; font: 700 15px/1.3 var(--font-body); }
+.modal-body .walk-remarks { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.walk-remarks li { display: flex; gap: 8px; align-items: flex-start; padding: 7px 10px; border-radius: 8px; border: 1px solid var(--line); border-left-width: 5px; background: var(--note); font-size: 14px; }
+.walk-remarks li.is-warn { border-left-color: var(--alert-orange); background: var(--attention); }
+.walk-remarks li.is-danger { border-left-color: var(--alert-red); background: var(--error); }
+.walk-remarks li.is-info { border-left-color: var(--information-border); }
+.walk-r-ico { flex: none; font-size: 18px; line-height: 1.3; }
+.walk-verdict.is-caution { border-left-color: var(--alert-orange); background: var(--attention); }
+.walk-verdict.is-ice { border-left-color: var(--alert-red); background: var(--error); }
+.walk-note { margin: 12px 0 0; }
+.walk-msg { margin: 8px 0; }
+.walk-msg.is-err { padding: 8px 10px; border-radius: 8px; background: var(--error); border: 1px solid var(--error-border); }
+
+/* Sélecteur d'heure de départ : à droite du titre de « Balade dans l'heure ? » */
+.walk-head { flex-wrap: wrap; }
+.walk-head h2 { flex: 0 1 auto; }
+.walk-head #walk-close { margin-left: auto; }
+.walk-step { display: inline-flex; align-items: center; gap: 4px; flex: none; }
+.walk-step-btn { width: 34px; min-height: 34px; padding: 0; font-size: 22px; line-height: 1; border: 1.5px solid var(--btn-edge); }
+.walk-step-btn:disabled { opacity: .4; cursor: default; }
+.walk-when { min-width: 4.6em; text-align: center; font-weight: 700; font-size: 14px; font-variant-numeric: tabular-nums; }
+/* Tout tient sur une ligne : titre court, sélecteur compact ; sur petit écran « Fermer » devient une croix */
+.walk-head { flex-wrap: nowrap; }
+.walk-x { display: none; }
+@media (max-width: 520px) {
+  .walk-head { gap: 8px; }
+  .walk-head h2 { font-size: 20px; }
+  .walk-step-btn { width: 30px; min-height: 30px; font-size: 20px; }
+  .walk-when { min-width: 0; font-size: 13px; padding: 0 2px; }
+  .walk-head #walk-close { width: 36px; min-height: 36px; padding: 0; }
+  .walk-x-label { display: none; }
+  .walk-x { display: inline; font-size: 16px; }
 }

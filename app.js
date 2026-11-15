@@ -5,6 +5,8 @@ import { loadWarnings } from "./warnings.js";
 import { fetchEnsemble } from "./ensemble.js";
 import { initInfo } from "./info.js";
 import { initBarometer, preloadDial } from "./barometer.js";
+import { createSkyLayer } from "./skymap.js";
+import { initWalk } from "./walkui.js";
 import { fetchObservedPressure, pressureDisplay } from "./observation.js";
 import { getPosition, reverseGeocode, placeFromPosition, formatCoords, deniedHelp, GEO_MAX_AGE_MS } from "./geo.js";
 import { createLoader } from "./loading.js";
@@ -122,7 +124,7 @@ function loadLeaflet() {
   });
   return leafletP;
 }
-const mapState = { map: null, layer: null };
+const mapState = { map: null, layer: null, sky: null };
 function setMapButton(open) { // l'icône reste : seul le libellé change
   $("mini-map-btn").setAttribute("aria-expanded", String(open));
   $("mini-map-label").textContent = open ? "Masquer la carte" : "Carte";
@@ -134,7 +136,12 @@ function drawMap(L) {
     mapState.map = L.map($("mini-map"), { zoomControl: false, attributionControl: true }).setView(here, 15);
     L.control.zoom({ zoomInTitle: "Zoom avant", zoomOutTitle: "Zoom arrière" }).addTo(mapState.map);
     L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "© contributeurs <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a>" }).addTo(mapState.map);
-  } else mapState.map.setView(here, mapState.map.getZoom());
+    L.control.scale({ position: "bottomright", metric: true, imperial: false, maxWidth: 110 }).addTo(mapState.map); // échelle des distances, sous le crédit des cartes
+    mapState.sky = createSkyLayer(L, mapState.map, {
+      getHere: () => ({ lat: geo.coords.latitude, lon: geo.coords.longitude }),
+      fmtTime: (ms) => formatLocal(new Date(ms), geo.data.location.timezone, { hour: "2-digit", minute: "2-digit" }),
+    });
+  } else { mapState.map.setView(here, mapState.map.getZoom()); mapState.sky?.update(); }
   mapState.layer?.remove();
   mapState.layer = L.layerGroup([
     ...(accuracy ? [L.circle(here, { radius: accuracy, color: "#285775", weight: 1, fillOpacity: 0.12 })] : []),
@@ -154,7 +161,8 @@ async function toggleMap() {
 function showMiniPlace(data, coords, named, pressure) {
   const pb = $("mini-pressure");
   pb.textContent = pressure.text; pb.title = pressure.title;
-  pb.disabled = pressure.hpa === null; // sans valeur, rien à montrer sur le cadran
+  $("mini-baro-btn").disabled = pressure.hpa === null; // sans valeur, rien à montrer sur le cadran
+  $("walk-btn").disabled = false; // la position est connue
   $("mini-place").textContent = `📍 ${data.location.name}${data.location.country ? ` (${data.location.country})` : ""}`;
   $("mini-gps").textContent = `GPS : ${formatCoords(coords.latitude, coords.longitude)}${coords.accuracy !== null ? ` · précision ± ${Math.round(coords.accuracy)} m` : ""}${named ? "" : " · nom du lieu indisponible"}`;
   $("mini-body").replaceChildren(buildMini(data));
@@ -164,7 +172,7 @@ async function locate(force = false) {
   const id = ++geo.loadId;
   $("mini-refresh").disabled = true;
   $("mini-map-btn").disabled = true;
-  $("mini-place").textContent = ""; $("mini-gps").textContent = ""; $("mini-pressure").textContent = ""; $("mini-pressure").disabled = true; $("mini-body").replaceChildren();
+  $("mini-place").textContent = ""; $("mini-gps").textContent = ""; $("mini-pressure").textContent = ""; $("mini-baro-btn").disabled = true; $("walk-btn").disabled = true; $("mini-body").replaceChildren();
   miniMessage("Recherche de votre position…");
   try {
     const coords = await getPosition();
@@ -205,7 +213,14 @@ function setMini(open) {
   window.scrollTo({ top: 0 });
   if (open) { locate(false); preloadDial(); $("mini-close").focus(); } else { geo.loadId++; $("mini-open").focus(); } // fermer abandonne une recherche en cours
 }
-initBarometer({ getPressure: () => geo.pressure, openBtn: $("mini-pressure") });
+// Hauteur du haut de page fixe de « Lieu actuel » : les titres de colonnes se collent juste dessous.
+if (typeof ResizeObserver !== "undefined") { const top = document.querySelector(".mini-top"); new ResizeObserver(() => $("mini").style.setProperty("--mini-top-h", `${top.offsetHeight}px`)).observe(top); }
+initWalk({
+  openBtn: $("walk-btn"),
+  getHere: () => (geo.coords ? { lat: geo.coords.latitude, lon: geo.coords.longitude } : null),
+  fmtTime: (ms) => formatLocal(new Date(ms), geo.data?.location.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone, { hour: "2-digit", minute: "2-digit" }),
+});
+initBarometer({ getPressure: () => geo.pressure, openBtn: $("mini-baro-btn") });
 $("mini-open").addEventListener("click", () => setMini(true));
 $("mini-close").addEventListener("click", () => setMini(false));
 $("mini-refresh").addEventListener("click", () => locate(true));

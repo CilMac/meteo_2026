@@ -188,6 +188,7 @@ export const pressureText = (data) => (isNum(data?.current?.pressure) ? `${Math.
 
 // Vue minimale : une ligne par heure à venir (précipitations, température, vent), sans rien d'autre.
 export const MINI_HOURS = 12;
+export const MINI_MM_FULL = 3; // barre de pluie (mm) : échelle fixe et proportionnelle de 0 à 3 mm ; au-delà, barre pleine et rouge (≈ 6 % des heures pluvieuses prévues en France, mesuré sur 8 villes)
 const hourOf = (timeISO) => parseInt(timeISO.slice(11, 13), 10);
 export function miniRows(data, n = MINI_HOURS) {
   const hours = next24h(data).slice(0, n);
@@ -202,6 +203,8 @@ export function miniRows(data, n = MINI_HOURS) {
     sun: sunState(x.time, data.daily),
     afterNoon: hourOf(x.time) === 13, // la ligne de 13 h est précédée d'un trait : matin / après-midi
     icon: w.icon, sky: w.label,
+    mmPct: barPct(x.precip.value, MINI_MM_FULL),
+    mmOver: isNum(x.precip.value) && x.precip.value > MINI_MM_FULL,
     probPct: isNum(x.precipProb.value) ? Math.max(0, Math.min(100, x.precipProb.value)) : null,
     tempPct: !isNum(x.temp.value) ? null : tmax > tmin ? 15 + ((x.temp.value - tmin) / (tmax - tmin)) * 85 : 50,
     tempColor: isNum(x.temp.value) ? tempColor(x.temp.value) : "transparent",
@@ -222,20 +225,23 @@ export function buildMini(data, n = MINI_HOURS) {
   const rows = miniRows(data, n);
   const table = h("table", { class: "mini-table" },
     h("caption", { class: "sr-only", text: `Prévisions des ${rows.length} prochaines heures à ${data.location.name}` }),
-    h("thead", {}, h("tr", {}, h("th", { scope: "col", text: "Heure" }), h("th", { scope: "col", class: "mini-ico-col" }, h("span", { class: "sr-only", text: "Temps" })), h("th", { scope: "col", text: "Précipitations" }), h("th", { scope: "col", text: "Température" }), h("th", { scope: "col", text: "Vent" }))),
+    h("thead", {}, h("tr", {}, h("th", { scope: "col", text: "Heure" }), h("th", { scope: "col", class: "mini-ico-col" }, h("span", { class: "sr-only", text: "Temps" })), h("th", { scope: "col", text: "Pluie" }), h("th", { scope: "col", text: "Probabilité" }), h("th", { scope: "col", text: "Température" }), h("th", { scope: "col", text: "Vent" }))),
     h("tbody", {}, rows.map((r) => h("tr", { class: r.afterNoon ? "mini-noon" : null },
       h("th", { scope: "row" },
         h("span", { class: `mini-hour${r.sun ? ` is-${r.sun}` : ""}`, title: r.sun === "night" ? "Soleil couché" : r.sun === "day" ? "Soleil levé" : null, text: r.hour }),
         r.sun ? h("span", { class: "sr-only", text: r.sun === "night" ? " (soleil couché)" : " (soleil levé)" }) : null),
       h("td", { class: "mini-ico", title: r.sky }, h("span", { "aria-hidden": "true", text: r.icon }), h("span", { class: "sr-only", text: r.sky })),
-      h("td", {}, h("strong", { text: r.precip }), h("span", { class: "mini-sub", text: r.prob }), hbar(r.probPct, "var(--rain)")),
+      h("td", { class: "mini-mm" },
+        h("div", { class: "vbar-box", "aria-hidden": "true" }, isNum(r.mmPct) ? h("div", { class: `vbar${r.mmOver ? " is-over" : ""}`, style: { height: `${minVisible(r.mmPct)}%` } }, r.mmOver ? h("span", { text: "+" }) : null) : null),
+        h("strong", { text: r.precip })),
+      h("td", {}, h("strong", { text: r.prob }), hbar(r.probPct, "var(--rain)")),
       h("td", {}, h("strong", { text: r.temp }), hbar(r.tempPct, r.tempColor)),
       h("td", {}, h("strong", { text: r.wind }), h("span", { class: "mini-sub", text: r.gust }),
         h("div", { class: "hbar-box" },
           isNum(r.gustPct) ? h("div", { class: "hbar", style: { width: `${minVisible(r.gustPct)}%`, background: "var(--wind-2)" } }) : null,
           isNum(r.windPct) ? h("div", { class: "hbar over", style: { width: `${minVisible(r.windPct)}%`, background: "var(--wind)" } }) : null))))));
   const labelOf = (k) => { const ms = new Set(hours.map((x) => x[k].model).filter(Boolean)); return ms.size ? [...ms].map(modelShort).join(" puis ") : "indisponible"; };
-  const notes = `mm : ${labelOf("precip")} · % : ${labelOf("precipProb")} · T : ${labelOf("temp")} · vent : ${labelOf("wind")} · rafales : ${labelOf("gust")}. Barres : pluie = pourcentage ; température = de la plus basse à la plus haute de ces heures ; vent foncé, rafales clair.`;
+  const notes = `mm : ${labelOf("precip")} · % : ${labelOf("precipProb")} · T : ${labelOf("temp")} · vent : ${labelOf("wind")} · rafales : ${labelOf("gust")}. Pluie : barre verticale = hauteur d'eau, proportionnelle de 0 à 3 mm (barre pleine, rouge et « + » au-delà) ; probabilité : barre horizontale = pourcentage ; température = de la plus basse à la plus haute de ces heures ; vent foncé, rafales clair.`;
   return h("div", {}, h("div", { class: "mini-scroll" }, table), h("p", { class: "muted small", text: notes }));
 }
 

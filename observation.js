@@ -67,14 +67,14 @@ export function pressureDisplay(model, observed, fmtTime = (ms) => new Date(ms).
     const detail = `${observed.name} (${observed.station}), à ${Math.round(observed.km)} km, relevé de ${fmtTime(observed.at)}`;
     return {
       hpa: observed.hpa, text: `${observed.hpa} hPa`, measured: true,
-      title: `Pression au niveau de la mer MESURÉE : ${detail}. Toucher pour voir le baromètre.`,
+      title: `Pression au niveau de la mer MESURÉE : ${detail}.`,
       note: `Pression au niveau de la mer mesurée par la station météo d'aéroport la plus proche : ${detail}. Ce n'est pas la mesure de votre emplacement exact. Source : messages METAR, via l'Iowa Environmental Mesonet.`,
     };
   }
   if (isNum(model)) {
     return {
       hpa: model, text: `≈ ${Math.round(model)} hPa`, measured: false,
-      title: "Pression au niveau de la mer CALCULÉE par le modèle (aucune mesure de station récente à proximité). Toucher pour voir le baromètre.",
+      title: "Pression au niveau de la mer CALCULÉE par le modèle (aucune mesure de station récente à proximité).",
       note: "Aucune station avec une mesure récente à proximité : la valeur est calculée par le modèle (pas une mesure).",
     };
   }

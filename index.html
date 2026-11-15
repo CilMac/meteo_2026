@@ -138,7 +138,10 @@
     <div class="mini-top">
       <div class="mini-titlebar">
         <h2 id="mini-title">Lieu actuel</h2>
-        <button type="button" id="mini-pressure" class="mini-pressure" aria-haspopup="dialog" title="Pression au niveau de la mer (valeur calculée par le modèle). Toucher pour voir le baromètre." disabled></button>
+        <span id="mini-pressure" class="mini-pressure" title="Pression au niveau de la mer"></span>
+        <button type="button" id="mini-baro-btn" class="btn mini-act mini-baro" aria-haspopup="dialog" title="Voir le baromètre" disabled>
+          <svg class="mini-svg" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9"/><path d="M12 12l3.5-4.5"/><path d="M7 16.2A6.4 6.4 0 0 1 5.6 12M8.4 7.4A6.4 6.4 0 0 1 12 5.6"/></svg><span>Baromètre</span>
+        </button>
       </div>
       <div class="mini-side">
         <button type="button" id="mini-close" class="btn nav mini-act" title="Revenir à la page météo">
@@ -153,13 +156,16 @@
         <button type="button" id="mini-map-btn" class="btn mini-act mini-map-btn" aria-expanded="false" aria-controls="mini-map-wrap" title="Afficher ou masquer la carte" disabled>
           <svg class="mini-svg" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path d="M9 4 3.5 6v14L9 18l6 2 5.5-2V4L15 6 9 4zM9 4v14M15 6v14"/></svg><span id="mini-map-label">Carte</span>
         </button>
+        <button type="button" id="walk-btn" class="btn mini-act mini-walk" aria-haspopup="dialog" title="Puis-je me promener dans l'heure qui suit ?" disabled>
+          <svg class="mini-svg walk-svg" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false"><path d="M3 12.2C3.6 7.4 7.4 4 12 4s8.4 3.4 9 8.2c-1.1-.9-2.2-1.4-3-1.4-1.2 0-2 .9-3 .9s-1.8-.9-3-.9-2 .9-3 .9-1.8-.9-3-.9c-.8 0-1.9.5-3 1.4z"/><path d="M12 4V2.6M12 11.8V19a2 2 0 0 1-4 0"/></svg><span>Balade ?</span>
+        </button>
       </div>
       <p id="mini-gps" class="muted small mini-gps"></p>
     </div>
     <p id="mini-msg" class="mini-msg" role="status" aria-live="polite" hidden></p>
     <div id="mini-map-wrap" class="mini-map-wrap" hidden>
       <div id="mini-map" class="mini-map" role="region" aria-label="Carte du lieu actuel"></div>
-      <p class="muted small mini-map-note">Zoom : boutons + et −, molette ou deux doigts. Le point bleu est votre position, le disque sa précision.</p>
+      <p class="muted small mini-map-note">Zoom : boutons + et −, molette ou deux doigts. Le point bleu est votre position, le disque sa précision. L'interrupteur « Nuages · pluie » superpose les valeurs des modèles à l'instant présent ; la flèche du vent est toujours affichée.</p>
     </div>
     <div id="mini-body"></div>
     <p class="muted small mini-credit"><a href="https://open-meteo.com/" rel="noopener">Weather data by Open-Meteo.com</a> · Pression : station METAR via <a href="https://mesonet.agron.iastate.edu/" rel="noopener">Iowa Environmental Mesonet</a> · Nom du lieu et carte : © contributeurs <a href="https://www.openstreetmap.org/copyright" rel="noopener">OpenStreetMap</a> (Nominatim)</p>
@@ -179,6 +185,20 @@
     <p class="muted small baro-note">Les mots du cadran sont les indications traditionnelles des baromètres : une pression seule ne fait pas une prévision.</p>
     <p class="muted small baro-note" id="baro-range" hidden>Valeur hors de l'échelle du cadran (950 à 1050 hPa) : l'aiguille est arrêtée à l'extrémité.</p>
   </div>
+</dialog>
+
+<!-- Balade dans l'heure : s'ouvre depuis l'icône d'imperméable de « Lieu actuel » -->
+<dialog id="walk" class="modal walk-modal" aria-labelledby="walk-title">
+  <div class="modal-head walk-head">
+    <h2 id="walk-title">Balade ?</h2>
+    <div class="walk-step" role="group" aria-label="Heure de départ">
+      <button type="button" id="walk-prev" class="btn walk-step-btn" aria-label="Partir une heure plus tôt" title="Une heure plus tôt" disabled>‹</button>
+      <output id="walk-when" class="walk-when" aria-live="polite">Dans l'heure</output>
+      <button type="button" id="walk-next" class="btn walk-step-btn" aria-label="Partir une heure plus tard" title="Une heure plus tard">›</button>
+    </div>
+    <button type="button" id="walk-close" class="btn" aria-label="Fermer"><span class="walk-x-label">Fermer</span><span class="walk-x" aria-hidden="true">✕</span></button>
+  </div>
+  <div class="modal-body walk-body" id="walk-body" aria-live="polite"></div>
 </dialog>
 
 <!-- Chargement en cours : petite fenêtre non bloquante avec barre d'avancement (étapes réellement terminées) -->
@@ -207,9 +227,9 @@
 
       <h3>Choisir un lieu</h3>
       <p>Huit lieux sont proposés dans la liste (Bar-le-Duc par défaut). « Autre lieu » permet de chercher n'importe quelle ville : si plusieurs lieux portent le même nom, on choisit le bon dans la liste. Rien n'est chargé tant qu'on n'a pas cliqué sur « Afficher la météo ». Le dernier lieu validé est retenu sur cet appareil.</p>
-      <p>L'icône de chaussure de randonnée (🥾), en haut à droite, ouvre <strong>« Lieu actuel »</strong> : une vue minimale des 12 prochaines heures à votre <strong>position réelle</strong> (celle de l'appareil ; le navigateur demande l'autorisation). Elle ne change pas le lieu choisi dans la liste. Le haut de la vue donne le nom du lieu, ses coordonnées GPS et la précision de la position, et, à droite du titre, la pression atmosphérique au niveau de la mer en hPa. C'est une <strong>mesure</strong> : le dernier relevé de la station météo d'aéroport la plus proche (à moins de 100 km, relevé de moins de 3 h), dont le nom, la distance et l'heure sont dans l'info-bulle. Sans station récente à proximité, la valeur du modèle la remplace et s'affiche précédée de « ≈ ». Toucher la pression ouvre un baromètre à aiguille, avec l'aiguille sur la valeur. Si la position n'est pas disponible, le motif est affiché et la vue montre alors le lieu choisi sur la page, signalé comme n'étant pas votre position.</p>
+      <p>L'icône de chaussure de randonnée (🥾), en haut à droite, ouvre <strong>« Lieu actuel »</strong> : une vue minimale des 12 prochaines heures à votre <strong>position réelle</strong> (celle de l'appareil ; le navigateur demande l'autorisation). Elle ne change pas le lieu choisi dans la liste. Le haut de la vue donne le nom du lieu, ses coordonnées GPS et la précision de la position, et, à droite du titre, la pression atmosphérique au niveau de la mer en hPa. C'est une <strong>mesure</strong> : le dernier relevé de la station météo d'aéroport la plus proche (à moins de 100 km, relevé de moins de 3 h), dont le nom, la distance et l'heure sont dans l'info-bulle. Sans station récente à proximité, la valeur du modèle la remplace et s'affiche précédée de « ≈ ». Le bouton « Baromètre », juste à droite de la pression, ouvre un baromètre à aiguille, avec l'aiguille sur la valeur. L'icône de parapluie, à côté du bouton « Carte », ouvre « Balade ? » (un petit sélecteur à droite du titre, « Dans l'heure », « +1 h », « +2 h »…, avance le départ d'heure en heure, jusqu'à 8 h : le verdict, la frise et les remarques valent alors pour l'heure qui commence à ce moment-là, et la prévision est moins sûre plus on s'éloigne) : un verdict (pas une goutte en vue, restez près de chez vous, petite pluie ou quelques flocons, attendez, averse de passage, averses successives, vous allez prendre la sauce ou il va neiger toute l'heure, pluie verglaçante, orage, conditions difficiles même sans pluie, ou « je ne sais pas » si les données manquent), une petite frise des précipitations par pas de 15 minutes, une rubrique « À savoir » (forte chaleur, froid, gel et verglas possible, neige au sol, brouillard, vent fort, UV, nuit qui tombe) et quelques faits (précipitation la plus forte, cumul, probabilité, température). Ce sont les valeurs des modèles, pas un radar ; les seuils (pluie faible sous 1 mm/h, modérée sous 4, forte au-delà ; neige faible sous 1 cm/h, modérée sous 3 ; ressenti 30 °C et 35 °C pour la chaleur, 5, 0 et −10 °C pour le froid ; rafales 50 et 75 km/h ; visibilité 1 000 et 200 m ; UV 6 et plus) sont ceux de l'application, pas des seuils officiels. La vigilance canicule officielle n'est pas vérifiée. Si la position n'est pas disponible, le motif est affiché et la vue montre alors le lieu choisi sur la page, signalé comme n'étant pas votre position.</p>
       <ul>
-        <li><strong>Une ligne par heure</strong> : le pictogramme du temps, puis les précipitations (mm, avec le risque en % dessous), la température et le vent (km/h, avec les rafales dessous). Sous chaque valeur, une petite barre : pour la pluie elle suit le pourcentage, pour la température elle va de la plus basse à la plus haute de ces heures, pour le vent la partie foncée est le vent et la claire les rafales.</li>
+        <li><strong>Une ligne par heure</strong> : le pictogramme du temps, puis la pluie (hauteur en mm, avec une barre verticale proportionnelle, échelle fixe de 0 à 3 mm ; au-delà de 3 mm la barre est pleine, rouge et porte un « + », le chiffre donnant la valeur exacte), la probabilité de pluie (en %, barre horizontale qui suit le pourcentage), la température et le vent (km/h, avec les rafales dessous). Les autres petites barres : pour la température elle va de la plus basse à la plus haute de ces heures, pour le vent la partie foncée est le vent et la claire les rafales.</li>
         <li><strong>L'étiquette de l'heure</strong> est ambrée quand le soleil est levé et bleu nuit quand il est couché, d'après le lever et le coucher du jour du lieu. Si ces heures manquent, l'étiquette reste neutre.</li>
         <li><strong>Un trait épais</strong> sépare la ligne de 12 h de celle de 13 h : le matin d'un côté, l'après-midi de l'autre.</li>
         <li>Sur un petit écran (téléphone), les trois boutons n'affichent que leur icône : flèche circulaire pour <strong>Actualiser</strong>, flèche pour <strong>Retour</strong> (tout à droite de la ligne du titre), carte pliée pour <strong>Carte</strong>. <strong>Retour</strong> ferme la vue (la touche Échap aussi). <strong>Actualiser</strong> relit la position et recharge la météo ; sans cela, une même position est gardée 10 minutes. <strong>Carte</strong> (à droite du nom du lieu) affiche une carte centrée sur la position, avec un zoom (boutons + et −, molette ou deux doigts) ; elle n'est chargée qu'au premier clic et le bouton devient « Masquer la carte ».</li>
@@ -272,6 +292,8 @@
         <li><code>weather-provider.js</code> : appel de prévision, normalisation, choix du modèle pour chaque valeur.</li>
         <li><code>ensemble.js</code> : scénarios d'ensemble et statistiques.</li>
         <li><code>weather-render.js</code> : construction des sections, valeurs manquantes, textes, tableau des prochaines heures.</li>
+        <li><code>walk.js</code> et <code>walkui.js</code> : verdict « balade dans l'heure » (pluie à 15 minutes) et sa fenêtre.</li>
+        <li><code>weathermap.js</code> et <code>skymap.js</code> : calque nuages et pluie de la carte, flèche du vent (grille de points, interpolation, flèche, légende).</li>
         <li><code>barometer.js</code> : cadran du baromètre (SVG : échelle, aiguille) et sa fenêtre ; <code>cadran-laiton.webp</code> : image du boîtier en laiton, créée avec ChatGPT à la demande de l'auteur. <code>observation.js</code> : pression mesurée par la station la plus proche.</li>
         <li><code>geo.js</code> : position de l'appareil (arrondie avant tout envoi à un service tiers) et nom du lieu.</li>
         <li><code>warnings.js</code> : vigilances. <code>places.js</code> : favoris et géocodage. <code>info.js</code> : cette fenêtre.</li>
@@ -283,8 +305,9 @@
         <li><strong>Scénarios</strong> : un appel à l'API d'ensemble, chargé après l'affichage de la prévision, pour les jours J+4 à J+14, quatre modèles, variables quotidiennes (maximale, minimale, cumul de pluie). Délai maximal de 12 secondes ; en cas d'échec la page garde la valeur d'un seul scénario et le dit.</li>
         <li><strong>Géocodage</strong> : à chaque recherche d'un autre lieu, jusqu'à 10 résultats.</li>
         <li><strong>Position réelle</strong> (« Lieu actuel ») : la géolocalisation du navigateur donne les coordonnées de l'appareil. Seules des coordonnées arrondies à 0,01° (environ 1 km) quittent l'appareil, vers Open-Meteo (prévision) et vers le service de noms de lieux OpenStreetMap Nominatim (géocodage inverse, un appel par position, <a href="https://operations.osmfoundation.org/policies/nominatim/" rel="noopener">conditions d'utilisation</a>). Sans nom trouvé, la vue affiche « Position GPS ». Le fuseau est celui de l'appareil.</li>
+        <li><strong>Balade dans l'heure</strong> (icône de parapluie de « Lieu actuel », à l'ouverture de la fenêtre seulement) : un appel à Open-Meteo pour la pluie et la neige par pas de 15 minutes, le code météo (orage, verglas), les rafales, les températures, la visibilité et le jour ou la nuit à votre position arrondie à 0,01°, plus la probabilité de précipitations, la neige au sol et l'indice UV de chaque heure, jusqu'à 10 h à l'avance. Avancer le départ ne fait pas de nouvel appel : tout est déjà en mémoire (5 minutes). Résultat mis en mémoire 5 minutes.</li>
         <li><strong>Pression mesurée</strong> : un appel à l'Iowa Environmental Mesonet pour obtenir les derniers messages METAR des stations du pays (par exemple <code>FR__ASOS</code>), sans envoyer votre position : la station la plus proche est choisie sur l'appareil. Disponible pour les pays qui ont un réseau national chez ce service ; pas pour le Canada ni les États-Unis, découpés par région (la valeur du modèle s'affiche alors, précédée de « ≈ »). Le QNH (pression ramenée au niveau de la mer) est lu dans le message (« Q1013 »).</li>
-        <li><strong>Carte</strong> (bouton « Carte », à la demande seulement) : la bibliothèque <a href="https://leafletjs.com/" rel="noopener">Leaflet</a> 1.9.4 est chargée depuis unpkg.com au premier clic, avec contrôle d'intégrité, et les tuiles viennent d'OpenStreetMap (<a href="https://operations.osmfoundation.org/policies/tiles/" rel="noopener">conditions d'utilisation</a>). Le serveur de tuiles voit la zone affichée (environ 1 km au premier zoom) et la page l'adresse ; la position exacte n'est dessinée que sur l'appareil.</li>
+        <li><strong>Carte</strong> (bouton « Carte », à la demande seulement) : la bibliothèque <a href="https://leafletjs.com/" rel="noopener">Leaflet</a> 1.9.4 est chargée depuis unpkg.com au premier clic, avec contrôle d'intégrité, et les tuiles viennent d'OpenStreetMap (<a href="https://operations.osmfoundation.org/policies/tiles/" rel="noopener">conditions d'utilisation</a>). L'interrupteur « Nuages · pluie » de la carte fait, à chaque activation ou déplacement, un appel à Open-Meteo pour une grille d'environ 50 points couvrant la zone affichée (nuages, pluie et vent « à l'instant » ; le premier point est votre position arrondie à 0,01°). L'image est interpolée entre ces points : un ordre de grandeur, pas une observation ; la pluie est le cumul du pas du modèle ramené à l'heure. Le serveur de tuiles voit la zone affichée (environ 1 km au premier zoom) et la page l'adresse ; la position exacte n'est dessinée que sur l'appareil.</li>
         <li><strong>Alertes ECCC</strong> : pour les lieux du Canada seulement, avec un délai de 8 secondes.</li>
         <li>Changer d'onglet ne fait aucun appel : toutes les données du lieu sont déjà en mémoire.</li>
       </ul>
