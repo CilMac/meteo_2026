@@ -4,9 +4,10 @@ import { fetchForecast } from "./weather-provider.js";
 import { loadWarnings } from "./warnings.js";
 import { fetchEnsemble } from "./ensemble.js";
 import { initInfo } from "./info.js";
+import { getPosition, reverseGeocode, placeFromPosition, formatCoords, GEO_MAX_AGE_MS } from "./geo.js";
 import { createLoader } from "./loading.js";
 import { chooseView } from "./device.js";
-import { TABS, buildTopPlace, buildTopNow, buildCurrent, buildHourly, buildWeek, buildTrend, buildCompact, COMPACT_HELP_ITEMS, buildSources, buildWarnings, buildAttribution, warningsStatus, formatLocal } from "./weather-render.js";
+import { TABS, buildTopPlace, buildTopNow, buildCurrent, buildHourly, buildWeek, buildTrend, buildCompact, buildMini, COMPACT_HELP_ITEMS, buildSources, buildWarnings, buildAttribution, warningsStatus, formatLocal } from "./weather-render.js";
 
 const $ = (id) => {
   const el = document.getElementById(id);
@@ -95,6 +96,110 @@ function renderAll() {
   $("refresh").hidden = false;
   updateFreshness();
 }
+
+// Vue minimale : les prochaines heures à la position réelle de l'appareil ; remplace la page tant qu'elle est ouverte.
+// La position n'est jamais stockée (mémoire seulement) ; la prévision est celle de la position, pas du lieu choisi dans la liste.
+const geo = { at: 0, data: null, coords: null, named: true, loadId: 0 };
+function miniMessage(text, kind = "") { const m = $("mini-msg"); m.hidden = !text; m.textContent = text; m.className = `mini-msg${kind ? ` is-${kind}` : ""}`; }
+// Carte : Leaflet est chargé au premier clic seulement (aucun appel réseau tant qu'on ne l'ouvre pas).
+const LEAFLET = {
+  css: { href: "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css", integrity: "sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" },
+  js: { src: "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js", integrity: "sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" },
+};
+let leafletP = null;
+function loadLeaflet() {
+  if (globalThis.L) return Promise.resolve(globalThis.L);
+  leafletP ??= new Promise((resolve, reject) => {
+    const link = document.createElement("link");
+    link.rel = "stylesheet"; link.href = LEAFLET.css.href; link.integrity = LEAFLET.css.integrity; link.crossOrigin = "";
+    const script = document.createElement("script");
+    script.src = LEAFLET.js.src; script.integrity = LEAFLET.js.integrity; script.crossOrigin = "";
+    script.onload = () => resolve(globalThis.L);
+    script.onerror = () => { leafletP = null; script.remove(); reject(new Error("la bibliothèque de carte n'a pas pu être chargée (réseau ou blocage)")); };
+    document.head.append(link, script);
+  });
+  return leafletP;
+}
+const mapState = { map: null, layer: null };
+function setMapButton(open) { // l'icône reste : seul le libellé change
+  $("mini-map-btn").setAttribute("aria-expanded", String(open));
+  $("mini-map-label").textContent = open ? "Masquer la carte" : "Carte";
+}
+function drawMap(L) {
+  const { latitude, longitude, accuracy } = geo.coords;
+  const here = [latitude, longitude];
+  if (!mapState.map) {
+    mapState.map = L.map($("mini-map"), { zoomControl: false, attributionControl: true }).setView(here, 15);
+    L.control.zoom({ zoomInTitle: "Zoom avant", zoomOutTitle: "Zoom arrière" }).addTo(mapState.map);
+    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "© contributeurs <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a>" }).addTo(mapState.map);
+  } else mapState.map.setView(here, mapState.map.getZoom());
+  mapState.layer?.remove();
+  mapState.layer = L.layerGroup([
+    ...(accuracy ? [L.circle(here, { radius: accuracy, color: "#285775", weight: 1, fillOpacity: 0.12 })] : []),
+    L.circleMarker(here, { radius: 8, color: "#ffffff", weight: 3, fillColor: "#285775", fillOpacity: 1 }),
+  ]).addTo(mapState.map);
+  mapState.map.invalidateSize();
+}
+async function toggleMap() {
+  const wrap = $("mini-map-wrap"), btn = $("mini-map-btn");
+  if (!wrap.hidden) { wrap.hidden = true; setMapButton(false); return; }
+  if (!geo.coords) return;
+  wrap.hidden = false; setMapButton(true); btn.disabled = true;
+  try { drawMap(await loadLeaflet()); }
+  catch (e) { wrap.hidden = true; setMapButton(false); miniMessage(`Carte indisponible : ${e.message}`, "err"); }
+  finally { btn.disabled = !geo.coords; }
+}
+function showMiniPlace(data, coords, named) {
+  $("mini-place").textContent = `📍 ${data.location.name}${data.location.country ? ` (${data.location.country})` : ""}`;
+  $("mini-gps").textContent = `GPS : ${formatCoords(coords.latitude, coords.longitude)}${coords.accuracy !== null ? ` · précision ± ${Math.round(coords.accuracy)} m` : ""}${named ? "" : " · nom du lieu indisponible"}`;
+  $("mini-body").replaceChildren(buildMini(data));
+}
+async function locate(force = false) {
+  if (!force && geo.data && Date.now() - geo.at < GEO_MAX_AGE_MS) { showMiniPlace(geo.data, geo.coords, geo.named); miniMessage(""); $("mini-map-btn").disabled = false; return; }
+  const id = ++geo.loadId;
+  $("mini-refresh").disabled = true;
+  $("mini-map-btn").disabled = true;
+  $("mini-place").textContent = ""; $("mini-gps").textContent = ""; $("mini-body").replaceChildren();
+  miniMessage("Recherche de votre position…");
+  try {
+    const coords = await getPosition();
+    if (id !== geo.loadId) return;
+    miniMessage("Position trouvée, chargement de la météo…");
+    let named = null;
+    try { named = await reverseGeocode(coords.latitude, coords.longitude); } catch { /* repli : « Position GPS » */ }
+    if (id !== geo.loadId) return;
+    const place = placeFromPosition(coords, named);
+    if (!place) throw new Error("coordonnées ou fuseau horaire invalides");
+    const data = await fetchForecast(place);
+    if (id !== geo.loadId) return;
+    Object.assign(geo, { at: Date.now(), data, coords, named: Boolean(named) });
+    showMiniPlace(data, coords, Boolean(named));
+    miniMessage("");
+    $("mini-map-btn").disabled = false;
+    if (!$("mini-map-wrap").hidden && globalThis.L) drawMap(globalThis.L); // carte ouverte : recentrée sur la nouvelle position
+  } catch (e) {
+    if (id !== geo.loadId) return;
+    // Échec : dit pourquoi, et ne montre pas pour autant une autre ville comme si c'était la position réelle.
+    $("mini-map-wrap").hidden = true; setMapButton(false);
+    miniMessage(`Position actuelle indisponible : ${e.message}`, "err");
+    if (state.data) {
+      $("mini-place").textContent = `📍 Lieu choisi sur la page : ${state.data.location.name} (${state.data.location.country})`;
+      $("mini-gps").textContent = "Ce n'est pas votre position actuelle.";
+      $("mini-body").replaceChildren(buildMini(state.data));
+    }
+  } finally { if (id === geo.loadId) $("mini-refresh").disabled = false; }
+}
+function setMini(open) {
+  document.querySelector("main.shell").hidden = open;
+  $("mini").hidden = !open;
+  window.scrollTo({ top: 0 });
+  if (open) { locate(false); $("mini-close").focus(); } else { geo.loadId++; $("mini-open").focus(); } // fermer abandonne une recherche en cours
+}
+$("mini-open").addEventListener("click", () => setMini(true));
+$("mini-close").addEventListener("click", () => setMini(false));
+$("mini-refresh").addEventListener("click", () => locate(true));
+$("mini-map-btn").addEventListener("click", toggleMap);
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("mini").hidden) setMini(false); });
 
 // Vigilances et sources : redessinés ensemble, car les sources citent ECCC si ses alertes sont affichées.
 function renderWarnings() {

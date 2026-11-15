@@ -44,6 +44,13 @@ export function isNight(timeISO, daily) {
   return timeISO < rise || timeISO > set;
 }
 
+// Jour, nuit, ou null si le lever et le coucher du jour ne sont pas fournis (rien n'est deviné).
+export function sunState(timeISO, daily) {
+  const day = daily.find((d) => d.date === timeISO.slice(0, 10));
+  if (!day?.sunrise.value || !day?.sunset.value) return null;
+  return isNight(timeISO, daily) ? "night" : "day";
+}
+
 export const hourLabel = (timeISO) => `${parseInt(timeISO.slice(11, 13), 10)} h`;
 
 // Phrase pratique sur les 24 h ; null si aucune donnée de pluie. Pas de conseil de sortie (hors V1).
@@ -174,6 +181,59 @@ export function buildTopNow(data) {
     h("span", { class: "top-icon", "aria-hidden": "true", text: info.icon }),
     h("strong", { text: deg(c.temp) }),
     h("span", { class: "top-desc", text: info.label }));
+}
+
+// Vue minimale : une ligne par heure à venir (précipitations, température, vent), sans rien d'autre.
+export const MINI_HOURS = 12;
+const hourOf = (timeISO) => parseInt(timeISO.slice(11, 13), 10);
+export function miniRows(data, n = MINI_HOURS) {
+  const hours = next24h(data).slice(0, n);
+  // Petits graphiques : pluie = pourcentage (0 à 100, comme partout) ; température = position entre le min et le max de ces heures ; vent = échelle propre à ces heures.
+  const temps = hours.map((x) => x.temp.value).filter(isNum);
+  const tmin = Math.min(...temps), tmax = Math.max(...temps);
+  const wMax = scaleMax(hours.map((x) => x.gust.value ?? x.wind.value), 10);
+  return hours.map((x) => {
+    const w = weatherInfo(x.weatherCode.value, isNight(x.time, data.daily));
+    return {
+    time: x.time,
+    sun: sunState(x.time, data.daily),
+    afterNoon: hourOf(x.time) === 13, // la ligne de 13 h est précédée d'un trait : matin / après-midi
+    icon: w.icon, sky: w.label,
+    probPct: isNum(x.precipProb.value) ? Math.max(0, Math.min(100, x.precipProb.value)) : null,
+    tempPct: !isNum(x.temp.value) ? null : tmax > tmin ? 15 + ((x.temp.value - tmin) / (tmax - tmin)) * 85 : 50,
+    tempColor: isNum(x.temp.value) ? tempColor(x.temp.value) : "transparent",
+    windPct: barPct(x.wind.value, wMax),
+    gustPct: barPct(x.gust.value, wMax),
+    hour: hourLabel(x.time),
+    precip: isNum(x.precip.value) ? `${num1(x.precip.value)} mm` : "— mm",
+    prob: isNum(x.precipProb.value) ? `${num0(x.precipProb.value)} %` : "— %",
+    temp: deg(x.temp.value),
+    wind: isNum(x.wind.value) ? `${num0(x.wind.value)} km/h` : "— km/h",
+    gust: isNum(x.gust.value) ? `raf. ${num0(x.gust.value)}` : "raf. —",
+    };
+  });
+}
+export function buildMini(data, n = MINI_HOURS) {
+  const hours = next24h(data).slice(0, n);
+  if (!hours.length) return h("p", { class: "muted", text: "Données horaires indisponibles." });
+  const rows = miniRows(data, n);
+  const table = h("table", { class: "mini-table" },
+    h("caption", { class: "sr-only", text: `Prévisions des ${rows.length} prochaines heures à ${data.location.name}` }),
+    h("thead", {}, h("tr", {}, h("th", { scope: "col", text: "Heure" }), h("th", { scope: "col", class: "mini-ico-col" }, h("span", { class: "sr-only", text: "Temps" })), h("th", { scope: "col", text: "Précipitations" }), h("th", { scope: "col", text: "Température" }), h("th", { scope: "col", text: "Vent" }))),
+    h("tbody", {}, rows.map((r) => h("tr", { class: r.afterNoon ? "mini-noon" : null },
+      h("th", { scope: "row" },
+        h("span", { class: `mini-hour${r.sun ? ` is-${r.sun}` : ""}`, title: r.sun === "night" ? "Soleil couché" : r.sun === "day" ? "Soleil levé" : null, text: r.hour }),
+        r.sun ? h("span", { class: "sr-only", text: r.sun === "night" ? " (soleil couché)" : " (soleil levé)" }) : null),
+      h("td", { class: "mini-ico", title: r.sky }, h("span", { "aria-hidden": "true", text: r.icon }), h("span", { class: "sr-only", text: r.sky })),
+      h("td", {}, h("strong", { text: r.precip }), h("span", { class: "mini-sub", text: r.prob }), hbar(r.probPct, "var(--rain)")),
+      h("td", {}, h("strong", { text: r.temp }), hbar(r.tempPct, r.tempColor)),
+      h("td", {}, h("strong", { text: r.wind }), h("span", { class: "mini-sub", text: r.gust }),
+        h("div", { class: "hbar-box" },
+          isNum(r.gustPct) ? h("div", { class: "hbar", style: { width: `${minVisible(r.gustPct)}%`, background: "var(--wind-2)" } }) : null,
+          isNum(r.windPct) ? h("div", { class: "hbar over", style: { width: `${minVisible(r.windPct)}%`, background: "var(--wind)" } }) : null))))));
+  const labelOf = (k) => { const ms = new Set(hours.map((x) => x[k].model).filter(Boolean)); return ms.size ? [...ms].map(modelShort).join(" puis ") : "indisponible"; };
+  const notes = `mm : ${labelOf("precip")} · % : ${labelOf("precipProb")} · T : ${labelOf("temp")} · vent : ${labelOf("wind")} · rafales : ${labelOf("gust")}. Barres : pluie = pourcentage ; température = de la plus basse à la plus haute de ces heures ; vent foncé, rafales clair.`;
+  return h("div", {}, h("div", { class: "mini-scroll" }, table), h("p", { class: "muted small", text: notes }));
 }
 
 // Bandeau 24 h piloté par l'onglet actif.
