@@ -359,7 +359,7 @@ body:has(dialog.modal[open]) { overflow: hidden; }
 .head-actions .info-btn { margin-top: 0; }
 .mini-t-short { display: none; }
 .mini-btn { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; font-weight: 600; background: var(--precip-bg); border-color: var(--precip-border); }
-.mini-btn .vb-svg { flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.mini-ico-boot { flex: none; font-size: 24px; line-height: 1; }
 @media (max-width: 520px) {
   .mini-btn { width: 44px; padding: 0; justify-content: center; } .mini-lbl { display: none; }
   /* Petit écran : titre court et boutons réduits à leur icône (le texte reste lu par les lecteurs d'écran) */

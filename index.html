@@ -22,7 +22,7 @@
     </div>
     <div class="head-actions">
       <button type="button" id="mini-open" class="btn mini-btn" aria-label="Prochaines heures - lieu actuel" title="Prochaines heures - lieu actuel : précipitations, température et vent">
-        <svg class="vb-svg" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="8.5"/><path d="M12 7v5l3.2 2"/></svg><span class="mini-lbl">Prochaines heures - lieu actuel</span>
+        <span class="mini-ico-boot" aria-hidden="true">🥾</span><span class="mini-lbl">Prochaines heures - lieu actuel</span>
       </button>
       <button type="button" id="info-open" class="info-btn" aria-haspopup="dialog" aria-label="Informations sur l'application" title="Informations">i</button>
     </div>
@@ -189,7 +189,7 @@
 
       <h3>Choisir un lieu</h3>
       <p>Huit lieux sont proposés dans la liste (Bar-le-Duc par défaut). « Autre lieu » permet de chercher n'importe quelle ville : si plusieurs lieux portent le même nom, on choisit le bon dans la liste. Rien n'est chargé tant qu'on n'a pas cliqué sur « Afficher la météo ». Le dernier lieu validé est retenu sur cet appareil.</p>
-      <p>L'icône d'horloge, en haut à droite, ouvre <strong>« Prochaines heures - lieu actuel »</strong> : une vue minimale des 12 prochaines heures à votre <strong>position réelle</strong> (celle de l'appareil ; le navigateur demande l'autorisation). Elle ne change pas le lieu choisi dans la liste. Le haut de la vue donne le nom du lieu, ses coordonnées GPS et la précision de la position. Si la position n'est pas disponible, le motif est affiché et la vue montre alors le lieu choisi sur la page, signalé comme n'étant pas votre position.</p>
+      <p>L'icône de chaussure de randonnée (🥾), en haut à droite, ouvre <strong>« Prochaines heures - lieu actuel »</strong> : une vue minimale des 12 prochaines heures à votre <strong>position réelle</strong> (celle de l'appareil ; le navigateur demande l'autorisation). Elle ne change pas le lieu choisi dans la liste. Le haut de la vue donne le nom du lieu, ses coordonnées GPS et la précision de la position. Si la position n'est pas disponible, le motif est affiché et la vue montre alors le lieu choisi sur la page, signalé comme n'étant pas votre position.</p>
       <ul>
         <li><strong>Une ligne par heure</strong> : le pictogramme du temps, puis les précipitations (mm, avec le risque en % dessous), la température et le vent (km/h, avec les rafales dessous). Sous chaque valeur, une petite barre : pour la pluie elle suit le pourcentage, pour la température elle va de la plus basse à la plus haute de ces heures, pour le vent la partie foncée est le vent et la claire les rafales.</li>
         <li><strong>L'étiquette de l'heure</strong> est ambrée quand le soleil est levé et bleu nuit quand il est couché, d'après le lever et le coucher du jour du lieu. Si ces heures manquent, l'étiquette reste neutre.</li>
