@@ -4,9 +4,9 @@ import { fetchForecast } from "./weather-provider.js";
 import { loadWarnings } from "./warnings.js";
 import { fetchEnsemble } from "./ensemble.js";
 import { initInfo } from "./info.js";
-import { getPosition, reverseGeocode, placeFromPosition, formatCoords, GEO_MAX_AGE_MS } from "./geo.js";
+import { getPosition, reverseGeocode, placeFromPosition, formatCoords, deniedHelp, GEO_MAX_AGE_MS } from "./geo.js";
 import { createLoader } from "./loading.js";
-import { chooseView } from "./device.js";
+import { chooseView, isIOS } from "./device.js";
 import { TABS, buildTopPlace, buildTopNow, buildCurrent, buildHourly, buildWeek, buildTrend, buildCompact, buildMini, COMPACT_HELP_ITEMS, buildSources, buildWarnings, buildAttribution, warningsStatus, formatLocal } from "./weather-render.js";
 
 const $ = (id) => {
@@ -181,7 +181,7 @@ async function locate(force = false) {
     if (id !== geo.loadId) return;
     // Échec : dit pourquoi, et ne montre pas pour autant une autre ville comme si c'était la position réelle.
     $("mini-map-wrap").hidden = true; setMapButton(false);
-    miniMessage(`Position actuelle indisponible : ${e.message}`, "err");
+    miniMessage(`Position actuelle indisponible : ${e.message}${e.kind === "denied" ? ` ${deniedHelp(isIOS())}` : ""}`, "err");
     if (state.data) {
       $("mini-place").textContent = `📍 Lieu choisi sur la page : ${state.data.location.name} (${state.data.location.country})`;
       $("mini-gps").textContent = "Ce n'est pas votre position actuelle.";

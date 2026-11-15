@@ -38,6 +38,13 @@ export function getPosition({ geolocation = globalThis.navigator?.geolocation, t
   });
 }
 
+// Que faire après un refus : iOS mémorise le refus par site, il faut le lever dans Safari (et le Service de localisation doit être actif).
+export function deniedHelp(ios) {
+  return ios
+    ? "Sur iPhone : dans Safari, touchez « aA » à gauche de la barre d'adresse, puis « Réglages du site web » → Localisation → Autoriser, et rechargez la page. Vérifiez aussi Réglages → Confidentialité et sécurité → Service de localisation (activé, et « Sites web de Safari » pas sur « Jamais »)."
+    : "Vérifiez aussi les réglages de localisation du système (le navigateur doit y être autorisé), puis rechargez la page.";
+}
+
 // Nom du lieu le plus proche. Ne devine rien : si le service ne répond pas ou ne nomme rien, l'appelant le sait.
 const cache = new Map();
 export async function reverseGeocode(lat, lon, { fetchImpl = fetch } = {}) {

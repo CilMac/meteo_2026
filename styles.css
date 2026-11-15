@@ -357,15 +357,23 @@ body:has(dialog.modal[open]) { overflow: hidden; }
 /* Vue minimale : les prochaines heures, un tableau et rien d'autre */
 .head-actions { display: flex; align-items: center; gap: 8px; flex: none; margin-top: 4px; }
 .head-actions .info-btn { margin-top: 0; }
+.mini-t-short { display: none; }
 .mini-btn { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; font-weight: 600; background: var(--precip-bg); border-color: var(--precip-border); }
 .mini-btn .vb-svg { flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-@media (max-width: 520px) { .mini-btn { width: 44px; padding: 0; justify-content: center; } .mini-lbl { display: none; } }
+@media (max-width: 520px) {
+  .mini-btn { width: 44px; padding: 0; justify-content: center; } .mini-lbl { display: none; }
+  /* Petit écran : titre court et boutons réduits à leur icône (le texte reste lu par les lecteurs d'écran) */
+  .mini-t-long { display: none; } .mini-t-short { display: inline; }
+  .mini-act { width: 46px; padding: 0; justify-content: center; }
+  .mini-side .btn { justify-content: center; }
+  .mini-act > span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+}
 .mini { max-width: 1160px; margin-inline: auto; padding: 32px 32px 18px; }
 /* En-tête : titre à gauche ; à droite Retour puis Actualiser, l'un sous l'autre ; nom du lieu suivi du bouton Carte */
 .mini-top { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "title side" "where side" "gps gps"; column-gap: 12px; align-items: start; }
 .mini-top h2 { grid-area: title; margin: 0; font-family: var(--font-title); font-size: 26px; line-height: 1.25; min-width: 0; align-self: center; }
 .mini-side { grid-area: side; display: flex; flex-direction: column; gap: 8px; }
-.mini-side .btn { justify-content: flex-start; }
+@media (min-width: 521px) { .mini-side .btn { justify-content: flex-start; } }
 .mini-where { grid-area: where; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin: 10px 0 2px; min-width: 0; }
 .mini-top .mini-gps { grid-area: gps; }
 .mini-act { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; font-weight: 600; }
