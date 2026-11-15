@@ -4,11 +4,12 @@ import { fetchForecast } from "./weather-provider.js";
 import { loadWarnings } from "./warnings.js";
 import { fetchEnsemble } from "./ensemble.js";
 import { initInfo } from "./info.js";
-import { initBarometer } from "./barometer.js";
+import { initBarometer, preloadDial } from "./barometer.js";
+import { fetchObservedPressure, pressureDisplay } from "./observation.js";
 import { getPosition, reverseGeocode, placeFromPosition, formatCoords, deniedHelp, GEO_MAX_AGE_MS } from "./geo.js";
 import { createLoader } from "./loading.js";
 import { chooseView, isIOS } from "./device.js";
-import { TABS, buildTopPlace, buildTopNow, buildCurrent, buildHourly, buildWeek, buildTrend, buildCompact, buildMini, pressureText, COMPACT_HELP_ITEMS, buildSources, buildWarnings, buildAttribution, warningsStatus, formatLocal } from "./weather-render.js";
+import { TABS, buildTopPlace, buildTopNow, buildCurrent, buildHourly, buildWeek, buildTrend, buildCompact, buildMini, COMPACT_HELP_ITEMS, buildSources, buildWarnings, buildAttribution, warningsStatus, formatLocal } from "./weather-render.js";
 
 const $ = (id) => {
   const el = document.getElementById(id);
@@ -100,7 +101,7 @@ function renderAll() {
 
 // Vue minimale : les prochaines heures à la position réelle de l'appareil ; remplace la page tant qu'elle est ouverte.
 // La position n'est jamais stockée (mémoire seulement) ; la prévision est celle de la position, pas du lieu choisi dans la liste.
-const geo = { at: 0, data: null, coords: null, named: true, loadId: 0 };
+const geo = { at: 0, data: null, coords: null, named: true, pressure: null, loadId: 0 };
 function miniMessage(text, kind = "") { const m = $("mini-msg"); m.hidden = !text; m.textContent = text; m.className = `mini-msg${kind ? ` is-${kind}` : ""}`; }
 // Carte : Leaflet est chargé au premier clic seulement (aucun appel réseau tant qu'on ne l'ouvre pas).
 const LEAFLET = {
@@ -150,15 +151,16 @@ async function toggleMap() {
   catch (e) { wrap.hidden = true; setMapButton(false); miniMessage(`Carte indisponible : ${e.message}`, "err"); }
   finally { btn.disabled = !geo.coords; }
 }
-function showMiniPlace(data, coords, named) {
-  $("mini-pressure").textContent = pressureText(data);
-  $("mini-pressure").disabled = typeof data.current.pressure !== "number"; // sans valeur, rien à montrer sur le cadran
+function showMiniPlace(data, coords, named, pressure) {
+  const pb = $("mini-pressure");
+  pb.textContent = pressure.text; pb.title = pressure.title;
+  pb.disabled = pressure.hpa === null; // sans valeur, rien à montrer sur le cadran
   $("mini-place").textContent = `📍 ${data.location.name}${data.location.country ? ` (${data.location.country})` : ""}`;
   $("mini-gps").textContent = `GPS : ${formatCoords(coords.latitude, coords.longitude)}${coords.accuracy !== null ? ` · précision ± ${Math.round(coords.accuracy)} m` : ""}${named ? "" : " · nom du lieu indisponible"}`;
   $("mini-body").replaceChildren(buildMini(data));
 }
 async function locate(force = false) {
-  if (!force && geo.data && Date.now() - geo.at < GEO_MAX_AGE_MS) { showMiniPlace(geo.data, geo.coords, geo.named); miniMessage(""); $("mini-map-btn").disabled = false; return; }
+  if (!force && geo.data && Date.now() - geo.at < GEO_MAX_AGE_MS) { showMiniPlace(geo.data, geo.coords, geo.named, geo.pressure); miniMessage(""); $("mini-map-btn").disabled = false; return; }
   const id = ++geo.loadId;
   $("mini-refresh").disabled = true;
   $("mini-map-btn").disabled = true;
@@ -173,10 +175,15 @@ async function locate(force = false) {
     if (id !== geo.loadId) return;
     const place = placeFromPosition(coords, named);
     if (!place) throw new Error("coordonnées ou fuseau horaire invalides");
-    const data = await fetchForecast(place);
+    // Prévision et pression mesurée (station la plus proche) en parallèle ; sans mesure, la valeur du modèle reste, marquée « ≈ ».
+    const [data, observed] = await Promise.all([
+      fetchForecast(place),
+      fetchObservedPressure({ latitude: coords.latitude, longitude: coords.longitude, countryCode: place.countryCode }).catch(() => null),
+    ]);
     if (id !== geo.loadId) return;
-    Object.assign(geo, { at: Date.now(), data, coords, named: Boolean(named) });
-    showMiniPlace(data, coords, Boolean(named));
+    const pressure = pressureDisplay(data.current.pressure, observed, (ms) => formatLocal(new Date(ms), data.location.timezone, { hour: "2-digit", minute: "2-digit" }));
+    Object.assign(geo, { at: Date.now(), data, coords, named: Boolean(named), pressure });
+    showMiniPlace(data, coords, Boolean(named), pressure);
     miniMessage("");
     $("mini-map-btn").disabled = false;
     if (!$("mini-map-wrap").hidden && globalThis.L) drawMap(globalThis.L); // carte ouverte : recentrée sur la nouvelle position
@@ -196,9 +203,9 @@ function setMini(open) {
   document.querySelector("main.shell").hidden = open;
   $("mini").hidden = !open;
   window.scrollTo({ top: 0 });
-  if (open) { locate(false); $("mini-close").focus(); } else { geo.loadId++; $("mini-open").focus(); } // fermer abandonne une recherche en cours
+  if (open) { locate(false); preloadDial(); $("mini-close").focus(); } else { geo.loadId++; $("mini-open").focus(); } // fermer abandonne une recherche en cours
 }
-initBarometer({ getPressure: () => geo.data?.current.pressure ?? null, openBtn: $("mini-pressure") });
+initBarometer({ getPressure: () => geo.pressure, openBtn: $("mini-pressure") });
 $("mini-open").addEventListener("click", () => setMini(true));
 $("mini-close").addEventListener("click", () => setMini(false));
 $("mini-refresh").addEventListener("click", () => locate(true));

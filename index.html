@@ -162,7 +162,7 @@
       <p class="muted small mini-map-note">Zoom : boutons + et −, molette ou deux doigts. Le point bleu est votre position, le disque sa précision.</p>
     </div>
     <div id="mini-body"></div>
-    <p class="muted small mini-credit"><a href="https://open-meteo.com/" rel="noopener">Weather data by Open-Meteo.com</a> · Nom du lieu et carte : © contributeurs <a href="https://www.openstreetmap.org/copyright" rel="noopener">OpenStreetMap</a> (Nominatim)</p>
+    <p class="muted small mini-credit"><a href="https://open-meteo.com/" rel="noopener">Weather data by Open-Meteo.com</a> · Pression : station METAR via <a href="https://mesonet.agron.iastate.edu/" rel="noopener">Iowa Environmental Mesonet</a> · Nom du lieu et carte : © contributeurs <a href="https://www.openstreetmap.org/copyright" rel="noopener">OpenStreetMap</a> (Nominatim)</p>
   </div>
 </section>
 
@@ -175,7 +175,8 @@
   <div class="modal-body baro-body">
     <div id="baro-dial" class="baro-dial"></div>
     <p class="baro-value" id="baro-value"></p>
-    <p class="muted small baro-note">Pression atmosphérique au niveau de la mer, valeur calculée par le modèle (pas une mesure). Les mots du cadran sont les indications traditionnelles des baromètres : une pression seule ne fait pas une prévision.</p>
+    <p class="small baro-note" id="baro-src"></p>
+    <p class="muted small baro-note">Les mots du cadran sont les indications traditionnelles des baromètres : une pression seule ne fait pas une prévision.</p>
     <p class="muted small baro-note" id="baro-range" hidden>Valeur hors de l'échelle du cadran (950 à 1050 hPa) : l'aiguille est arrêtée à l'extrémité.</p>
   </div>
 </dialog>
@@ -206,7 +207,7 @@
 
       <h3>Choisir un lieu</h3>
       <p>Huit lieux sont proposés dans la liste (Bar-le-Duc par défaut). « Autre lieu » permet de chercher n'importe quelle ville : si plusieurs lieux portent le même nom, on choisit le bon dans la liste. Rien n'est chargé tant qu'on n'a pas cliqué sur « Afficher la météo ». Le dernier lieu validé est retenu sur cet appareil.</p>
-      <p>L'icône de chaussure de randonnée (🥾), en haut à droite, ouvre <strong>« Lieu actuel »</strong> : une vue minimale des 12 prochaines heures à votre <strong>position réelle</strong> (celle de l'appareil ; le navigateur demande l'autorisation). Elle ne change pas le lieu choisi dans la liste. Le haut de la vue donne le nom du lieu, ses coordonnées GPS et la précision de la position, et, à droite du titre, la pression atmosphérique au niveau de la mer en hPa (une valeur calculée par le modèle, pas une mesure). Toucher cette pression ouvre un baromètre à aiguille, avec l'aiguille sur la valeur. Si la position n'est pas disponible, le motif est affiché et la vue montre alors le lieu choisi sur la page, signalé comme n'étant pas votre position.</p>
+      <p>L'icône de chaussure de randonnée (🥾), en haut à droite, ouvre <strong>« Lieu actuel »</strong> : une vue minimale des 12 prochaines heures à votre <strong>position réelle</strong> (celle de l'appareil ; le navigateur demande l'autorisation). Elle ne change pas le lieu choisi dans la liste. Le haut de la vue donne le nom du lieu, ses coordonnées GPS et la précision de la position, et, à droite du titre, la pression atmosphérique au niveau de la mer en hPa. C'est une <strong>mesure</strong> : le dernier relevé de la station météo d'aéroport la plus proche (à moins de 100 km, relevé de moins de 3 h), dont le nom, la distance et l'heure sont dans l'info-bulle. Sans station récente à proximité, la valeur du modèle la remplace et s'affiche précédée de « ≈ ». Toucher la pression ouvre un baromètre à aiguille, avec l'aiguille sur la valeur. Si la position n'est pas disponible, le motif est affiché et la vue montre alors le lieu choisi sur la page, signalé comme n'étant pas votre position.</p>
       <ul>
         <li><strong>Une ligne par heure</strong> : le pictogramme du temps, puis les précipitations (mm, avec le risque en % dessous), la température et le vent (km/h, avec les rafales dessous). Sous chaque valeur, une petite barre : pour la pluie elle suit le pourcentage, pour la température elle va de la plus basse à la plus haute de ces heures, pour le vent la partie foncée est le vent et la claire les rafales.</li>
         <li><strong>L'étiquette de l'heure</strong> est ambrée quand le soleil est levé et bleu nuit quand il est couché, d'après le lever et le coucher du jour du lieu. Si ces heures manquent, l'étiquette reste neutre.</li>
@@ -244,6 +245,7 @@
       <h3>Sources et licences</h3>
       <ul>
         <li><a href="https://open-meteo.com/" rel="noopener">Weather data by Open-Meteo.com</a> : prévisions, scénarios d'ensemble et recherche de lieux (<a href="https://open-meteo.com/en/terms" rel="noopener">conditions d'utilisation</a>, usage non commercial).</li>
+        <li><a href="https://mesonet.agron.iastate.edu/" rel="noopener">Iowa Environmental Mesonet</a> (Université d'État de l'Iowa, domaine public) : messages METAR des stations d'aéroport, pour la pression mesurée de la vue « Lieu actuel ».</li>
         <li><strong>Météo-France</strong> (AROME, ARPEGE, via Open-Meteo), sous Licence Ouverte : « Source : Météo-France », mentionné seulement quand ses valeurs sont affichées.</li>
         <li><strong>ECMWF</strong>, <strong>NOAA (GFS)</strong>, <strong>JMA</strong> et <strong>Environnement et Changement climatique Canada (GEM)</strong>, via Open-Meteo.</li>
         <li>Alertes canadiennes : <em>Contains information licenced under the Data Server End-use Licence of Environment and Climate Change Canada.</em></li>
@@ -270,7 +272,7 @@
         <li><code>weather-provider.js</code> : appel de prévision, normalisation, choix du modèle pour chaque valeur.</li>
         <li><code>ensemble.js</code> : scénarios d'ensemble et statistiques.</li>
         <li><code>weather-render.js</code> : construction des sections, valeurs manquantes, textes, tableau des prochaines heures.</li>
-        <li><code>barometer.js</code> : cadran du baromètre (SVG) et sa fenêtre.</li>
+        <li><code>barometer.js</code> : cadran du baromètre (SVG : échelle, aiguille) et sa fenêtre ; <code>cadran-laiton.webp</code> : image du boîtier en laiton, créée avec ChatGPT à la demande de l'auteur. <code>observation.js</code> : pression mesurée par la station la plus proche.</li>
         <li><code>geo.js</code> : position de l'appareil (arrondie avant tout envoi à un service tiers) et nom du lieu.</li>
         <li><code>warnings.js</code> : vigilances. <code>places.js</code> : favoris et géocodage. <code>info.js</code> : cette fenêtre.</li>
       </ul>
@@ -281,6 +283,7 @@
         <li><strong>Scénarios</strong> : un appel à l'API d'ensemble, chargé après l'affichage de la prévision, pour les jours J+4 à J+14, quatre modèles, variables quotidiennes (maximale, minimale, cumul de pluie). Délai maximal de 12 secondes ; en cas d'échec la page garde la valeur d'un seul scénario et le dit.</li>
         <li><strong>Géocodage</strong> : à chaque recherche d'un autre lieu, jusqu'à 10 résultats.</li>
         <li><strong>Position réelle</strong> (« Lieu actuel ») : la géolocalisation du navigateur donne les coordonnées de l'appareil. Seules des coordonnées arrondies à 0,01° (environ 1 km) quittent l'appareil, vers Open-Meteo (prévision) et vers le service de noms de lieux OpenStreetMap Nominatim (géocodage inverse, un appel par position, <a href="https://operations.osmfoundation.org/policies/nominatim/" rel="noopener">conditions d'utilisation</a>). Sans nom trouvé, la vue affiche « Position GPS ». Le fuseau est celui de l'appareil.</li>
+        <li><strong>Pression mesurée</strong> : un appel à l'Iowa Environmental Mesonet pour obtenir les derniers messages METAR des stations du pays (par exemple <code>FR__ASOS</code>), sans envoyer votre position : la station la plus proche est choisie sur l'appareil. Disponible pour les pays qui ont un réseau national chez ce service ; pas pour le Canada ni les États-Unis, découpés par région (la valeur du modèle s'affiche alors, précédée de « ≈ »). Le QNH (pression ramenée au niveau de la mer) est lu dans le message (« Q1013 »).</li>
         <li><strong>Carte</strong> (bouton « Carte », à la demande seulement) : la bibliothèque <a href="https://leafletjs.com/" rel="noopener">Leaflet</a> 1.9.4 est chargée depuis unpkg.com au premier clic, avec contrôle d'intégrité, et les tuiles viennent d'OpenStreetMap (<a href="https://operations.osmfoundation.org/policies/tiles/" rel="noopener">conditions d'utilisation</a>). Le serveur de tuiles voit la zone affichée (environ 1 km au premier zoom) et la page l'adresse ; la position exacte n'est dessinée que sur l'appareil.</li>
         <li><strong>Alertes ECCC</strong> : pour les lieux du Canada seulement, avec un délai de 8 secondes.</li>
         <li>Changer d'onglet ne fait aucun appel : toutes les données du lieu sont déjà en mémoire.</li>

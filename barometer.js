@@ -3,6 +3,16 @@
 
 export const BARO_MIN = 950, BARO_MAX = 1050, BARO_START = -135, BARO_SWEEP = 270;
 const C = 160; // centre du cadran (viewBox 320 × 320)
+// Image du boîtier (cadran-laiton.webp, 1254 × 1254 px, créée avec ChatGPT) : positions mesurées sur l'image.
+export const DIAL_IMG = {
+  file: "cadran-laiton.webp", px: 1254,
+  faceX: 621, faceY: 635,      // centre du fond de cadran = axe de l'aiguille
+  outerX: 623.3, outerY: 628.9, outerR: 603, // cercle extérieur du boîtier (pour le découpage)
+  scale: 0.26,                 // unités du dessin par pixel de l'image : le boîtier tient dans les 320 unités
+  k: 0.8,                      // l'échelle (dessinée pour un cadran de 137) est réduite pour tenir dans le fond de 117 unités
+};
+// Chargement anticipé de l'image, pour qu'elle soit prête à l'ouverture de la fenêtre.
+export const preloadDial = () => { if (typeof Image !== "undefined") new Image().src = DIAL_IMG.file; };
 const isNum = (v) => typeof v === "number" && Number.isFinite(v);
 
 // Angle de l'aiguille en degrés, 0° = midi, sens horaire ; borné aux extrémités de l'échelle.
@@ -26,43 +36,40 @@ export function baroSvg(pressure) {
     const big = p % 10 === 0, mid = p % 5 === 0;
     const [x0, y0] = pt(p, 128), [x1, y1] = pt(p, big ? 113 : mid ? 118 : 122);
     ticks += `<line x1="${f(x0)}" y1="${f(y0)}" x2="${f(x1)}" y2="${f(y1)}" stroke="#3b2f1e" stroke-width="${big ? 2 : mid ? 1.4 : 0.8}" stroke-linecap="round"/>`;
-    if (big) { const [tx, ty] = pt(p, 97); nums += `<text x="${f(tx)}" y="${f(ty)}" text-anchor="middle" dominant-baseline="central" font-size="13" font-weight="700">${p}</text>`; }
+    if (big) { const [tx, ty] = pt(p, 97); nums += `<text x="${f(tx)}" y="${f(ty)}" text-anchor="middle" dominant-baseline="central" font-size="15" font-weight="700">${p}</text>`; }
   }
   let zones = "", defs = "";
   BARO_ZONES.forEach((z, i) => {
     defs += `<path id="bz${i}" d="${arc(z.from, z.to, 74)}"/>`;
-    zones += `<text font-size="10" letter-spacing="2" fill="#6b4a1e"><textPath href="#bz${i}" startOffset="50%" text-anchor="middle">${z.word}</textPath></text>`;
+    zones += `<text font-size="11.5" letter-spacing="2" fill="#6b4a1e"><textPath href="#bz${i}" startOffset="50%" text-anchor="middle">${z.word}</textPath></text>`;
   });
   const angle = has ? baroAngle(pressure) : BARO_START;
   const needle = has ? `<g class="baro-needle" data-angle="${f(angle)}" style="transform-origin:${C}px ${C}px;transform:rotate(${f(angle)}deg)" filter="url(#bshadow)">
       <path d="M${C} 44 L${C + 4.6} 150 L${C} 182 L${C - 4.6} 150 Z" fill="#241b12"/>
       <path d="M${C} 52 L${C + 1.6} 150 L${C} 160 L${C - 1.6} 150 Z" fill="#7a5a2a" opacity=".55"/>
     </g>` : "";
+  const D = DIAL_IMG, s = D.scale;
+  const imgX = f(C - D.faceX * s), imgY = f(C - D.faceY * s), imgS = f(D.px * s);
+  const clipX = f(C + (D.outerX - D.faceX) * s), clipY = f(C + (D.outerY - D.faceY) * s), clipR = f((D.outerR - 4) * s);
   return `<svg class="baro-svg" viewBox="0 0 320 320" role="img" aria-label="Baromètre : ${baroLabel(pressure)}" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <linearGradient id="bbrass" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f1d58a"/><stop offset=".45" stop-color="#b98a35"/><stop offset=".75" stop-color="#e8c675"/><stop offset="1" stop-color="#7d5a1f"/></linearGradient>
-    <linearGradient id="bring" x1="1" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#f1d58a"/><stop offset=".5" stop-color="#a97b2c"/><stop offset="1" stop-color="#f5dc9a"/></linearGradient>
-    <radialGradient id="bdial" cx=".42" cy=".38" r=".8"><stop offset="0" stop-color="#fbf5e4"/><stop offset=".7" stop-color="#f0e6cb"/><stop offset="1" stop-color="#dccfae"/></radialGradient>
     <radialGradient id="bhub" cx=".35" cy=".3" r=".8"><stop offset="0" stop-color="#f6e2a5"/><stop offset=".6" stop-color="#b98a35"/><stop offset="1" stop-color="#6e4e17"/></radialGradient>
-    <linearGradient id="bglass" x1=".1" y1="0" x2=".7" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".42"/><stop offset=".5" stop-color="#fff" stop-opacity=".05"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
     <filter id="bshadow" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="2.5" dy="3.5" stdDeviation="2.2" flood-color="#000" flood-opacity=".35"/></filter>
+    <clipPath id="bclip"><circle cx="${clipX}" cy="${clipY}" r="${clipR}"/></clipPath>
     ${defs}
   </defs>
-  <circle cx="${C}" cy="${C}" r="156" fill="#2b2112"/>
-  <circle cx="${C}" cy="${C}" r="153" fill="url(#bbrass)"/>
-  <circle cx="${C}" cy="${C}" r="141" fill="url(#bring)"/>
-  <circle cx="${C}" cy="${C}" r="139" fill="#3a2a10"/>
-  <circle cx="${C}" cy="${C}" r="137" fill="url(#bdial)"/>
-  <g fill="#3b2f1e" font-family="Georgia, 'Times New Roman', serif">
-    ${ticks}${nums}${zones}
-    <text x="${C}" y="${C - 30}" text-anchor="middle" font-size="10" letter-spacing="3" font-weight="700">BAROMÈTRE</text>
-    <text x="${C}" y="${C + 62}" text-anchor="middle" font-size="12" letter-spacing="2" fill="#6b4a1e">hPa</text>
-    <text x="${C}" y="${C + 86}" text-anchor="middle" font-size="22" font-weight="700">${has ? Math.round(pressure) : "—"}</text>
+  <g clip-path="url(#bclip)"><image href="${D.file}" x="${imgX}" y="${imgY}" width="${imgS}" height="${imgS}" preserveAspectRatio="none"/></g>
+  <g transform="translate(${C} ${C}) scale(${D.k}) translate(-${C} -${C})">
+    <g fill="#3b2f1e" font-family="Georgia, 'Times New Roman', serif">
+      ${ticks}${nums}${zones}
+      <text x="${C}" y="${C - 30}" text-anchor="middle" font-size="12" letter-spacing="3" font-weight="700">BAROMÈTRE</text>
+      <text x="${C}" y="${C + 62}" text-anchor="middle" font-size="14" letter-spacing="2" fill="#6b4a1e">hPa</text>
+      <text x="${C}" y="${C + 88}" text-anchor="middle" font-size="26" font-weight="700">${has ? Math.round(pressure) : "—"}</text>
+    </g>
+    ${needle}
+    <circle cx="${C}" cy="${C}" r="10" fill="url(#bhub)" stroke="#5a3f12" stroke-width="1"/>
+    <circle cx="${C}" cy="${C}" r="3.2" fill="#241b12"/>
   </g>
-  ${needle}
-  <circle cx="${C}" cy="${C}" r="10" fill="url(#bhub)" stroke="#5a3f12" stroke-width="1"/>
-  <circle cx="${C}" cy="${C}" r="3.2" fill="#241b12"/>
-  <circle cx="${C}" cy="${C}" r="137" fill="url(#bglass)" pointer-events="none"/>
 </svg>`;
 }
 
@@ -75,9 +82,10 @@ export function initBarometer({ getPressure, openBtn }) {
   };
   const dlg = $("baro");
   openBtn.addEventListener("click", () => {
-    const p = getPressure();
+    const info = getPressure(), p = typeof info?.hpa === "number" ? info.hpa : null;
     $("baro-dial").innerHTML = baroSvg(p);
-    $("baro-value").textContent = baroLabel(p);
+    $("baro-value").textContent = info?.text ?? baroLabel(p);
+    $("baro-src").textContent = info?.note ?? ""; // texte venu du réseau (nom de station) : toujours textContent
     $("baro-range").hidden = !(typeof p === "number" && (p < BARO_MIN || p > BARO_MAX));
     dlg.showModal(); // l'aiguille est posée sur la valeur dès le dessin ; le balayage est une simple animation CSS qui y mène
   });
