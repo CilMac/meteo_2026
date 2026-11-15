@@ -366,6 +366,9 @@ body:has(dialog.modal[open]) { overflow: hidden; }
   .mini-t-long { display: none; } .mini-t-short { display: inline; }
   .mini-act { width: 46px; padding: 0; justify-content: center; }
   .mini-side .btn { justify-content: center; }
+  /* Petit écran : Actualiser puis Retour sur la ligne du titre, Retour tout à droite */
+  .mini-top .mini-side { flex-direction: row; align-items: center; align-self: center; }
+  .mini-side #mini-refresh { order: -1; }
   .mini-act > span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 }
 .mini { max-width: 1160px; margin-inline: auto; padding: 32px 32px 18px; }
