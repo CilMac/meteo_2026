@@ -3,6 +3,8 @@
 // accompagné de remarques. Rien n'est inventé : une donnée manquante donne « je ne sais pas » ou n'ajoute aucune remarque.
 // Sans dépendance au DOM (tests Node).
 
+import { timed, seconds, TIMEOUTS } from "./net.js";
+
 const API = "https://api.open-meteo.com/v1/forecast";
 export const STEP_MS = 15 * 60 * 1000;
 export const WINDOW_MS = 60 * 60 * 1000;
@@ -14,6 +16,8 @@ export const MODERATE_MMH = 4;
 export const WET_SNOW_CM = 0.1;   // neige : cumul d'un pas de 15 min à partir duquel il « neige » (0,4 cm/h)
 export const LIGHT_SNOW_CMH = 1;  // neige < 1 cm/h : faible ; < 3 cm/h : modérée ; au-delà : forte (seuils propres à l'application)
 export const MODERATE_SNOW_CMH = 3;
+// Conversion d'Open-Meteo (documentation de « snowfall ») : 7 cm de neige = 10 mm d'eau, soit 0,7 cm par mm ; vérifié dans les réponses de l'API.
+export const SNOW_CM_PER_MM = 0.7;
 export const GUST_WARN = 50, GUST_DANGER = 75; // km/h
 export const HEAT_WARN = 30, HEAT_DANGER = 35;  // température ressentie, °C
 export const COLD_INFO = 5, COLD_WARN = 0, COLD_DANGER = -10;
@@ -42,7 +46,7 @@ export function snowLevel(cm15) {
 export const LEVEL_WORD = ["sec", "faible", "modérée", "forte"];
 
 // Lecture : { rows, prob (%), depth (m de neige au sol), uv } ; rows = [{ t (fin du pas, ms UTC), mm, snow (cm), code, gust, feels, temp, day, vis }].
-export async function fetchNextHour({ lat, lon }, { fetchImpl = fetch, now = Date.now() } = {}) {
+export async function fetchNextHour({ lat, lon }, { fetchImpl = fetch, now = Date.now(), timeoutMs = TIMEOUTS.walk } = {}) {
   const q = new URLSearchParams({
     latitude: String(r2(lat)), longitude: String(r2(lon)), // arrondi à 0,01° (environ 1 km), comme pour la prévision
     minutely_15: "precipitation,snowfall,weather_code,wind_gusts_10m,apparent_temperature,temperature_2m,is_day,visibility",
@@ -50,11 +54,12 @@ export async function fetchNextHour({ lat, lon }, { fetchImpl = fetch, now = Dat
     hourly: "precipitation_probability,snow_depth,uv_index", forecast_hours: String(MAX_OFFSET_H + 2),
     timezone: "GMT", wind_speed_unit: "kmh",
   });
-  let res;
-  try { res = await fetchImpl(`${API}?${q}`); } catch (e) { throw new WalkError("network", `réseau indisponible (${e.message})`); }
-  if (!res.ok) throw new WalkError("http", `Open-Meteo a répondu HTTP ${res.status}`);
-  let body;
-  try { body = await res.json(); } catch { throw new WalkError("format", "réponse illisible"); }
+  const body = await timed(timeoutMs, async (signal) => {
+    let res;
+    try { res = await fetchImpl(`${API}?${q}`, { signal }); } catch (e) { throw new WalkError("network", `réseau indisponible (${e.message})`); }
+    if (!res.ok) throw new WalkError("http", `Open-Meteo a répondu HTTP ${res.status}`);
+    try { return await res.json(); } catch { throw new WalkError("format", "réponse illisible"); }
+  }, () => new WalkError("timeout", `Open-Meteo ne répond pas (aucune réponse en ${seconds(timeoutMs)})`));
   const m = body?.minutely_15;
   if (!m || !Array.isArray(m.time) || !Array.isArray(m.precipitation)) throw new WalkError("format", "réponse inattendue (pas de données à 15 minutes)");
   const num = (arr, i) => (isNum(arr?.[i]) ? arr[i] : null);
@@ -70,12 +75,22 @@ export async function fetchNextHour({ lat, lon }, { fetchImpl = fetch, now = Dat
   return { rows, hourly, ...hourlyAt(hourly, now) };
 }
 
-// Probabilité, neige au sol et UV de l'heure qui contient l'instant `t` : l'entrée la plus récente qui ne le dépasse pas, par grandeur.
+// Probabilité, neige au sol et UV de l'heure qui contient l'instant `t`, par grandeur.
+// Open-Meteo : la probabilité et l'UV d'une entrée « 18:00 » portent sur l'heure PRÉCÉDENTE (17 h → 18 h) ; on prend donc
+// l'entrée qui se termine dans l'heure suivant `t` (jamais une autre heure à sa place). La neige au sol est une valeur instantanée :
+// l'entrée la plus récente qui ne dépasse pas `t`.
+const PRECEDING_HOUR = new Set(["prob", "uv"]);
+const HOUR_MS = 60 * 60 * 1000;
 export function hourlyAt(hourly, t) {
   const out = { prob: null, depth: null, uv: null };
   for (const key of Object.keys(out)) {
+    if (PRECEDING_HOUR.has(key)) {
+      const x = (hourly ?? []).find((e) => e.t > t && e.t <= t + HOUR_MS);
+      out[key] = x && isNum(x[key]) ? x[key] : null;
+      continue;
+    }
     let bestT = -Infinity;
-    for (const x of hourly ?? []) if (x.t <= t && x.t > bestT && isNum(x[key])) { bestT = x.t; out[key] = x[key]; }
+    for (const x of hourly ?? []) if (isNum(x[key]) && x.t <= t && x.t > bestT) { bestT = x.t; out[key] = x[key]; }
   }
   return out;
 }
@@ -95,7 +110,7 @@ export function stepKind(s) {
   const wetRain = isNum(s.mm) && s.mm >= 0.05;
   if (FREEZING_CODES.includes(s.code) && wetRain) return { kind: "freezing", level: Math.max(1, rainLevel(s.mm)) };
   const wetSnow = (isNum(s.snow) && s.snow >= WET_SNOW_CM) || (SNOW_CODES.includes(s.code) && isNum(s.mm) && s.mm >= WET_MM);
-  if (wetSnow) return { kind: "snow", level: Math.max(1, snowLevel(isNum(s.snow) ? s.snow : s.mm * 7)) }; // sans hauteur de neige : environ 7 cm de neige par mm d'eau
+  if (wetSnow) return { kind: "snow", level: Math.max(1, snowLevel(isNum(s.snow) ? s.snow : s.mm * SNOW_CM_PER_MM)) }; // sans hauteur de neige : estimée depuis l'eau
   return { kind: "rain", level: rainLevel(s.mm) };
 }
 
@@ -149,7 +164,7 @@ export function walkAdvice(rows, ctx = {}, now = Date.now()) {
   const thunder = steps.some((s) => isNum(s.code) && s.code >= 95);
   const hail = steps.some((s) => s.code === 96 || s.code === 99);
   const mmSum = steps.reduce((a, s) => a + s.mm, 0), snowSum = steps.reduce((a, s) => a + (isNum(s.snow) ? s.snow : 0), 0);
-  const peak = kind === "snow" ? Math.max(...steps.map((s) => (isNum(s.snow) ? s.snow : s.mm * 7))) * 4 : mmPerHour(Math.max(...steps.map((s) => s.mm)));
+  const peak = kind === "snow" ? Math.max(...steps.map((s) => (isNum(s.snow) ? s.snow : s.mm * SNOW_CM_PER_MM))) * 4 : mmPerHour(Math.max(...steps.map((s) => s.mm)));
   const remarks = walkRemarks(steps, { depth, uv, wet: anyWet, now });
   const facts = [];
   if (maxLvl > 0) facts.push(`${W.fact} : ${peak < 10 ? fr1(peak) : Math.round(peak)} ${W.unit} (${LEVEL_WORD[maxLvl]}).`);

@@ -1,5 +1,6 @@
 // Lieux favoris. Coordonnées issues du géocodage Open-Meteo (Agay : point littoral, voir RAPPORT_LOT0.md).
 // `countryCode` choisit le plan de modèles dans weather-provider.js.
+import { timed, seconds, TIMEOUTS } from "./net.js";
 
 export const FAVORITES = [
   { id: "bar-le-duc", name: "Bar-le-Duc", country: "France", countryCode: "FR", latitude: 48.77275, longitude: 5.16108, timezone: "Europe/Paris" },
@@ -49,15 +50,16 @@ export function placeLabel(p) {
 }
 
 // Recherche par géocodage. Toutes les homonymies sont renvoyées pour un choix explicite.
-export async function searchPlaces(query, { fetchImpl = fetch } = {}) {
+export async function searchPlaces(query, { fetchImpl = fetch, timeoutMs = TIMEOUTS.search } = {}) {
   const q = cleanQuery(query);
   if (!q) throw new Error("Saisissez au moins 2 caractères.");
   const url = `${GEOCODE_URL}?${new URLSearchParams({ name: q, count: "10", language: "fr", format: "json" })}`;
-  let res;
-  try { res = await fetchImpl(url); } catch (e) { throw new Error(`Recherche impossible (réseau) : ${e.message}`); }
-  if (!res.ok) throw new Error(`Le service de recherche a répondu HTTP ${res.status}`);
-  let body;
-  try { body = await res.json(); } catch { throw new Error("Réponse du service de recherche illisible"); }
+  const body = await timed(timeoutMs, async (signal) => {
+    let res;
+    try { res = await fetchImpl(url, { signal }); } catch (e) { throw new Error(`Recherche impossible (réseau) : ${e.message}`); }
+    if (!res.ok) throw new Error(`Le service de recherche a répondu HTTP ${res.status}`);
+    try { return await res.json(); } catch { throw new Error("Réponse du service de recherche illisible"); }
+  }, () => new Error(`Recherche impossible : le service ne répond pas (aucune réponse en ${seconds(timeoutMs)}). Réessayez.`));
   const results = Array.isArray(body?.results) ? body.results : [];
   return results.map((r) => validatePlace({
     name: r.name, admin1: r.admin1, country: r.country, countryCode: r.country_code,

@@ -2,6 +2,8 @@
 // (domaine public, attribution souhaitée). La position de l'utilisateur ne quitte pas l'appareil pour cet appel : on ne demande que la liste
 // des stations d'un pays, et la plus proche est choisie ici. Rien n'est inventé : sans station proche et récente, l'appelant garde la valeur du modèle.
 
+import { timed, seconds, TIMEOUTS } from "./net.js";
+
 const IEM_URL = "https://mesonet.agron.iastate.edu/api/1/currents.json";
 export const OBS_MAX_KM = 100;                 // au-delà, la pression d'une station n'est plus celle d'ici
 export const OBS_MAX_AGE_MS = 3 * 60 * 60 * 1000; // un METAR a une heure ; au-delà de 3 h, la station est considérée muette
@@ -42,16 +44,18 @@ export function pickStation(rows, lat, lon, { now = Date.now(), maxKm = OBS_MAX_
 
 const cache = new Map();
 // Dernières observations d'un pays (réseau « FR__ASOS » pour la France). Les pays à réseaux par région (Canada, États-Unis…) ne sont pas couverts.
-export async function fetchObservedPressure({ latitude, longitude, countryCode }, { fetchImpl = fetch, now = Date.now() } = {}) {
+export async function fetchObservedPressure({ latitude, longitude, countryCode }, { fetchImpl = fetch, now = Date.now(), timeoutMs = TIMEOUTS.pressure } = {}) {
   if (!/^[A-Z]{2}$/.test(countryCode ?? "")) throw new ObsError("country", "Pays inconnu : pas de réseau de stations à interroger.");
   const network = `${countryCode}__ASOS`;
   let rows = cache.get(network);
   if (!rows || now - rows.at > OBS_CACHE_MS) {
-    let res;
-    try { res = await fetchImpl(`${IEM_URL}?${new URLSearchParams({ network })}`); } catch (e) { throw new ObsError("network", `Stations indisponibles (réseau) : ${e.message}`); }
-    if (!res.ok) throw new ObsError("http", `Le service des stations a répondu HTTP ${res.status}`);
-    let body;
-    try { body = await res.json(); } catch { throw new ObsError("format", "Réponse du service des stations illisible"); }
+    // Délai court : la vue « Lieu actuel » attend cette mesure ; sans réponse à temps, elle garde la valeur du modèle (« ≈ »).
+    const body = await timed(timeoutMs, async (signal) => {
+      let res;
+      try { res = await fetchImpl(`${IEM_URL}?${new URLSearchParams({ network })}`, { signal }); } catch (e) { throw new ObsError("network", `Stations indisponibles (réseau) : ${e.message}`); }
+      if (!res.ok) throw new ObsError("http", `Le service des stations a répondu HTTP ${res.status}`);
+      try { return await res.json(); } catch { throw new ObsError("format", "Réponse du service des stations illisible"); }
+    }, () => new ObsError("timeout", `Le service des stations ne répond pas (aucune réponse en ${seconds(timeoutMs)})`));
     if (!Array.isArray(body?.data)) throw new ObsError("format", "Réponse du service des stations inattendue");
     rows = { at: now, data: body.data };
     cache.set(network, rows);
@@ -67,8 +71,10 @@ export function pressureDisplay(model, observed, fmtTime = (ms) => new Date(ms).
     const detail = `${observed.name} (${observed.station}), à ${Math.round(observed.km)} km, relevé de ${fmtTime(observed.at)}`;
     return {
       hpa: observed.hpa, text: `${observed.hpa} hPa`, measured: true,
-      title: `Pression au niveau de la mer MESURÉE : ${detail}.`,
-      note: `Pression au niveau de la mer mesurée par la station météo d'aéroport la plus proche : ${detail}. Ce n'est pas la mesure de votre emplacement exact. Source : messages METAR, via l'Iowa Environmental Mesonet.`,
+      // QNH : pression de la station ramenée au niveau de la mer avec l'atmosphère STANDARD (pas la température réelle, contrairement
+      // à la pression au niveau de la mer des modèles) ; l'écart reste faible en plaine, plus marqué en altitude par temps froid ou chaud.
+      title: `Pression MESURÉE à la station (QNH, ramenée au niveau de la mer selon l'atmosphère standard) : ${detail}.`,
+      note: `Pression mesurée par la station météo d'aéroport la plus proche, ramenée au niveau de la mer selon l'atmosphère standard (QNH) : ${detail}. Ce n'est pas la mesure de votre emplacement exact. Le QNH peut différer d'environ 1 à 2 hPa de la pression au niveau de la mer calculée avec la température réelle, surtout pour une station en altitude par temps froid ou chaud. Source : messages METAR, via l'Iowa Environmental Mesonet.`,
     };
   }
   if (isNum(model)) {

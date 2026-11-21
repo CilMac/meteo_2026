@@ -2,6 +2,8 @@
 // couvrant la zone affichée (le premier point est la position de l'appareil, arrondie à 0,01°), puis interpolées en image.
 // Rien n'est inventé : un point sans valeur reste transparent, jamais « 0 ». Pas de dépendance au DOM à l'import (tests Node).
 
+import { timed, seconds, TIMEOUTS } from "./net.js";
+
 const API = "https://api.open-meteo.com/v1/forecast";
 export const MAX_LAT = 80;
 const isNum = (v) => typeof v === "number" && Number.isFinite(v);
@@ -12,6 +14,16 @@ const r2 = (v) => Math.round(v * 100) / 100;
 
 export class SkyError extends Error {
   constructor(kind, message) { super(message); this.kind = kind; }
+}
+
+// Lecture JSON avec délai maximal ; erreurs typées (network, timeout, http, format).
+function getJson(url, fetchImpl, timeoutMs) {
+  return timed(timeoutMs, async (signal) => {
+    let res;
+    try { res = await fetchImpl(url, { signal }); } catch (e) { throw new SkyError("network", `réseau indisponible (${e.message})`); }
+    if (!res.ok) throw new SkyError("http", `Open-Meteo a répondu HTTP ${res.status}`);
+    try { return await res.json(); } catch { throw new SkyError("format", "réponse illisible"); }
+  }, () => new SkyError("timeout", `Open-Meteo ne répond pas (aucune réponse en ${seconds(timeoutMs)})`));
 }
 
 // Nombre de colonnes × lignes pour environ `total` points, selon la forme (largeur / hauteur) de la zone.
@@ -51,17 +63,13 @@ export function parseCurrent(c) {
 }
 
 // Lit la grille. `here` = {lat, lon} de l'appareil (arrondie ici). Renvoie { at (ms UTC), here, nx, ny, cloud[], rain[] } (null = inconnu).
-export async function fetchSky({ here, bounds, nx, ny }, { fetchImpl = fetch } = {}) {
+export async function fetchSky({ here, bounds, nx, ny }, { fetchImpl = fetch, timeoutMs = TIMEOUTS.sky } = {}) {
   const pts = [{ lat: r2(here.lat), lon: r2(here.lon) }, ...gridPoints(bounds, nx, ny)];
   const q = new URLSearchParams({
     latitude: pts.map((p) => p.lat).join(","), longitude: pts.map((p) => p.lon).join(","),
     current: "cloud_cover,precipitation,wind_speed_10m,wind_direction_10m,wind_gusts_10m", wind_speed_unit: "kmh",
   });
-  let res;
-  try { res = await fetchImpl(`${API}?${q}`); } catch (e) { throw new SkyError("network", `réseau indisponible (${e.message})`); }
-  if (!res.ok) throw new SkyError("http", `Open-Meteo a répondu HTTP ${res.status}`);
-  let body;
-  try { body = await res.json(); } catch { throw new SkyError("format", "réponse illisible"); }
+  const body = await getJson(`${API}?${q}`, fetchImpl, timeoutMs);
   const list = Array.isArray(body) ? body : [body];
   if (list.length !== pts.length) throw new SkyError("format", "réponse inattendue (nombre de points)");
   const vals = list.map((x) => parseCurrent(x?.current));
@@ -137,15 +145,11 @@ export const windFromText = (d) => (isNum(d) ? `Vent ${FROM[Math.round((((d % 36
 export const arrowAngle = (d) => (isNum(d) ? (((d + 180) % 360) + 360) % 360 : null);
 
 // Vent et ciel de la seule position de l'appareil (un point) : la flèche du vent reste affichée même quand le calque est éteint.
-export async function fetchHere(here, { fetchImpl = fetch } = {}) {
+export async function fetchHere(here, { fetchImpl = fetch, timeoutMs = TIMEOUTS.sky } = {}) {
   const q = new URLSearchParams({
     latitude: String(r2(here.lat)), longitude: String(r2(here.lon)),
     current: "cloud_cover,precipitation,wind_speed_10m,wind_direction_10m,wind_gusts_10m", wind_speed_unit: "kmh",
   });
-  let res;
-  try { res = await fetchImpl(`${API}?${q}`); } catch (e) { throw new SkyError("network", `réseau indisponible (${e.message})`); }
-  if (!res.ok) throw new SkyError("http", `Open-Meteo a répondu HTTP ${res.status}`);
-  let body;
-  try { body = await res.json(); } catch { throw new SkyError("format", "réponse illisible"); }
+  const body = await getJson(`${API}?${q}`, fetchImpl, timeoutMs);
   return parseCurrent(Array.isArray(body) ? body[0]?.current : body?.current);
 }

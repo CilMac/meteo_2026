@@ -1,5 +1,6 @@
 // Couche fournisseur : un appel Open-Meteo par lieu, normalisation, sélection du modèle par valeur.
 // Aucune valeur n'est inventée : une donnée absente reste null (jamais 0).
+import { timed, seconds, TIMEOUTS } from "./net.js";
 
 const API_URL = "https://api.open-meteo.com/v1/forecast";
 export const FORECAST_DAYS = 16; // l'API renvoie 16 jours ; le 16e (J+15) est vide pour ECMWF, on garde J..J+14
@@ -50,16 +51,18 @@ export function buildUrl(place) {
   return `${API_URL}?${q}`;
 }
 
-// Un seul appel réseau par lieu. Toute erreur est remontée, jamais avalée.
-export async function fetchForecast(place, { fetchImpl = fetch, now = new Date() } = {}) {
-  let res;
-  try { res = await fetchImpl(buildUrl(place)); }
-  catch (e) { throw new ForecastError("network", `Réseau indisponible : ${e.message}`); }
-  if (!res.ok) throw new ForecastError("http", `Open-Meteo a répondu HTTP ${res.status}`);
-  let raw;
-  try { raw = await res.json(); }
-  catch (e) { throw new ForecastError("format", "Réponse Open-Meteo illisible"); }
-  return normalize(raw, place, { now });
+// Un seul appel réseau par lieu. Toute erreur est remontée, jamais avalée ; sans réponse dans le délai, erreur « network ».
+export function fetchForecast(place, { fetchImpl = fetch, now = new Date(), timeoutMs = TIMEOUTS.forecast } = {}) {
+  return timed(timeoutMs, async (signal) => {
+    let res;
+    try { res = await fetchImpl(buildUrl(place), { signal }); }
+    catch (e) { throw new ForecastError("network", `Réseau indisponible : ${e.message}`); }
+    if (!res.ok) throw new ForecastError("http", `Open-Meteo a répondu HTTP ${res.status}`);
+    let raw;
+    try { raw = await res.json(); }
+    catch (e) { throw new ForecastError("format", "Réponse Open-Meteo illisible"); }
+    return normalize(raw, place, { now });
+  }, () => new ForecastError("network", `Open-Meteo ne répond pas (aucune réponse en ${seconds(timeoutMs)})`));
 }
 
 // Valeur d'une variable pour un modèle : colonne suffixée, ou colonne simple si un seul modèle a été demandé.
@@ -189,10 +192,12 @@ export function usedModels(daily, hourly = []) {
 export const firstWeek = (data) => data.daily.slice(0, 7);
 export const secondWeek = (data) => data.daily.slice(7, KEPT_DAYS);
 
-// 24 heures glissantes à partir de l'heure locale courante (comparaison de chaînes ISO locales, même fuseau).
+// 24 heures glissantes (comparaison de chaînes ISO locales, même fuseau).
+// Open-Meteo : pluie, probabilité et rafales d'une ligne « 18:00 » portent sur l'heure PRÉCÉDENTE (17 h → 18 h) ;
+// température, vent et code météo sont la valeur à 18:00. La première ligne gardée est donc la première qui se termine
+// après l'heure de la situation actuelle : à 17:15, la ligne 18:00 (heure en cours), jamais la ligne 17:00 (heure écoulée).
 export function next24h(data, currentTime = data.current.time) {
   if (!currentTime) return [];
-  const hourStart = currentTime.slice(0, 13); // « YYYY-MM-DDTHH »
-  const start = data.hourly.findIndex((h) => h.time.slice(0, 13) >= hourStart);
+  const start = data.hourly.findIndex((h) => h.time > currentTime);
   return start < 0 ? [] : data.hourly.slice(start, start + 24);
 }

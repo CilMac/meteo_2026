@@ -52,9 +52,24 @@ export function sunState(timeISO, daily) {
 }
 
 export const hourLabel = (timeISO) => `${parseInt(timeISO.slice(11, 13), 10)} h`;
+// Début de l'heure sur laquelle porte une valeur « heure précédente » (pluie, probabilité) : la ligne « 18:00 » couvre 17 h → 18 h.
+export const hourStartLabel = (timeISO) => `${(parseInt(timeISO.slice(11, 13), 10) + 23) % 24} h`;
+
+// Heure (début de l'heure si `start`), précédée de « demain » quand elle tombe après `today` (YYYY-MM-DD local) :
+// à 17 h, « entre 10 h et 16 h » se lirait comme une pluie déjà passée.
+function outlookHour(timeISO, today, start = false) {
+  const iso = start ? new Date(Date.parse(`${timeISO}:00Z`) - 3600000).toISOString().slice(0, 16) : timeISO; // heures locales traitées telles quelles
+  return `${today && iso.slice(0, 10) > today ? "demain " : ""}${hourLabel(iso)}`;
+}
+// « entre 10 h et 16 h », « entre 22 h et demain 3 h », « entre demain 10 h et 16 h » (« demain » une seule fois).
+function outlookSpan(firstTime, lastTime, today) {
+  const a = outlookHour(firstTime, today, true), b = outlookHour(lastTime, today);
+  return `entre ${a} et ${a.startsWith("demain ") && b.startsWith("demain ") ? b.slice("demain ".length) : b}`;
+}
 
 // Phrase pratique sur les 24 h ; null si aucune donnée de pluie. Pas de conseil de sortie (hors V1).
-export function rainOutlook(hours) {
+// `today` : date locale de la situation actuelle ; sans elle, aucun « demain » n'est ajouté.
+export function rainOutlook(hours, today = null) {
   if (!hours.length) return null;
   const withPrecip = hours.filter((h) => isNum(h.precip.value));
   const probs = hours.filter((h) => isNum(h.precipProb.value));
@@ -62,11 +77,11 @@ export function rainOutlook(hours) {
   const wet = withPrecip.filter((h) => h.precip.value >= 0.2);
   if (wet.length) {
     const total = wet.reduce((s, h) => s + h.precip.value, 0);
-    const a = hourLabel(wet[0].time), b = hourLabel(wet[wet.length - 1].time);
-    return a === b ? `Pluie attendue vers ${a} (environ ${num1(total)} mm).` : `Pluie attendue entre ${a} et ${b} (environ ${num1(total)} mm au total).`;
+    // Chaque valeur couvre l'heure qui se termine à l'heure de sa ligne : la pluie commence au plus tôt une heure avant la première.
+    return `Pluie attendue ${outlookSpan(wet[0].time, wet[wet.length - 1].time, today)} (environ ${num1(total)} mm au total).`;
   }
   const best = probs.reduce((m, h) => (!m || h.precipProb.value > m.precipProb.value ? h : m), null);
-  if (best && best.precipProb.value >= 30) return `Pas de pluie prévue en quantité, mais risque le plus marqué vers ${hourLabel(best.time)} (${num0(best.precipProb.value)} %).`;
+  if (best && best.precipProb.value >= 30) return `Pas de pluie prévue en quantité, mais risque le plus marqué ${outlookSpan(best.time, best.time, today)} (${num0(best.precipProb.value)} %).`;
   if (withPrecip.length < hours.length * 0.9) return "Données de pluie incomplètes sur cette période.";
   return "Pas de pluie attendue dans les 24 prochaines heures.";
 }
@@ -147,7 +162,7 @@ export function buildCurrent(data, now = new Date()) {
   const c = data.current, d0 = data.daily[0], tz = data.location.timezone;
   const night = c.time ? isNight(c.time, data.daily) : false;
   const info = weatherInfo(c.weatherCode, night);
-  const outlook = rainOutlook(next24h(data));
+  const outlook = rainOutlook(next24h(data), c.time ? c.time.slice(0, 10) : null);
   return h("div", { class: "card current" },
     h("div", { class: "cur-main" },
       h("span", { class: "cur-icon", "aria-hidden": "true", text: info.icon }),
@@ -241,7 +256,7 @@ export function buildMini(data, n = MINI_HOURS) {
           isNum(r.gustPct) ? h("div", { class: "hbar", style: { width: `${minVisible(r.gustPct)}%`, background: "var(--wind-2)" } }) : null,
           isNum(r.windPct) ? h("div", { class: "hbar over", style: { width: `${minVisible(r.windPct)}%`, background: "var(--wind)" } }) : null))))));
   const labelOf = (k) => { const ms = new Set(hours.map((x) => x[k].model).filter(Boolean)); return ms.size ? [...ms].map(modelShort).join(" puis ") : "indisponible"; };
-  const notes = `mm : ${labelOf("precip")} · % : ${labelOf("precipProb")} · T : ${labelOf("temp")} · vent : ${labelOf("wind")} · rafales : ${labelOf("gust")}. Pluie : barre verticale = hauteur d'eau, proportionnelle de 0 à 3 mm (barre pleine, rouge et « + » au-delà) ; probabilité : barre horizontale = pourcentage ; température = de la plus basse à la plus haute de ces heures ; vent foncé, rafales clair.`;
+  const notes = `mm : ${labelOf("precip")} · % : ${labelOf("precipProb")} · T : ${labelOf("temp")} · vent : ${labelOf("wind")} · rafales : ${labelOf("gust")}. Heure « 18 h » : pluie, % et rafales de 17 h à 18 h ; température et vent à 18 h. Pluie : barre verticale = hauteur d'eau, proportionnelle de 0 à 3 mm (barre pleine, rouge et « + » au-delà) ; probabilité : barre horizontale = pourcentage ; température = de la plus basse à la plus haute de ces heures ; vent foncé, rafales clair.`;
   return h("div", {}, h("div", { class: "mini-scroll" }, table), h("p", { class: "muted small", text: notes }));
 }
 
@@ -282,7 +297,7 @@ export function buildHourly(data, tab) {
   }[tab];
   const labelOf = (k) => { const ms = new Set(hours.map((x) => x[k].model).filter(Boolean)); return ms.size ? [...ms].map(modelShort).join(" puis ") : null; };
   const modelNotes = fieldsByTab.map(([l, k]) => `${l} : ${labelOf(k) ?? "indisponible"}`).join(" · ");
-  const notes = [`Pas de 1 h · ${modelNotes}.`];
+  const notes = [`Pas de 1 h · ${modelNotes}.`, HOUR_NOTE[tab]];
   if (tab === "precip") notes.push("Barres proportionnelles au pourcentage (risque de pluie), pas à la quantité.");
   wrap.append(h("p", { class: "muted small h-note", text: notes.join(" ") }));
   // Données manquantes : toujours signalées, même en vue compacte.
@@ -293,6 +308,12 @@ export function buildHourly(data, tab) {
   if (warn.length) wrap.append(h("p", { class: "muted small h-warn", text: warn.join(" ") }));
   return wrap;
 }
+// Ce que veut dire l'heure d'une colonne (convention d'Open-Meteo).
+export const HOUR_NOTE = {
+  precip: "« 18 h » : pluie et % de l'heure qui se termine à 18 h (17 h → 18 h).",
+  temp: "« 18 h » : température à 18 h.",
+  wind: "« 18 h » : vent à 18 h ; rafales = maximum de 17 h à 18 h.",
+};
 function vbar(pct, color) {
   return h("div", { class: "vbar-box" }, pct === null ? null : h("div", { class: "vbar", style: { height: `${minVisible(pct)}%`, background: color } }));
 }
@@ -428,14 +449,18 @@ function buildPeriod(days, tab, { sectionLabel, summary, ensemble }) {
     hasLateDays: days.some((d) => d.dayIndex >= ENSEMBLE_MEDIAN_FROM),
     hasMm: views.some((v) => v.showMm),
     hasNoMm: views.some((v) => !v.showMm),
+    mixedRain: views.some((v) => v.showMm && mixedRainModels(v.d)),
   })));
   const text = summary(days, ensemble);
   if (text) wrap.append(h("p", { class: "summary", text }));
   return wrap;
 }
 
+// mm et % du même jour venus de deux modèles différents (en France : mm de Météo-France, % d'ECMWF).
+export const mixedRainModels = (d) => Boolean(d.precipSum.model && d.precipProbMax.model && d.precipSum.model !== d.precipProbMax.model);
+
 // « Comment lire ces valeurs » : une idée par ligne, adaptée à l'onglet et à ce qui est réellement affiché.
-export function howToItems(tab, { sectionLabel = "cette liste", hasMedian = false, hasEns = false, hasSingleTrend = false, hasLateDays = false, hasMm = true, hasNoMm = false } = {}) {
+export function howToItems(tab, { sectionLabel = "cette liste", hasMedian = false, hasEns = false, hasSingleTrend = false, hasLateDays = false, hasMm = true, hasNoMm = false, mixedRain = false } = {}) {
   const items = [];
   if (tab === "precip") {
     items.push("Barres : le pourcentage de risque de pluie, sur tous les jours (0 % à 100 %).");
@@ -443,9 +468,9 @@ export function howToItems(tab, { sectionLabel = "cette liste", hasMedian = fals
     else if (hasNoMm) items.push(`Pas de mm à cette échéance (non fiables) : classe et %. ${RAIN_LEGEND}.`);
     else if (hasMm) items.push("Les mm sont écrits en texte, sans barre.");
     if (hasMedian) {
-      items.push("Jusqu'à J+7 : le % est la probabilité horaire maximale du jour.");
-      items.push(`Dès J+${ENSEMBLE_MEDIAN_FROM} : le % est la part des scénarios à ${WET_MM} mm ou plus ; « moy. » est leur moyenne.`);
+      items.push(`Le % : probabilité horaire maximale du jour jusqu'à J+7 ; dès J+${ENSEMBLE_MEDIAN_FROM}, part des scénarios à ${WET_MM} mm ou plus.`);
     } else items.push("Le % est la probabilité horaire maximale du jour, pas celle de toute la journée.");
+    if (mixedRain) items.push("mm et % de deux modèles (Météo-France ne publie pas de %) : ils peuvent se contredire, par exemple 0 mm avec 60 %.");
     if (hasSingleTrend && hasMm) items.push("Jours en tendance : mm moins fiables.");
     if (hasEns) items.push("Scénarios : plusieurs modèles à poids égal, bruts, non calibrés.");
   } else if (tab === "temp") {

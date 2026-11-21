@@ -1,6 +1,7 @@
 // Position réelle de l'appareil (géolocalisation du navigateur) et nom du lieu (géocodage inverse OpenStreetMap / Nominatim).
 // Rien n'est stocké : la position n'est gardée qu'en mémoire, le temps de la session.
 import { validatePlace } from "./places.js";
+import { timed, seconds, TIMEOUTS } from "./net.js";
 
 const REVERSE_URL = "https://nominatim.openstreetmap.org/reverse";
 export const GEO_ID = "geo";
@@ -47,15 +48,16 @@ export function deniedHelp(ios) {
 
 // Nom du lieu le plus proche. Ne devine rien : si le service ne répond pas ou ne nomme rien, l'appelant le sait.
 const cache = new Map();
-export async function reverseGeocode(lat, lon, { fetchImpl = fetch } = {}) {
+export async function reverseGeocode(lat, lon, { fetchImpl = fetch, timeoutMs = TIMEOUTS.reverse } = {}) {
   const key = `${roundCoord(lat)},${roundCoord(lon)}`;
   if (cache.has(key)) return cache.get(key);
   const url = `${REVERSE_URL}?${new URLSearchParams({ format: "jsonv2", lat: String(roundCoord(lat)), lon: String(roundCoord(lon)), zoom: "10", addressdetails: "1", "accept-language": "fr" })}`;
-  let res;
-  try { res = await fetchImpl(url); } catch (e) { throw new GeoError("network", `Nom du lieu indisponible (réseau) : ${e.message}`); }
-  if (!res.ok) throw new GeoError("http", `Le service de noms de lieux a répondu HTTP ${res.status}`);
-  let body;
-  try { body = await res.json(); } catch { throw new GeoError("format", "Réponse du service de noms de lieux illisible"); }
+  const body = await timed(timeoutMs, async (signal) => {
+    let res;
+    try { res = await fetchImpl(url, { signal }); } catch (e) { throw new GeoError("network", `Nom du lieu indisponible (réseau) : ${e.message}`); }
+    if (!res.ok) throw new GeoError("http", `Le service de noms de lieux a répondu HTTP ${res.status}`);
+    try { return await res.json(); } catch { throw new GeoError("format", "Réponse du service de noms de lieux illisible"); }
+  }, () => new GeoError("timeout", `Nom du lieu indisponible : le service ne répond pas (aucune réponse en ${seconds(timeoutMs)})`));
   const a = body?.address ?? {};
   const name = [a.city, a.town, a.village, a.municipality, a.hamlet, a.suburb, a.county].find((v) => typeof v === "string" && v.trim());
   if (!name) throw new GeoError("empty", "Aucun nom de lieu trouvé pour cette position.");
