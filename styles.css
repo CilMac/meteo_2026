@@ -442,6 +442,7 @@ dialog.baro-modal { width: min(440px, calc(100vw - 24px)); }
 @media (max-width: 520px) { .leaflet-bottom.leaflet-left .sky-legend { margin-bottom: 28px; } .sky-panel, .sky-wind-sub { font-size: 12px; } .sky-switch { gap: 6px; padding-left: 8px; } .sky-wind-text { max-width: 8.5em; } .sky-wind { padding-right: 8px; } .sky-legend { width: min(170px, calc(100vw - 90px)); } }
 .mini-place { margin: 0; font-size: 18px; font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
 .mini-gps { margin: 4px 0 14px; font-variant-numeric: tabular-nums; }
+.mini-when { white-space: nowrap; } /* « actualisé sam. 21/11 17:42 » passe à la ligne d'un seul bloc */
 .mini-msg { margin: 10px 0 14px; padding: 10px 14px; border: 1px solid var(--information-border); border-left-width: 4px; border-radius: var(--radius-control); background: var(--information); }
 .mini-msg.is-err { border-color: var(--error-border); background: var(--error); }
 .mini-scroll { overflow-x: clip; } /* pas « auto » : un conteneur de défilement empêcherait les titres de colonnes de rester fixes */

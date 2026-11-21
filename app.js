@@ -158,17 +158,23 @@ async function toggleMap() {
   catch (e) { wrap.hidden = true; setMapButton(false); miniMessage(`Carte indisponible : ${e.message}`, "err"); }
   finally { btn.disabled = !geo.coords; }
 }
-function showMiniPlace(data, coords, named, pressure) {
+// « sam. 21/11 17:42 » : dernière actualisation (position + météo), à l'heure de l'appareil.
+const refreshedText =(ms, tz) => formatLocal(new Date(ms), tz, { weekday: "short", day: "numeric", month: "numeric", hour: "2-digit", minute: "2-digit" });
+function showMiniPlace(data, coords, named, pressure, at) {
   const pb = $("mini-pressure");
   pb.textContent = pressure.text; pb.title = pressure.title;
   $("mini-baro-btn").disabled = pressure.hpa === null; // sans valeur, rien à montrer sur le cadran
   $("walk-btn").disabled = false; // la position est connue
   $("mini-place").textContent = `📍 ${data.location.name}${data.location.country ? ` (${data.location.country})` : ""}`;
-  $("mini-gps").textContent = `GPS : ${formatCoords(coords.latitude, coords.longitude)}${coords.accuracy !== null ? ` · précision ± ${Math.round(coords.accuracy)} m` : ""}${named ? "" : " · nom du lieu indisponible"}`;
+  // L'heure d'actualisation suit la ligne GPS ; sur téléphone, elle passe à la ligne d'un seul bloc (jamais coupée).
+  const when = document.createElement("span");
+  when.className = "mini-when"; when.title = "Dernière actualisation de la position et de la météo";
+  when.textContent = `· actualisé ${refreshedText(at, data.location.timezone)}`; // le « · » part avec l'heure : jamais seul en fin de ligne
+  $("mini-gps").replaceChildren(`GPS : ${formatCoords(coords.latitude, coords.longitude)}${coords.accuracy !== null ? ` · précision ± ${Math.round(coords.accuracy)} m` : ""}${named ? "" : " · nom du lieu indisponible"} `, when);
   $("mini-body").replaceChildren(buildMini(data));
 }
 async function locate(force = false) {
-  if (!force && geo.data && Date.now() - geo.at < GEO_MAX_AGE_MS) { showMiniPlace(geo.data, geo.coords, geo.named, geo.pressure); miniMessage(""); $("mini-map-btn").disabled = false; return; }
+  if (!force && geo.data && Date.now() - geo.at < GEO_MAX_AGE_MS) { showMiniPlace(geo.data, geo.coords, geo.named, geo.pressure, geo.at); miniMessage(""); $("mini-map-btn").disabled = false; return; }
   const id = ++geo.loadId;
   $("mini-refresh").disabled = true;
   $("mini-map-btn").disabled = true;
@@ -191,7 +197,7 @@ async function locate(force = false) {
     if (id !== geo.loadId) return;
     const pressure = pressureDisplay(data.current.pressure, observed, (ms) => formatLocal(new Date(ms), data.location.timezone, { hour: "2-digit", minute: "2-digit" }));
     Object.assign(geo, { at: Date.now(), data, coords, named: Boolean(named), pressure });
-    showMiniPlace(data, coords, Boolean(named), pressure);
+    showMiniPlace(data, coords, Boolean(named), pressure, geo.at);
     miniMessage("");
     $("mini-map-btn").disabled = false;
     if (!$("mini-map-wrap").hidden && globalThis.L) drawMap(globalThis.L); // carte ouverte : recentrée sur la nouvelle position
