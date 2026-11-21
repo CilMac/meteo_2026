@@ -42,7 +42,7 @@ export function getPosition({ geolocation = globalThis.navigator?.geolocation, t
 // Que faire après un refus : iOS mémorise le refus par site, il faut le lever dans Safari (et le Service de localisation doit être actif).
 export function deniedHelp(ios) {
   return ios
-    ? "Sur iPhone : dans Safari, touchez « aA » à gauche de la barre d'adresse, puis « Réglages du site web » → Localisation → Autoriser, et rechargez la page. Vérifiez aussi Réglages → Confidentialité et sécurité → Service de localisation (activé, et « Sites web de Safari » pas sur « Jamais »)."
+    ? "Sur iPhone, Safari et l'icône ajoutée à l'écran d'accueil ont chacun leur propre autorisation. Le plus simple : ouvrez la météo depuis l'icône de l'écran d'accueil et acceptez la demande de position. Dans Safari : bouton à gauche de l'adresse (« ≡ » ou « aA » selon la version d'iOS) → « Réglages du site web » → Localisation → Autoriser, puis rechargez la page. Vérifiez aussi Réglages → Confidentialité et sécurité → Service de localisation (activé, et « Sites web de Safari » pas sur « Jamais »)."
     : "Vérifiez aussi les réglages de localisation du système (le navigateur doit y être autorisé), puis rechargez la page.";
 }
 
