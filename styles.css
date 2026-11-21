@@ -254,6 +254,8 @@ body:has(dialog.modal[open]) { overflow: hidden; }
 .modal-foot p { margin: 0; text-align: center; color: var(--muted); font-size: 14px; }
 @media (max-width: 760px) {
   .modal-head, .m-tabs, .modal-body, .modal-foot { padding-left: 14px; padding-right: 14px; }
+  .m-tabs { gap: 6px; }
+  .m-tab { flex: 1 1 auto; padding: 8px 4px; font-size: 15px; } /* largeur selon le texte : les trois onglets tiennent sur une ligne à 375 px */
   .modal-head h2 { font-size: 20px; }
 }
 
@@ -473,6 +475,9 @@ dialog.baro-modal { width: min(440px, calc(100vw - 24px)); }
 .mini-table td:nth-child(5) strong { color: var(--wind); } /* température : vert, comme avant */
 .mini-table .hbar-box { margin: 5px 0 0; height: 8px; }
 .mini-credit { margin-top: 14px; }
+.mini-log { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin-top: 14px; }
+.mini-log-info { margin: 0; flex: 1 1 200px; }
+.mini-log-btn { flex: none; }
 @media (max-width: 760px) {
   .mini { --mini-pad: 16px; padding: 20px 16px 18px; }
   .mini-top h2 { font-size: 20px; }

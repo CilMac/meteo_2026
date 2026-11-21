@@ -10,6 +10,7 @@ import { initWalk } from "./walkui.js";
 import { fetchObservedPressure, pressureDisplay } from "./observation.js";
 import { getPosition, reverseGeocode, placeFromPosition, formatCoords, deniedHelp, GEO_MAX_AGE_MS } from "./geo.js";
 import { createLoader } from "./loading.js";
+import { makeRecord, saveRecord, loadJournal, exportText, exportName } from "./journal.js";
 import { chooseView, isIOS } from "./device.js";
 import { TABS, buildTopPlace, buildTopNow, buildCurrent, buildHourly, buildWeek, buildTrend, buildCompact, buildMini, COMPACT_HELP_ITEMS, buildSources, buildWarnings, buildAttribution, warningsStatus, formatLocal } from "./weather-render.js";
 
@@ -199,6 +200,9 @@ async function locate(force = false) {
     Object.assign(geo, { at: Date.now(), data, coords, named: Boolean(named), pressure });
     showMiniPlace(data, coords, Boolean(named), pressure, geo.at);
     miniMessage("");
+    // Carnet de relevés : la prévision affichée est gardée sur l'appareil, pour la comparer plus tard aux observations.
+    const saved = saveRecord(makeRecord(data, coords, { named: Boolean(named), at: geo.at }));
+    showJournal(saved.ok ? null : "Relevé non enregistré : stockage de l'appareil plein ou bloqué.");
     $("mini-map-btn").disabled = false;
     if (!$("mini-map-wrap").hidden && globalThis.L) drawMap(globalThis.L); // carte ouverte : recentrée sur la nouvelle position
   } catch (e) {
@@ -213,11 +217,36 @@ async function locate(force = false) {
     }
   } finally { if (id === geo.loadId) $("mini-refresh").disabled = false; }
 }
+// Carnet de relevés : nombre gardé sur l'appareil, et export (feuille de partage si possible, sinon téléchargement).
+function showJournal(note = null) {
+  const n = loadJournal().length;
+  $("journal-export").disabled = n === 0;
+  $("journal-info").textContent = note ?? (n ? `${n} relevé${n > 1 ? "s" : ""} gardé${n > 1 ? "s" : ""} sur cet appareil.` : "Aucun relevé gardé pour l'instant.");
+}
+async function exportJournal() {
+  const list = loadJournal();
+  if (!list.length) return showJournal();
+  const at = Date.now();
+  const name = exportName(at);
+  const blob = new Blob([exportText(list, at)], { type: "application/json" });
+  const file = typeof File === "function" ? new File([blob], name, { type: "application/json" }) : null;
+  try {
+    if (file && navigator.canShare?.({ files: [file] })) { await navigator.share({ files: [file], title: name }); showJournal(`${list.length} relevé${list.length > 1 ? "s" : ""} partagé${list.length > 1 ? "s" : ""} (${name}).`); return; }
+  } catch (e) {
+    if (e?.name === "AbortError") return showJournal(); // partage annulé par l'utilisateur
+    // autre échec du partage : repli sur le téléchargement
+  }
+  const url = URL.createObjectURL(blob);
+  const a = Object.assign(document.createElement("a"), { href: url, download: name });
+  document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
+  showJournal(`Fichier ${name} téléchargé (${list.length} relevé${list.length > 1 ? "s" : ""}).`);
+}
 function setMini(open) {
   document.querySelector("main.shell").hidden = open;
   $("mini").hidden = !open;
   window.scrollTo({ top: 0 });
-  if (open) { locate(false); preloadDial(); $("mini-close").focus(); } else { geo.loadId++; $("mini-open").focus(); } // fermer abandonne une recherche en cours
+  if (open) { showJournal(); locate(false); preloadDial(); $("mini-close").focus(); } else { geo.loadId++; $("mini-open").focus(); } // fermer abandonne une recherche en cours
 }
 // Hauteur du haut de page fixe de « Lieu actuel » : les titres de colonnes se collent juste dessous.
 if (typeof ResizeObserver !== "undefined") { const top = document.querySelector(".mini-top"); new ResizeObserver(() => $("mini").style.setProperty("--mini-top-h", `${top.offsetHeight}px`)).observe(top); }
@@ -231,6 +260,7 @@ $("mini-open").addEventListener("click", () => setMini(true));
 $("mini-close").addEventListener("click", () => setMini(false));
 $("mini-refresh").addEventListener("click", () => locate(true));
 $("mini-map-btn").addEventListener("click", toggleMap);
+$("journal-export").addEventListener("click", exportJournal);
 document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("mini").hidden) setMini(false); });
 
 // Vigilances et sources : redessinés ensemble, car les sources citent ECCC si ses alertes sont affichées.

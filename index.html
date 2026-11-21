@@ -168,6 +168,10 @@
       <p class="muted small mini-map-note">Zoom : boutons + et −, molette ou deux doigts. Le point bleu est votre position, le disque sa précision. L'interrupteur « Nuages · pluie » superpose les valeurs des modèles à l'instant présent ; la flèche du vent est toujours affichée.</p>
     </div>
     <div id="mini-body"></div>
+    <div class="mini-log">
+      <p id="journal-info" class="muted small mini-log-info" aria-live="polite"></p>
+      <button type="button" id="journal-export" class="btn mini-log-btn" title="Enregistrer ou partager le fichier des relevés (prévisions gardées à chaque ouverture de cette vue)" disabled>Exporter les relevés</button>
+    </div>
     <p class="muted small mini-credit"><a href="https://open-meteo.com/" rel="noopener">Weather data by Open-Meteo.com</a> · Pression : station METAR via <a href="https://mesonet.agron.iastate.edu/" rel="noopener">Iowa Environmental Mesonet</a> · Nom du lieu et carte : © contributeurs <a href="https://www.openstreetmap.org/copyright" rel="noopener">OpenStreetMap</a> (Nominatim)</p>
   </div>
 </section>
@@ -217,6 +221,7 @@
   </div>
   <div class="m-tabs" role="tablist" aria-label="Rubriques d'information">
     <button type="button" class="m-tab" role="tab" id="m-tab-how" aria-controls="m-panel-how" aria-selected="true">Fonctionnement</button>
+    <button type="button" class="m-tab" role="tab" id="m-tab-log" aria-controls="m-panel-log" aria-selected="false" tabindex="-1">Relevés</button>
     <button type="button" class="m-tab" role="tab" id="m-tab-tech" aria-controls="m-panel-tech" aria-selected="false" tabindex="-1">Sous le capot</button>
   </div>
 
@@ -227,7 +232,7 @@
 
       <h3>Choisir un lieu</h3>
       <p>Huit lieux sont proposés dans la liste (Bar-le-Duc par défaut). « Autre lieu » permet de chercher n'importe quelle ville : si plusieurs lieux portent le même nom, on choisit le bon dans la liste. Rien n'est chargé tant qu'on n'a pas cliqué sur « Afficher la météo ». Le dernier lieu validé est retenu sur cet appareil.</p>
-      <p>L'icône de chaussure de randonnée (🥾), en haut à droite, ouvre <strong>« Lieu actuel »</strong> : une vue minimale des 12 prochaines heures à votre <strong>position réelle</strong> (celle de l'appareil ; le navigateur demande l'autorisation). Elle ne change pas le lieu choisi dans la liste. Le haut de la vue donne le nom du lieu, ses coordonnées GPS et la précision de la position, et, à droite du titre, la pression atmosphérique au niveau de la mer en hPa. C'est une <strong>mesure</strong> : le dernier relevé de la station météo d'aéroport la plus proche (à moins de 100 km, relevé de moins de 3 h), dont le nom, la distance et l'heure sont dans l'info-bulle. Ce relevé est un QNH : la pression de la station ramenée au niveau de la mer selon l'atmosphère standard, qui peut différer d'environ 1 à 2 hPa de la pression au niveau de la mer calculée avec la température réelle (surtout pour une station en altitude par temps froid ou chaud). Sans station récente à proximité, la valeur du modèle la remplace et s'affiche précédée de « ≈ ». Le bouton « Baromètre », juste à droite de la pression, ouvre un baromètre à aiguille, avec l'aiguille sur la valeur. L'icône de parapluie, à côté du bouton « Carte », ouvre « Balade ? » (un petit sélecteur à droite du titre, « Dans l'heure », « +1 h », « +2 h »…, avance le départ d'heure en heure, jusqu'à 8 h : le verdict, la frise et les remarques valent alors pour l'heure qui commence à ce moment-là, et la prévision est moins sûre plus on s'éloigne) : un verdict (pas une goutte en vue, restez près de chez vous, petite pluie ou quelques flocons, attendez, averse de passage, averses successives, vous allez prendre la sauce ou il va neiger toute l'heure, pluie verglaçante, orage, conditions difficiles même sans pluie, ou « je ne sais pas » si les données manquent), une petite frise des précipitations par pas de 15 minutes, une rubrique « À savoir » (forte chaleur, froid, gel et verglas possible, neige au sol, brouillard, vent fort, UV, nuit qui tombe) et quelques faits (précipitation la plus forte, cumul, probabilité, température). Ce sont les valeurs des modèles, pas un radar ; les seuils (pluie faible sous 1 mm/h, modérée sous 4, forte au-delà ; neige faible sous 1 cm/h, modérée sous 3 ; ressenti 30 °C et 35 °C pour la chaleur, 5, 0 et −10 °C pour le froid ; rafales 50 et 75 km/h ; visibilité 1 000 et 200 m ; UV 6 et plus) sont ceux de l'application, pas des seuils officiels. La vigilance canicule officielle n'est pas vérifiée. Si la position n'est pas disponible, le motif est affiché et la vue montre alors le lieu choisi sur la page, signalé comme n'étant pas votre position.</p>
+      <p>L'icône de chaussure de randonnée (🥾), en haut à droite, ouvre <strong>« Lieu actuel »</strong> : une vue minimale des 12 prochaines heures à votre <strong>position réelle</strong> (celle de l'appareil ; le navigateur demande l'autorisation). Elle ne change pas le lieu choisi dans la liste. Le haut de la vue donne le nom du lieu, ses coordonnées GPS et la précision de la position, et, à droite du titre, la pression atmosphérique au niveau de la mer en hPa. C'est une <strong>mesure</strong> : le dernier relevé de la station météo d'aéroport la plus proche (à moins de 100 km, relevé de moins de 3 h), dont le nom, la distance et l'heure sont dans l'info-bulle. Ce relevé est un QNH : la pression de la station ramenée au niveau de la mer selon l'atmosphère standard, qui peut différer d'environ 1 à 2 hPa de la pression au niveau de la mer calculée avec la température réelle (surtout pour une station en altitude par temps froid ou chaud). Sans station récente à proximité, la valeur du modèle la remplace et s'affiche précédée de « ≈ ». Le bouton « Baromètre », juste à droite de la pression, ouvre un baromètre à aiguille, avec l'aiguille sur la valeur. L'icône de parapluie, à côté du bouton « Carte », ouvre « Balade ? » (un petit sélecteur à droite du titre, « Dans l'heure », « +1 h », « +2 h »…, avance le départ d'heure en heure, jusqu'à 8 h : le verdict, la frise et les remarques valent alors pour l'heure qui commence à ce moment-là, et la prévision est moins sûre plus on s'éloigne) : un verdict (pas une goutte en vue, restez près de chez vous, petite pluie ou quelques flocons, attendez, averse de passage, averses successives, vous allez prendre la sauce ou il va neiger toute l'heure, pluie verglaçante, orage, conditions difficiles même sans pluie, ou « je ne sais pas » si les données manquent), une petite frise des précipitations par pas de 15 minutes, une rubrique « À savoir » (forte chaleur, froid, gel et verglas possible, neige au sol, brouillard, vent fort, UV, nuit qui tombe) et quelques faits (précipitation la plus forte, cumul, probabilité, température). Ce sont les valeurs des modèles, pas un radar ; les seuils (pluie faible sous 1 mm/h, modérée sous 4, forte au-delà ; neige faible sous 1 cm/h, modérée sous 3 ; ressenti 30 °C et 35 °C pour la chaleur, 5, 0 et −10 °C pour le froid ; rafales 50 et 75 km/h ; visibilité 1 000 et 200 m ; UV 6 et plus) sont ceux de l'application, pas des seuils officiels. La vigilance canicule officielle n'est pas vérifiée. Si la position n'est pas disponible, le motif est affiché et la vue montre alors le lieu choisi sur la page, signalé comme n'étant pas votre position. Chaque ouverture garde aussi un relevé de la prévision affichée : voir l'onglet « Relevés ».</p>
       <ul>
         <li><strong>Une ligne par heure</strong> : le pictogramme du temps, puis la pluie (hauteur en mm, avec une barre verticale proportionnelle, échelle fixe de 0 à 3 mm ; au-delà de 3 mm la barre est pleine, rouge et porte un « + », le chiffre donnant la valeur exacte), la probabilité de pluie (en %, barre horizontale qui suit le pourcentage), la température et le vent (km/h, avec les rafales dessous). Les autres petites barres : pour la température elle va de la plus basse à la plus haute de ces heures, pour le vent la partie foncée est le vent et la claire les rafales.</li>
         <li><strong>L'étiquette de l'heure</strong> est ambrée quand le soleil est levé et bleu nuit quand il est couché, d'après le lever et le coucher du jour du lieu. Si ces heures manquent, l'étiquette reste neutre.</li>
@@ -281,6 +286,39 @@
       </ul>
     </section>
 
+    <section id="m-panel-log" role="tabpanel" aria-labelledby="m-tab-log" tabindex="0" hidden>
+      <h3>À quoi ça sert</h3>
+      <p>Mesurer, sur des semaines, si la vue « Lieu actuel » (🥾) annonce juste. Les prévisions affichées sont gardées au moment où vous les consultez, puis comparées plus tard à ce qui s'est réellement passé. On ne peut pas les reconstituer après coup : la vue choisit son modèle valeur par valeur, et les archives des services météo ne gardent pas ce mélange.</p>
+
+      <h3>Quand un relevé est pris</h3>
+      <ul>
+        <li>À chaque ouverture de « Lieu actuel » où la position est trouvée et la météo chargée, et à chaque « Actualiser ». Rien à faire de votre part.</li>
+        <li>Pas de relevé si la position n'est pas disponible : la vue montre alors le lieu choisi sur la page, qui n'est pas l'endroit où vous êtes.</li>
+        <li>Un relevé pris au même endroit (à environ 1 km près) moins d'une heure après le précédent le <strong>remplace</strong> : pas de doublons si vous rouvrez la vue plusieurs fois.</li>
+      </ul>
+
+      <h3>Ce qu'il contient</h3>
+      <ul>
+        <li>L'heure du relevé, le nom du lieu, le fuseau horaire, la position <strong>arrondie à 0,01°</strong> (environ 1 km) et sa précision.</li>
+        <li>Les 12 heures du tableau, celles qu'on voit en faisant défiler la vue : pluie (mm), probabilité (%), température, ressenti, vent, rafales et code du temps.</li>
+        <li>Les valeurs exactes du modèle (avant l'arrondi de l'affichage) et, pour chacune, le <strong>modèle</strong> qui l'a fournie. Une donnée absente reste absente, jamais remplacée par 0.</li>
+        <li>Environ 1 Ko par relevé ; au-delà de 2 000 relevés, les plus anciens sont retirés.</li>
+      </ul>
+
+      <h3>Où il est gardé</h3>
+      <ul>
+        <li>Dans le stockage du navigateur de <strong>cet appareil</strong> uniquement : rien n'est envoyé nulle part.</li>
+        <li>L'application posée sur l'écran d'accueil de l'iPhone et Safari ont chacun leur stockage, donc chacun leurs relevés. Utilisez toujours le même.</li>
+        <li>Supprimer l'icône de l'écran d'accueil, ou effacer les données du site, efface les relevés. Exportez-les régulièrement (une fois par semaine, par exemple) : chaque fichier contient <strong>tous</strong> les relevés depuis le début.</li>
+      </ul>
+
+      <h3>Exporter</h3>
+      <p>Le bouton « Exporter les relevés », en bas de « Lieu actuel », indique combien de relevés sont gardés et crée le fichier <code>releves-rando-AAAA-MM-JJ.json</code>. Sur iPhone, il ouvre la feuille de partage : « Enregistrer dans Fichiers » (dans iCloud Drive, par exemple, pour le retrouver sur le Mac), AirDrop, Mail… Sinon, le fichier est téléchargé. Exporter n'efface rien. Le fichier contient vos positions (à environ 1 km près) : pensez-y avant de le partager.</p>
+
+      <h3>La comparaison</h3>
+      <p>Elle se fait plus tard, hors de l'application, à partir du fichier : les prévisions sont confrontées aux observations des stations météo les plus proches (température, vent et rafales des stations d'aéroport, pluie des stations Météo-France). Limites connues : la station peut être à plusieurs dizaines de kilomètres et à une autre altitude, et une averse peut tomber sur la station et pas sur vous, ou l'inverse. La probabilité de pluie ne peut être jugée qu'avec beaucoup de relevés (des centaines d'heures).</p>
+    </section>
+
     <section id="m-panel-tech" role="tabpanel" aria-labelledby="m-tab-tech" tabindex="0" hidden>
       <h3>Principes</h3>
       <p>HTML, CSS et JavaScript natifs (modules ES) : pas de framework, pas de compilation, pas de serveur (seule exception : Leaflet, chargé à la demande pour la carte). Le site est statique et peut être hébergé tel quel sur GitHub Pages. Aucune clé ni secret n'existe dans le code : toutes les requêtes partent du navigateur vers des API publiques.</p>
@@ -295,8 +333,9 @@
         <li><code>walk.js</code> et <code>walkui.js</code> : verdict « balade dans l'heure » (pluie à 15 minutes) et sa fenêtre.</li>
         <li><code>weathermap.js</code> et <code>skymap.js</code> : calque nuages et pluie de la carte, flèche du vent (grille de points, interpolation, flèche, légende).</li>
         <li><code>barometer.js</code> : cadran du baromètre (SVG : échelle, aiguille) et sa fenêtre ; <code>cadran-laiton.webp</code> : image du boîtier en laiton, créée avec ChatGPT à la demande de l'auteur. <code>observation.js</code> : pression mesurée par la station la plus proche.</li>
+        <li><code>journal.js</code> : relevés de « Lieu actuel » (prévision affichée gardée sur l'appareil) et fichier d'export.</li>
         <li><code>geo.js</code> : position de l'appareil (arrondie avant tout envoi à un service tiers) et nom du lieu.</li>
-        <li><code>warnings.js</code> : vigilances. <code>places.js</code> : favoris et géocodage. <code>info.js</code> : cette fenêtre.</li>
+        <li><code>warnings.js</code> : vigilances. <code>places.js</code> : favoris et géocodage. <code>info.js</code> : cette fenêtre (et date de dernière modification, lue dans les en-têtes des fichiers du site).</li>
       </ul>
 
       <h3>Appels réseau (tous depuis le navigateur)</h3>
@@ -339,7 +378,7 @@
   </div>
 
   <div class="modal-foot">
-    <p>Par CilMac et Claude Sonnet 5.5 · <time id="info-date"></time></p>
+    <p>Par CilMac et Claude Opus 5.5 · <span id="info-updated" title="Date de la dernière publication des fichiers du site">dernière modification : <time id="info-date">—</time></span></p>
   </div>
 </dialog>
 
