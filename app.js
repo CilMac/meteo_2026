@@ -7,6 +7,7 @@ import { initInfo } from "./info.js";
 import { initBarometer, preloadDial } from "./barometer.js";
 import { createSkyLayer } from "./skymap.js";
 import { initWalk } from "./walkui.js";
+import { localToMs } from "./walk.js";
 import { fetchObservedPressure, pressureDisplay } from "./observation.js";
 import { getPosition, reverseGeocode, placeFromPosition, formatCoords, deniedHelp, GEO_MAX_AGE_MS } from "./geo.js";
 import { createLoader } from "./loading.js";
@@ -172,7 +173,7 @@ function showMiniPlace(data, coords, named, pressure, at) {
   when.className = "mini-when"; when.title = "Dernière actualisation de la position et de la météo";
   when.textContent = `· actualisé ${refreshedText(at, data.location.timezone)}`; // le « · » part avec l'heure : jamais seul en fin de ligne
   $("mini-gps").replaceChildren(`GPS : ${formatCoords(coords.latitude, coords.longitude)}${coords.accuracy !== null ? ` · précision ± ${Math.round(coords.accuracy)} m` : ""}${named ? "" : " · nom du lieu indisponible"} `, when);
-  $("mini-body").replaceChildren(buildMini(data));
+  $("mini-body").replaceChildren(buildMini(data, undefined, { walk: true })); // position réelle : chaque heure ouvre « Balade ? »
 }
 async function locate(force = false) {
   if (!force && geo.data && Date.now() - geo.at < GEO_MAX_AGE_MS) { showMiniPlace(geo.data, geo.coords, geo.named, geo.pressure, geo.at); miniMessage(""); $("mini-map-btn").disabled = false; return; }
@@ -250,10 +251,17 @@ function setMini(open) {
 }
 // Hauteur du haut de page fixe de « Lieu actuel » : les titres de colonnes se collent juste dessous.
 if (typeof ResizeObserver !== "undefined") { const top = document.querySelector(".mini-top"); new ResizeObserver(() => $("mini").style.setProperty("--mini-top-h", `${top.offsetHeight}px`)).observe(top); }
-initWalk({
+const walk = initWalk({
   openBtn: $("walk-btn"),
   getHere: () => (geo.coords ? { lat: geo.coords.latitude, lon: geo.coords.longitude } : null),
   fmtTime: (ms) => formatLocal(new Date(ms), geo.data?.location.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone, { hour: "2-digit", minute: "2-digit" }),
+});
+// Toucher une heure du tableau : « Balade ? » pour un départ à cette heure (heure locale du lieu → instant).
+$("mini-body").addEventListener("click", (e) => {
+  const b = e.target.closest("button.mini-walk");
+  if (!b || $("walk-btn").disabled || !geo.data) return;
+  const at = localToMs(b.dataset.time, geo.data.location.timezone);
+  if (at !== null) walk.openAt(at, b);
 });
 initBarometer({ getPressure: () => geo.pressure, openBtn: $("mini-baro-btn") });
 $("mini-open").addEventListener("click", () => setMini(true));

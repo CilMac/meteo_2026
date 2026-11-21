@@ -8,7 +8,7 @@ import { timed, seconds, TIMEOUTS } from "./net.js";
 const API = "https://api.open-meteo.com/v1/forecast";
 export const STEP_MS = 15 * 60 * 1000;
 export const WINDOW_MS = 60 * 60 * 1000;
-export const MAX_OFFSET_H = 8;    // on peut avancer le départ jusqu'à 8 h
+export const MAX_OFFSET_H = 12;   // on peut avancer le départ jusqu'à 12 h (les 12 heures de « Lieu actuel »)
 export const MIN_STEPS = 3;       // en dessous, la fenêtre est trop pauvre pour conclure
 export const WET_MM = 0.1;        // pluie : cumul d'un pas de 15 min à partir duquel il « pleut » (0,4 mm/h)
 export const LIGHT_MMH = 1;       // pluie < 1 mm/h : faible ; < 4 mm/h : modérée ; au-delà : forte (seuils propres à l'application, pas des seuils officiels)
@@ -93,6 +93,22 @@ export function hourlyAt(hourly, t) {
     for (const x of hourly ?? []) if (isNum(x[key]) && x.t <= t && x.t > bestT) { bestT = x.t; out[key] = x[key]; }
   }
   return out;
+}
+
+// Heure locale « AAAA-MM-JJTHH:MM » d'un fuseau IANA → instant (ms UTC), sans bibliothèque ; illisible : null.
+// Deux passes pour tomber juste autour des changements d'heure.
+export function localToMs(iso, tz) {
+  const m = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.exec(String(iso)); // format strict : Date.parse accepte aussi n'importe quoi
+  const guess = m ? Date.parse(`${m[0]}:00Z`) : NaN;
+  if (!Number.isFinite(guess)) return null;
+  let fmt;
+  try { fmt = new Intl.DateTimeFormat("en-US", { timeZone: tz, hourCycle: "h23", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" }); } catch { return null; }
+  const offset = (t) => {
+    const p = Object.fromEntries(fmt.formatToParts(new Date(t)).map((x) => [x.type, x.value]));
+    return Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour % 24, +p.minute, +p.second) - Math.floor(t / 1000) * 1000;
+  };
+  const first = guess - offset(guess);
+  return guess - offset(first);
 }
 
 // Pas de 15 minutes qui concernent l'heure à venir : ceux qui se terminent après « maintenant » et commencent avant « maintenant + 1 h ».

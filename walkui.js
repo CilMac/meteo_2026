@@ -33,12 +33,16 @@ export function initWalk({ openBtn, getHere, fmtTime }) {
     return e;
   };
   const dlg = $("walk"), body = $("walk-body"), prev = $("walk-prev"), next = $("walk-next"), when = $("walk-when");
-  let cache = null, seq = 0, offset = 0;
+  // Départ : « maintenant + offset heures », ou une heure fixe (anchor, ms) choisie en touchant une heure de « Lieu actuel ».
+  let cache = null, seq = 0, offset = 0, anchor = null;
+  const startMs = () => anchor ?? Date.now() + offset * HOUR_MS;
+  const latestMs = () => Date.now() + MAX_OFFSET_H * HOUR_MS;
 
-  function syncStepper(startMs) {
-    prev.disabled = offset <= 0; next.disabled = offset >= MAX_OFFSET_H;
-    when.textContent = offset === 0 ? "Dans l'heure" : `+${offset} h`;
-    when.title = offset === 0 ? "Départ maintenant" : `Départ à ${fmtTime(startMs)}`;
+  function syncStepper(start) {
+    const isNow = anchor === null && offset === 0;
+    prev.disabled = isNow; next.disabled = start + HOUR_MS > latestMs() + 60000; // une minute de marge : la dernière heure du tableau reste atteignable
+    when.textContent = isNow ? "Dans l'heure" : anchor !== null ? fmtTime(start) : `+${offset} h`;
+    when.title = isNow ? "Départ maintenant" : `Départ à ${fmtTime(start)}`;
   }
 
   function render(advice, at) {
@@ -64,9 +68,9 @@ export function initWalk({ openBtn, getHere, fmtTime }) {
 
   // Affiche le verdict de l'heure qui commence à « maintenant + offset heures », à partir des données en mémoire.
   function show() {
-    const start = Date.now() + offset * HOUR_MS;
+    const start = startMs();
     syncStepper(start);
-    const ctx = { ...hourlyAt(cache.hourly, start), depart: offset > 0 ? fmtTime(start) : null };
+    const ctx = { ...hourlyAt(cache.hourly, start), depart: anchor !== null || offset > 0 ? fmtTime(start) : null };
     render(walkAdvice(cache.rows, ctx, start), cache.at);
   }
 
@@ -76,7 +80,7 @@ export function initWalk({ openBtn, getHere, fmtTime }) {
     const key = `${here.lat.toFixed(2)},${here.lon.toFixed(2)}`;
     if (cache && Date.now() - cache.at < CACHE_MS && cache.key === key) { show(); return; }
     const id = ++seq;
-    syncStepper(Date.now() + offset * HOUR_MS);
+    syncStepper(startMs());
     body.replaceChildren(el("p", "walk-msg", "Lecture des prévisions à 15 minutes…"));
     try {
       const now = Date.now();
@@ -90,16 +94,32 @@ export function initWalk({ openBtn, getHere, fmtTime }) {
     }
   }
 
-  const step = (d) => { offset = Math.min(MAX_OFFSET_H, Math.max(0, offset + d)); load(); };
+  const step = (d) => {
+    if (anchor === null) offset = Math.min(MAX_OFFSET_H, Math.max(0, offset + d));
+    else {
+      const t = anchor + d * HOUR_MS;
+      if (t <= Date.now()) { anchor = null; offset = 0; } // l'heure est déjà commencée : on part « maintenant »
+      else if (t <= latestMs() + 60000) anchor = t;
+    }
+    load();
+  };
   prev.addEventListener("click", () => step(-1));
   next.addEventListener("click", () => step(1));
-  openBtn.addEventListener("click", () => { offset = 0; dlg.showModal(); load(); }); // on repart toujours de « maintenant »
+  let returnFocus = openBtn;
+  const open = (at, from) => {
+    anchor = Number.isFinite(at) && at > Date.now() ? Math.min(at, latestMs()) : null; offset = 0;
+    returnFocus = from ?? openBtn;
+    dlg.showModal(); load();
+  };
+  openBtn.addEventListener("click", () => open(null, openBtn)); // on repart toujours de « maintenant »
   $("walk-close").addEventListener("click", () => dlg.close());
-  dlg.addEventListener("close", () => { seq++; openBtn.focus(); });
+  dlg.addEventListener("close", () => { seq++; (returnFocus?.isConnected ? returnFocus : openBtn).focus(); });
   // Comme les autres fenêtres : seul un clic dont la cible est le dialogue lui-même, hors de son cadre, le ferme.
   dlg.addEventListener("click", (e) => {
     if (e.target !== dlg) return;
     const r = dlg.getBoundingClientRect();
     if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) dlg.close();
   });
+  // Ouvre la fenêtre pour un départ à l'instant `at` (ms) ; passé ou déjà commencé : « Dans l'heure ».
+  return { openAt: (at, from) => open(at, from) };
 }

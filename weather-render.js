@@ -234,17 +234,20 @@ export function miniRows(data, n = MINI_HOURS) {
     };
   });
 }
-export function buildMini(data, n = MINI_HOURS) {
+// walk : les heures sont des boutons qui ouvrent « Balade ? » pour un départ à cette heure (position réelle seulement).
+export function buildMini(data, n = MINI_HOURS, { walk = false } = {}) {
   const hours = next24h(data).slice(0, n);
   if (!hours.length) return h("p", { class: "muted", text: "Données horaires indisponibles." });
   const rows = miniRows(data, n);
   const table = h("table", { class: "mini-table" },
     h("caption", { class: "sr-only", text: `Prévisions des ${rows.length} prochaines heures à ${data.location.name}` }),
-    h("thead", {}, h("tr", {}, h("th", { scope: "col", text: "Heure" }), h("th", { scope: "col", class: "mini-ico-col" }, h("span", { class: "sr-only", text: "Temps" })), h("th", { scope: "col", text: "Pluie" }), h("th", { scope: "col", text: "Probabilité" }), h("th", { scope: "col", text: "Température" }), h("th", { scope: "col", text: "Vent" }))),
+    h("thead", {}, h("tr", {}, h("th", { scope: "col" }, "Heure", h("button", { type: "button", class: "mini-info-btn", "aria-expanded": "false", "aria-controls": "mini-hour-help", "aria-label": "Que veut dire l'heure d'une ligne ?", title: "Que veut dire l'heure d'une ligne ?", text: "i" })), h("th", { scope: "col", class: "mini-ico-col" }, h("span", { class: "sr-only", text: "Temps" })), h("th", { scope: "col", text: "Pluie" }), h("th", { scope: "col", text: "Probabilité" }), h("th", { scope: "col", text: "Température" }), h("th", { scope: "col", text: "Vent" }))),
     h("tbody", {}, rows.map((r) => h("tr", { class: r.afterNoon ? "mini-noon" : null },
       h("th", { scope: "row" },
-        h("span", { class: `mini-hour${r.sun ? ` is-${r.sun}` : ""}`, title: r.sun === "night" ? "Soleil couché" : r.sun === "day" ? "Soleil levé" : null, text: r.hour }),
-        r.sun ? h("span", { class: "sr-only", text: r.sun === "night" ? " (soleil couché)" : " (soleil levé)" }) : null),
+        walk
+          ? h("button", { type: "button", class: `mini-hour mini-walk${r.sun ? ` is-${r.sun}` : ""}`, "data-time": r.time, title: `Balade ? Départ à ${r.hour}${r.sun === "night" ? " (soleil couché)" : r.sun === "day" ? " (soleil levé)" : ""}`, "aria-label": `${r.hour} : balade ? départ à cette heure${r.sun === "night" ? ", soleil couché" : r.sun === "day" ? ", soleil levé" : ""}`, text: r.hour })
+          : h("span", { class: `mini-hour${r.sun ? ` is-${r.sun}` : ""}`, title: r.sun === "night" ? "Soleil couché" : r.sun === "day" ? "Soleil levé" : null, text: r.hour }),
+        r.sun && !walk ? h("span", { class: "sr-only", text: r.sun === "night" ? " (soleil couché)" : " (soleil levé)" }) : null),
       h("td", { class: "mini-ico", title: r.sky }, h("span", { "aria-hidden": "true", text: r.icon }), h("span", { class: "sr-only", text: r.sky })),
       h("td", { class: "mini-mm" },
         h("div", { class: "vbar-box", "aria-hidden": "true" }, isNum(r.mmPct) ? h("div", { class: `vbar${r.mmOver ? " is-over" : ""}`, style: { height: `${minVisible(r.mmPct)}%` } }, r.mmOver ? h("span", { text: "+" }) : null) : null),
@@ -257,7 +260,20 @@ export function buildMini(data, n = MINI_HOURS) {
           isNum(r.windPct) ? h("div", { class: "hbar over", style: { width: `${minVisible(r.windPct)}%`, background: "var(--wind)" } }) : null))))));
   const labelOf = (k) => { const ms = new Set(hours.map((x) => x[k].model).filter(Boolean)); return ms.size ? [...ms].map(modelShort).join(" puis ") : "indisponible"; };
   const notes = `mm : ${labelOf("precip")} · % : ${labelOf("precipProb")} · T : ${labelOf("temp")} · vent : ${labelOf("wind")} · rafales : ${labelOf("gust")}. Heure « 18 h » : pluie, % et rafales de 17 h à 18 h ; température et vent à 18 h. Pluie : barre verticale = hauteur d'eau, proportionnelle de 0 à 3 mm (barre pleine, rouge et « + » au-delà) ; probabilité : barre horizontale = pourcentage ; température = de la plus basse à la plus haute de ces heures ; vent foncé, rafales clair.`;
-  return h("div", {}, h("div", { class: "mini-scroll" }, table), h("p", { class: "muted small", text: notes }));
+  // Explication de l'heure d'une ligne, ouverte par le « i » du titre de colonne.
+  const help = h("div", { class: "compact-help mini-hour-help", id: "mini-hour-help", hidden: "" },
+    h("ul", {},
+      h("li", { text: "Sur chaque ligne, la pluie, la probabilité et les rafales valent pour l'heure qui se termine à l'heure indiquée ; la température et le vent, pour l'heure indiquée pile. Exemple : ligne « 22 h » = pluie de 21 h à 22 h, température à 22 h." }),
+      walk ? h("li", { text: "Toucher une heure ouvre « Balade ? » pour un départ à cette heure-là : le verdict porte sur l'heure qui suit, dont la pluie figure donc sur la ligne suivante du tableau. Exemple : toucher « 22 h » = départ à 22 h, verdict de 22 h à 23 h, pluie sur la ligne « 23 h »." }) : null,
+      h("li", { text: "Pastille foncée : soleil couché ; pastille claire : soleil levé." })));
+  const infoBtn = table.querySelector(".mini-info-btn");
+  infoBtn.addEventListener("click", () => {
+    const open = help.hidden; // hidden = fermé : un clic l'ouvre
+    help.hidden = !open;
+    infoBtn.setAttribute("aria-expanded", String(open));
+    if (open) help.scrollIntoView?.({ block: "nearest", behavior: "smooth" });
+  });
+  return h("div", {}, help, h("div", { class: "mini-scroll" }, table), h("p", { class: "muted small", text: notes }));
 }
 
 // Bandeau 24 h piloté par l'onglet actif.

@@ -461,6 +461,18 @@ dialog.baro-modal { width: min(440px, calc(100vw - 24px)); }
 .mini-hour { display: inline-block; min-width: 3.1em; padding: 2px 8px; border-radius: 999px; text-align: center; }
 .mini-hour.is-day { background: var(--attention); color: var(--attention-ink); }
 .mini-hour.is-night { background: #2f3a52; color: #e4e9f5; }
+/* « i » du titre de colonne « Heure » : explication de l'heure d'une ligne */
+.mini-info-btn { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; margin-left: 6px; padding: 0; vertical-align: middle; border: 1px solid var(--help-border); border-radius: 50%; background: var(--help); color: var(--ink); font: italic 700 14px/1 var(--font-title); cursor: pointer; }
+.mini-info-btn:hover { filter: brightness(.96); }
+.mini-info-btn[aria-expanded="true"] { background: var(--help-active); border: 2px solid var(--help-active-border); }
+@media (min-width: 761px) { .mini-table thead th:first-child { white-space: nowrap; } } /* grand écran : « Heure i » sur une ligne ; sur téléphone, le « i » passe dessous */
+.mini-hour-help { scroll-margin-top: calc(var(--mini-top-h, 0px) + 8px); }
+/* heure cliquable : ouvre « Balade ? » pour un départ à cette heure */
+button.mini-hour { font: inherit; font-weight: inherit; border: 0; cursor: pointer; color: inherit; background: var(--line); line-height: inherit; }
+button.mini-hour.is-day { background: var(--attention); color: var(--attention-ink); }
+button.mini-hour.is-night { background: #2f3a52; color: #e4e9f5; }
+button.mini-hour:hover { filter: brightness(.92); }
+button.mini-hour:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 .mini-table tbody tr.mini-noon > * { border-top: 3px solid var(--muted); }
 .mini-table thead th:nth-child(3), .mini-table tbody td:nth-child(3) { width: 20%; }
 .mini-table thead th:nth-child(4), .mini-table tbody td:nth-child(4) { width: 18%; }
