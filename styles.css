@@ -16,10 +16,10 @@
   --error: #fbede5; --error-border: #c88b6c;
   --information: #edf2f7; --information-border: #9aafbf;
   --attention: #fff4df; --attention-border: #a97930; --attention-ink: #5e4010;
+  --night: #e4e8f3; --night-edge: #a3aec8; --night-ink: #2f3a52; /* pastilles d'heure après le coucher du soleil : bleu nuit pâle */
 
   --note: #f1f3ed;
   --btn-edge: #6f7d73; /* contour commun des boutons de « Lieu actuel » : assez foncé pour se voir sur le papier clair */
-  --pressure: #b3372a; /* pression de « Lieu actuel » : rouge, non gras, pour la distinguer du titre */
   /* une famille de couleur par rubrique : tuile, onglet, pastille de titre */
   --precip-bg: #eef4f8; --precip-sel: #ddebf4; --precip-border: #648599;
   --temp-bg: #faf3e7; --temp-sel: #f2e6ce; --temp-border: #9b8255;
@@ -38,7 +38,6 @@
   :root {
     color-scheme: dark;
     --btn-edge: #8e9a90;
-    --pressure: #ff9488;
     --paper: #1b201d; --surface: #252b27; --ink: #eceee8; --muted: #a9b0a6; --line: #3a423d;
     --link: #a5c9d2; --focus: #8fb3c1; --summary: #b4cfc2;
     --button: #2f3830; --button-border: #404a42;
@@ -50,6 +49,7 @@
     --error: #3e2b23; --error-border: #d39a7c;
     --information: #263039; --information-border: #86a0b3;
     --attention: #3a3120; --attention-border: #d0a65c; --attention-ink: #f0d7a0;
+    --night: #2b3246; --night-edge: #5f6b8e; --night-ink: #dde3f3;
     --note: #2b312c;
     --precip-bg: #27313a; --precip-sel: #33485a; --precip-border: #86a9c0;
     --temp-bg: #342e22; --temp-sel: #4a3f28; --temp-border: #cdab6e;
@@ -366,30 +366,14 @@ body:has(dialog.modal[open]) { overflow: hidden; }
 .mini-btn { display: inline-flex; align-items: center; justify-content: center; width: 44px; padding: 0; background: var(--precip-bg); border-color: var(--precip-border); } /* chaussure seule : « Rando ici ? » (le texte est lu par les lecteurs d'écran) */
 .mini-ico-boot { flex: none; font-size: 24px; line-height: 1; }
 @media (max-width: 520px) {
-  /* Petit écran : titre court et boutons réduits à leur icône (le texte reste lu par les lecteurs d'écran) */
+  /* Petit écran : Actualiser et Retour réduits à leur icône (le texte reste lu par les lecteurs d'écran) */
   .mini-act { width: 40px; padding: 0; justify-content: center; }
-  .mini-pressure { font-size: 15px; }
-  .mini-top { column-gap: 6px; }
-  .mini-top .mini-titlebar { flex-wrap: nowrap; align-items: center; gap: 6px; }
-  .mini-top h2 { font-size: 17px; white-space: nowrap; flex: none; }
-  .mini-top .mini-side { gap: 4px; }
-  .mini-side .btn { justify-content: center; }
-  /* Petit écran : Actualiser puis Retour sur la ligne du titre, Retour tout à droite */
-  .mini-top .mini-side { flex-direction: row; align-items: center; align-self: center; }
-  .mini-side #mini-refresh { order: -1; }
   .mini-act > span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 }
 .mini { --mini-pad: 32px; max-width: 1160px; margin-inline: auto; padding: 32px 32px 18px; }
-/* En-tête : titre à gauche ; à droite Retour puis Actualiser, l'un sous l'autre ; nom du lieu suivi du bouton Carte */
-/* Haut de page fixe : titre, boutons, lieu, GPS ; les titres de colonnes se collent juste dessous (--mini-top-h mesurée par app.js), les lignes glissent derrière. */
+/* En-tête (refait le 22/11/2026, sobre) : titre + Actualiser/Retour ; lieu ; GPS ; outils (pression-baromètre, carte).
+   Une seule police hors titre ; haut de page fixe, les titres de colonnes se collent juste dessous (--mini-top-h mesurée par app.js). */
 .mini-top { position: sticky; top: 0; z-index: 20; margin-inline: calc(-1 * var(--mini-pad)); padding: 8px var(--mini-pad) 8px; background: var(--paper); }
-.mini-top { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "title side" "where side" "gps gps"; column-gap: 12px; align-items: start; }
-.mini-titlebar { grid-area: title; display: flex; align-items: baseline; flex-wrap: wrap; gap: 0 12px; min-width: 0; align-self: center; }
-.mini-top h2 { margin: 0; font-family: var(--font-title); font-size: 26px; line-height: 1.25; min-width: 0; }
-.mini-pressure { font-size: 20px; font-weight: 400; color: var(--pressure); font-variant-numeric: tabular-nums; white-space: nowrap; }
-/* icône seule, à toute largeur (le libellé reste lu par les lecteurs d'écran) */
-.mini-top .mini-baro { flex: none; width: 40px; min-height: 36px; padding: 0; justify-content: center; }
-.mini-baro > span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 /* Baromètre */
 dialog.baro-modal { width: min(440px, calc(100vw - 24px)); }
 .baro-body { text-align: center; }
@@ -401,10 +385,6 @@ dialog.baro-modal { width: min(440px, calc(100vw - 24px)); }
 @media (prefers-reduced-motion: reduce) { .baro-needle { animation: none; } }
 .baro-value { margin: 10px 0 0; font: 700 26px/1.2 var(--font-title); }
 .baro-note { margin: 8px 0 0; }
-.mini-side { grid-area: side; display: flex; flex-direction: column; gap: 8px; }
-@media (min-width: 521px) { .mini-side .btn { justify-content: flex-start; } }
-.mini-where { grid-area: where; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin: 10px 0 2px; min-width: 0; }
-.mini-top .mini-gps { grid-area: gps; }
 .mini-act { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; font-weight: 600; }
 .mini-svg { flex: none; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
 .mini-act.nav { border-color: var(--primary-border); }
@@ -441,9 +421,16 @@ dialog.baro-modal { width: min(440px, calc(100vw - 24px)); }
 .leaflet-container .sky-img { max-width: none; }
 .leaflet-control-scale-line { font: 11px var(--font-body); color: #222; }
 @media (max-width: 520px) { .leaflet-bottom.leaflet-left .sky-legend { margin-bottom: 28px; } .sky-panel, .sky-wind-sub { font-size: 12px; } .sky-switch { gap: 6px; padding-left: 8px; } .sky-wind-text { max-width: 8.5em; } .sky-wind { padding-right: 8px; } .sky-legend { width: min(170px, calc(100vw - 90px)); } }
-.mini-place { margin: 0; font-size: 18px; font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
-.mini-gps { margin: 4px 0 14px; font-variant-numeric: tabular-nums; }
-.mini-lead { margin: 4px 0 14px; font-size: 16px; font-weight: 600; line-height: 1.45; color: var(--ink); }
+.mini-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.mini-top h2 { margin: 0; min-width: 0; font-family: var(--font-title); font-size: 24px; font-weight: 700; line-height: 1.25; text-wrap: balance; }
+.mini-side { display: flex; gap: 8px; flex: none; }
+.mini-place { margin: 10px 0 0; font-size: 16px; font-weight: 600; line-height: 1.35; color: var(--ink); overflow-wrap: anywhere; }
+.mini-place:empty, .mini-gps:empty { display: none; }
+.mini-gps { margin: 2px 0 0; font-size: 13px; line-height: 1.4; color: var(--muted); font-variant-numeric: tabular-nums; }
+.mini-tools { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 2px; }
+.mini-tool { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 12px; font-size: 14px; font-weight: 600; white-space: nowrap; background: var(--surface); color: var(--ink); }
+.mini-pressure { font-variant-numeric: tabular-nums; }
+.mini-lead { margin: 6px 0 12px; font-size: 14px; line-height: 1.45; color: var(--muted); }
 .mini-lead:empty { display: none; }
 .mini-when { white-space: nowrap; } /* « actualisé sam. 21/11 17:42 » passe à la ligne d'un seul bloc */
 .mini-msg { margin: 10px 0 14px; padding: 10px 14px; border: 1px solid var(--information-border); border-left-width: 4px; border-radius: var(--radius-control); background: var(--information); }
@@ -461,7 +448,7 @@ dialog.baro-modal { width: min(440px, calc(100vw - 24px)); }
 /* Heure : étiquette claire (soleil levé) ou sombre (soleil couché) ; sans lever/coucher connus, aucun style. Trait entre 12 h et 13 h. */
 .mini-hour { display: inline-block; min-width: 3.1em; padding: 2px 8px; border-radius: 999px; text-align: center; }
 .mini-hour.is-day { background: var(--attention); color: var(--attention-ink); }
-.mini-hour.is-night { background: #2f3a52; color: #e4e9f5; }
+.mini-hour.is-night { background: var(--night); color: var(--night-ink); }
 /* « i » du titre de colonne « Heure » : explication de l'heure d'une ligne */
 .mini-info-btn { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; margin-left: 6px; padding: 0; vertical-align: middle; border: 1px solid var(--help-border); border-radius: 50%; background: var(--help); color: var(--ink); font: italic 700 14px/1 var(--font-title); cursor: pointer; }
 .mini-info-btn:hover { filter: brightness(.96); }
@@ -470,10 +457,14 @@ dialog.baro-modal { width: min(440px, calc(100vw - 24px)); }
 .mini-hour-help { scroll-margin-top: calc(var(--mini-top-h, 0px) + 8px); }
 /* heure cliquable : ouvre « Balade ? » pour un départ à cette heure */
 :where(button.mini-hour) { font: inherit; line-height: inherit; } /* :where = priorité nulle : la taille réduite des pastilles sur téléphone (.mini-hour) s'applique aussi aux boutons */
-button.mini-hour { border: 0; cursor: pointer; color: inherit; background: var(--line); }
-button.mini-hour.is-day { background: var(--attention); color: var(--attention-ink); }
-button.mini-hour.is-night { background: #2f3a52; color: #e4e9f5; }
-button.mini-hour:hover { filter: brightness(.92); }
+/* Heures cliquables : allure de bouton (liseré intérieur + petite ombre portée), sans largeur ajoutée (le tableau tient au pixel à 375 px) ;
+   enfoncement au toucher. Le liseré reprend la couleur de la pastille, un ton plus soutenu. */
+button.mini-hour { --edge: color-mix(in srgb, var(--muted) 45%, transparent); border: 0; cursor: pointer; color: inherit; background: var(--line);
+  box-shadow: inset 0 0 0 1px var(--edge), 0 1px 2px rgb(0 0 0 / .16), 0 2px 0 rgb(0 0 0 / .05); transition: transform .08s, box-shadow .08s; }
+button.mini-hour.is-day { --edge: color-mix(in srgb, var(--attention-border) 60%, transparent); background: var(--attention); color: var(--attention-ink); }
+button.mini-hour.is-night { --edge: var(--night-edge); background: var(--night); color: var(--night-ink); }
+button.mini-hour:hover { filter: brightness(.96); }
+button.mini-hour:active { transform: translateY(1px); box-shadow: inset 0 0 0 1px var(--edge); }
 button.mini-hour:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 .mini-table tbody tr.mini-noon > * { border-top: 3px solid var(--muted); }
 .mini-table thead th:nth-child(3), .mini-table tbody td:nth-child(3) { width: 20%; }
@@ -494,11 +485,8 @@ button.mini-hour:focus-visible { outline: 2px solid var(--ink); outline-offset: 
 .mini-log-btn { flex: none; }
 @media (max-width: 760px) {
   .mini { --mini-pad: 16px; padding: 20px 16px 18px; }
-  .mini-top h2 { font-size: 20px; }
-  .mini-top { grid-template-areas: "title side" "where where" "gps gps"; }
-  .mini-where { flex-wrap: nowrap; margin-top: 8px; }
-  .mini-where .mini-place { flex: 1 1 auto; }
-  .mini-where .btn { flex: none; }
+  .mini-top h2 { font-size: 19px; }
+  .mini-place { margin-top: 8px; font-size: 15px; }
   .mini-ico { min-width: 36px; padding-inline: 2px; font-size: 24px; }
   .mini-hour { min-width: 2.7em; padding: 2px 5px; font-size: 15px; }
   .mini-table tbody th { padding-inline: 4px; }

@@ -283,7 +283,7 @@ export function buildMini(data, n = MINI_HOURS, { walk = false } = {}) {
       h("li", { text: "Exemple : ligne « 22 h » = pluie, probabilité et rafales de 21 h à 22 h ; température et vent à 22 h." }),
       walk ? h("li", { text: "Exemple : toucher « 22 h » ouvre « Balade ? » pour un départ à 22 h ; verdict de 22 h à 23 h, dont la pluie est sur la ligne « 23 h »." }) : null,
       walk ? h("li", { text: "Exemple : toucher la première ligne ouvre « Balade ? » pour un départ maintenant." }) : null,
-      h("li", { text: "Pastille foncée : soleil couché ; pastille claire : soleil levé." })));
+      h("li", { text: "Pastille bleutée : soleil couché ; pastille jaune : soleil levé." })));
   const infoBtn = table.querySelector(".mini-info-btn");
   infoBtn.addEventListener("click", () => {
     const open = help.hidden; // hidden = fermé : un clic l'ouvre

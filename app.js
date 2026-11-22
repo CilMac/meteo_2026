@@ -168,26 +168,31 @@ async function toggleMap() {
 }
 // « sam. 21/11 17:42 » : dernière actualisation (position + météo), à l'heure de l'appareil.
 const refreshedText =(ms, tz) => formatLocal(new Date(ms), tz, { weekday: "short", day: "numeric", month: "numeric", hour: "2-digit", minute: "2-digit" });
+// Titre de la vue 🥾 : ce qu'elle montre vraiment (position de l'appareil, ou, à défaut, lieu choisi sur la page).
+const MINI_TITLE = "Météo des 12 prochaines heures, à votre position";
+const MINI_TITLE_FALLBACK = "Météo des 12 prochaines heures, au lieu choisi";
 function showMiniPlace(data, coords, named, pressure, at) {
+  $("mini-title").textContent = MINI_TITLE;
+  $("mini-tools").hidden = false; // baromètre et carte : seulement quand la vraie position est connue
   const pb = $("mini-pressure");
   pb.textContent = pressure.text; pb.title = pressure.title;
   $("mini-baro-btn").disabled = pressure.hpa === null; // sans valeur, rien à montrer sur le cadran
   $("walk-btn").disabled = false; // la position est connue
-  $("mini-place").textContent = `📍 ${data.location.name}${data.location.country ? ` (${data.location.country})` : ""}`;
+  $("mini-place").textContent = `${data.location.name}${data.location.country ? ` (${data.location.country})` : ""}`;
   // L'heure d'actualisation suit la ligne GPS ; sur téléphone, elle passe à la ligne d'un seul bloc (jamais coupée).
   const when = document.createElement("span");
   when.className = "mini-when"; when.title = "Dernière actualisation de la position et de la météo";
   when.textContent = `· actualisé ${refreshedText(at, data.location.timezone)}`; // le « · » part avec l'heure : jamais seul en fin de ligne
   $("mini-gps").replaceChildren(`GPS : ${formatCoords(coords.latitude, coords.longitude)}${coords.accuracy !== null ? ` · précision ± ${Math.round(coords.accuracy)} m` : ""}${named ? "" : " · nom du lieu indisponible"} `, when);
   $("mini-body").replaceChildren(buildMini(data, undefined, { walk: true })); // position réelle : chaque heure ouvre « Balade ? »
-  $("mini-lead").textContent = "Météo des 12 prochaines heures, à votre position. Touchez une heure pour savoir si vous pouvez partir marcher à ce moment-là.";
+  $("mini-lead").textContent = "Touchez une heure pour savoir si vous pouvez partir marcher à ce moment-là.";
 }
 async function locate(force = false) {
   if (!force && geo.data && Date.now() - geo.at < GEO_MAX_AGE_MS) { showMiniPlace(geo.data, geo.coords, geo.named, geo.pressure, geo.at); miniMessage(""); $("mini-map-btn").disabled = false; return; }
   const id = ++geo.loadId;
   $("mini-refresh").disabled = true;
   $("mini-map-btn").disabled = true;
-  $("mini-place").textContent = ""; $("mini-gps").textContent = ""; $("mini-pressure").textContent = ""; $("mini-baro-btn").disabled = true; $("walk-btn").disabled = true; $("mini-lead").textContent = ""; $("mini-body").replaceChildren();
+  $("mini-title").textContent = MINI_TITLE; $("mini-tools").hidden = true; $("mini-place").textContent = ""; $("mini-gps").textContent = ""; $("mini-pressure").textContent = ""; $("mini-baro-btn").disabled = true; $("walk-btn").disabled = true; $("mini-lead").textContent = ""; $("mini-body").replaceChildren();
   miniMessage("Recherche de votre position…");
   try {
     const coords = await getPosition();
@@ -219,10 +224,11 @@ async function locate(force = false) {
     $("mini-map-wrap").hidden = true; setMapButton(false);
     miniMessage(`Position actuelle indisponible : ${e.message}${e.kind === "denied" ? ` ${deniedHelp(isIOS())}` : ""}`, "err");
     if (state.data) {
-      $("mini-place").textContent = `📍 Lieu choisi sur la page : ${state.data.location.name} (${state.data.location.country})`;
-      $("mini-gps").textContent = "Ce n'est pas votre position actuelle.";
+      $("mini-title").textContent = MINI_TITLE_FALLBACK;
+      $("mini-place").textContent = `${state.data.location.name}${state.data.location.country ? ` (${state.data.location.country})` : ""}`;
+      $("mini-gps").textContent = "Lieu choisi sur la page : ce n'est pas votre position actuelle.";
       $("mini-body").replaceChildren(buildMini(state.data));
-      $("mini-lead").textContent = "Météo des 12 prochaines heures, au lieu choisi sur la page (pas votre position).";
+      $("mini-lead").textContent = "";
     }
   } finally { if (id === geo.loadId) $("mini-refresh").disabled = false; }
 }
