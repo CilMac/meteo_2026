@@ -403,6 +403,7 @@ export function compactSepTexts(ensemble) {
 export const COMPACT_HELP_ITEMS = [
   "3 blocs : J à J+3, J+4 à J+6, J+7 à J+14.",
   `Pluie : mm et % jusqu'à J+${RAIN_MM_UNTIL} ; ensuite classe (sec, faible, modéré, fort) et %, sans mm.`,
+  `Barres de pluie : petite verticale = mm du jour (pleine à 10 mm, jusqu'à J+${RAIN_MM_UNTIL}) ; horizontale = %.`,
   "Jusqu'à J+7, le % est la probabilité horaire maximale du jour.",
   `Dès J+${ENSEMBLE_MEDIAN_FROM}, le % est la part des scénarios à ${WET_MM} mm ou plus.`,
   `Températures : minimale / maximale (médiane des scénarios dès J+${ENSEMBLE_MEDIAN_FROM}).`,
@@ -431,18 +432,18 @@ function buildPeriod(days, tab, { sectionLabel, summary, ensemble }) {
     if (tab === "precip") {
       if (v.median) {
         const p = ens.precip?.probWet;
-        bar = probBar(isNum(p) ? p * 100 : null);
+        bar = rainBars(null, false, isNum(p) ? p * 100 : null);
         value = isNum(p) ? `${num0(p * 100)} % des scénarios ≥ ${WET_MM} mm` : "—";
         tag.push(ensembleTag(ens));
         keepConfidence = false;
       } else if (!v.showMm) {
-        // Au-delà de RAIN_MM_UNTIL : classe et pourcentage, pas de quantité.
-        bar = probBar(d.precipProbMax.value);
+        // Au-delà de RAIN_MM_UNTIL : classe et pourcentage, pas de quantité (ni jauge de mm).
+        bar = rainBars(null, false, d.precipProbMax.value);
         value = compactValue(v, "precip");
         tag.push(modelsLine(d, [["%", "precipProbMax"]]));
         if (v.range && isNum(ens.precip?.probWet)) tag.push(`scénarios : ${num0(ens.precip.probWet * 100)} % ≥ ${WET_MM} mm`);
       } else {
-        bar = probBar(d.precipProbMax.value);
+        bar = rainBars(d.precipSum.value, true, d.precipProbMax.value);
         const prob = isNum(d.precipProbMax.value) ? `${num0(d.precipProbMax.value)} %` : null;
         // Tendance courte (≤ J+3) : la quantité reste affichée ; la classe qualitative l'accompagne.
         const mm = isNum(d.precipSum.value) ? `${num1(d.precipSum.value)} mm` : "—";
@@ -503,10 +504,12 @@ export const mixedRainModels = (d) => Boolean(d.precipSum.model && d.precipProbM
 export function howToItems(tab, { sectionLabel = "cette liste", hasMedian = false, hasEns = false, hasSingleTrend = false, hasLateDays = false, hasMm = true, hasNoMm = false, mixedRain = false } = {}) {
   const items = [];
   if (tab === "precip") {
-    items.push("Barres : le pourcentage de risque de pluie, sur tous les jours (0 % à 100 %).");
+    items.push(hasMm
+      ? `Barres : horizontale = % de risque de pluie (tous les jours) ; petite verticale = mm du jour, pleine à ${DAY_MM_FULL} mm (jusqu'à J+${RAIN_MM_UNTIL}).`
+      : "Barres : le pourcentage de risque de pluie (0 % à 100 %).");
     if (hasMm && hasNoMm) items.push(`Les mm sont écrits jusqu'à J+${RAIN_MM_UNTIL} ; dès J+${RAIN_MM_UNTIL + 1}, classe et % (mm non fiables). ${RAIN_LEGEND}.`);
     else if (hasNoMm) items.push(`Pas de mm à cette échéance (non fiables) : classe et %. ${RAIN_LEGEND}.`);
-    else if (hasMm) items.push("Les mm sont écrits en texte, sans barre.");
+    else if (hasMm) items.push("Les mm sont aussi écrits en texte.");
     if (hasMedian) {
       items.push(`Le % : probabilité horaire maximale du jour jusqu'à J+7 ; dès J+${ENSEMBLE_MEDIAN_FROM}, part des scénarios à ${WET_MM} mm ou plus.`);
     } else items.push("Le % est la probabilité horaire maximale du jour, pas celle de toute la journée.");
@@ -556,7 +559,7 @@ export function buildCompact(data, tab, ensemble) {
       const { d } = v;
       const info = weatherInfo(d.weatherCode.value, false);
       let bar;
-      if (tab === "precip") bar = probBar(v.pct);
+      if (tab === "precip") bar = rainBars(v.mm, v.showMm, v.pct);
       else if (tab === "temp") bar = rangeBar(v.tmin, v.tmax, gmin, gmax);
       else bar = h("div", { class: "hbar-box" },
         isNum(d.gustMax.value) ? h("div", { class: "hbar", style: { width: `${minVisible(barPct(d.gustMax.value, wMax))}%`, background: "var(--wind-2)" } }) : null,
@@ -622,6 +625,19 @@ export function trendSummary(days, ensemble) {
 function hbar(pct, color) {
   return h("div", { class: "hbar-box" }, pct === null ? null : h("div", { class: "hbar", style: { width: `${minVisible(pct)}%`, background: color } }));
 }
+// Jauge de mm du jour (lignes de jours, onglet Précipitations, 23/11/2026) : verticale comme partout pour les mm, pleine à
+// DAY_MM_FULL (limite « modéré » / « fort » de rainClass), rouge et « + » au-delà. Seulement quand les mm sont affichés
+// (jusqu'à J+RAIN_MM_UNTIL) ; sinon un emplacement vide garde l'alignement des barres de %.
+export const DAY_MM_FULL = 10;
+function dayMmGauge(mm, shown) {
+  if (!shown) return h("div", { class: "dmm is-empty", "aria-hidden": "true" });
+  const over = isNum(mm) && mm > DAY_MM_FULL;
+  return h("div", { class: "dmm", "aria-hidden": "true" }, isNum(mm)
+    ? h("div", { class: `vbar${over ? " is-over" : ""}`, style: { height: `${minVisible(barPct(mm, DAY_MM_FULL))}%` } }, over ? h("span", { text: "+" }) : null)
+    : null);
+}
+const rainBars = (mm, shown, pct) => h("div", { class: "dbars" }, dayMmGauge(mm, shown), probBar(pct));
+
 // Barre de probabilité : la longueur suit toujours le % (0 à 100), jamais une quantité.
 function probBar(pct) {
   return h("div", { class: "hbar-box prob" }, isNum(pct) ? h("div", { class: "hbar", style: { width: `${minVisible(Math.max(0, Math.min(100, pct)))}%`, background: "var(--rain)" } }) : null);

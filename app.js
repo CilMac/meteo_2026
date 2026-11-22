@@ -6,14 +6,14 @@ import { fetchEnsemble } from "./ensemble.js?v=88c38ccc";
 import { initInfo } from "./info.js?v=89ebfb1f";
 import { initBarometer, preloadDial } from "./barometer.js?v=c1fd2d41";
 import { createSkyLayer } from "./skymap.js?v=490696b3";
-import { initWalk } from "./walkui.js?v=9ba6e5d1";
+import { initWalk } from "./walkui.js?v=fe72d645";
 import { localToMs } from "./walk.js?v=0dac4a6e";
 import { fetchObservedPressure, pressureDisplay } from "./observation.js?v=823a9402";
 import { getPosition, reverseGeocode, placeFromPosition, storedGeoPlace, formatCoords, deniedHelp, GEO_ID, GEO_MAX_AGE_MS } from "./geo.js?v=b6df63a8";
 import { createLoader } from "./loading.js?v=956b591b";
-import { makeRecord, saveRecord, loadJournal, exportText, exportName } from "./journal.js?v=7657e461";
+import { makeRecord, saveRecord, loadJournal, exportText, exportName } from "./journal.js?v=71665057";
 import { chooseView, isIOS } from "./device.js?v=78893f99";
-import { TABS, buildTopPlace, buildTopNow, buildCurrent, buildHourly, buildWeek, buildTrend, buildCompact, buildMini, COMPACT_HELP_ITEMS, buildSources, buildWarnings, buildAttribution, warningsStatus, formatLocal } from "./weather-render.js?v=d80bf8c6";
+import { TABS, buildTopPlace, buildTopNow, buildCurrent, buildHourly, buildWeek, buildTrend, buildCompact, buildMini, COMPACT_HELP_ITEMS, buildSources, buildWarnings, buildAttribution, warningsStatus, formatLocal } from "./weather-render.js?v=67e7aee1";
 
 const $ = (id) => {
   const el = document.getElementById(id);
