@@ -468,7 +468,8 @@ dialog.baro-modal { width: min(440px, calc(100vw - 24px)); }
 @media (min-width: 761px) { .mini-table thead th:first-child { white-space: nowrap; } } /* grand écran : « Heure i » sur une ligne ; sur téléphone, le « i » passe dessous */
 .mini-hour-help { scroll-margin-top: calc(var(--mini-top-h, 0px) + 8px); }
 /* heure cliquable : ouvre « Balade ? » pour un départ à cette heure */
-button.mini-hour { font: inherit; font-weight: inherit; border: 0; cursor: pointer; color: inherit; background: var(--line); line-height: inherit; }
+:where(button.mini-hour) { font: inherit; line-height: inherit; } /* :where = priorité nulle : la taille réduite des pastilles sur téléphone (.mini-hour) s'applique aussi aux boutons */
+button.mini-hour { border: 0; cursor: pointer; color: inherit; background: var(--line); }
 button.mini-hour.is-day { background: var(--attention); color: var(--attention-ink); }
 button.mini-hour.is-night { background: #2f3a52; color: #e4e9f5; }
 button.mini-hour:hover { filter: brightness(.92); }
@@ -510,6 +511,11 @@ button.mini-hour:focus-visible { outline: 2px solid var(--ink); outline-offset: 
   .mini-mm .vbar-box { width: 10px; margin-right: 5px; }
   .mini-mm .vbar.is-over { font-size: 10px; }
   .mini-sub { font-size: 12px; }
+  /* 375 px : quelques pixels gagnés (marges, icône, barre de pluie) ; et une valeur trop longue (« 105 km/h ») passe à la ligne au lieu d'être coupée */
+  .mini-table tbody td { padding-left: 2px; padding-right: 2px; }
+  .mini-table td.mini-ico, .mini-ico { min-width: 20px; font-size: 18px; }
+  .mini-mm .vbar-box { margin-right: 3px; }
+  .mini-table td strong { white-space: normal; }
 }
 
 /* Boutons de « Lieu actuel » : même contour, bien visible (la couleur de fond garde la distinction entre familles) */
@@ -528,14 +534,21 @@ dialog.walk-modal { width: min(480px, calc(100vw - 24px)); }
 .walk-ico { font-size: 38px; line-height: 1; flex: none; }
 .walk-title { margin: 0; font: 700 19px/1.25 var(--font-title); }
 .walk-text { margin: 4px 0 0; }
+.walk-sub-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 14px 0 4px; }
 .walk-sub { margin: 14px 0 4px; font-size: 14px; color: var(--muted); }
-.walk-tl { display: flex; gap: 8px; align-items: flex-end; justify-content: space-between; padding: 6px 4px 0; }
-.walk-col { flex: 1 1 0; display: flex; flex-direction: column; align-items: center; min-width: 0; }
+.walk-sub-row .walk-sub { margin: 0; }
+.walk-info-btn { flex: none; margin-left: 0; }
+.walk-tl-help { margin: 6px 0 8px; padding-left: 30px; }
+.walk-tl { padding: 6px 22px 0; } /* marges : place pour la première et la dernière heure de l'axe, centrées sur les bords */
+.walk-cols { display: grid; grid-template-columns: repeat(var(--n, 4), minmax(0, 1fr)); align-items: end; }
+.walk-col { display: flex; flex-direction: column; align-items: center; min-width: 0; }
 .walk-bar-box { width: 22px; height: 64px; display: flex; align-items: flex-end; background: color-mix(in srgb, var(--line) 70%, transparent); border-radius: 6px; overflow: hidden; }
 .walk-bar { width: 100%; background: var(--rain); border-radius: 6px; }
 .walk-bar.is-over { background: var(--alert-red); }
-.walk-val { margin-top: 3px; font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; }
-.walk-time { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.walk-val { margin: 3px 0 6px; font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.walk-axis { position: relative; height: 24px; border-top: 1.5px solid var(--muted); }
+.walk-tick { position: absolute; top: 0; transform: translateX(-50%); padding-top: 6px; font-size: 12px; line-height: 1; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.walk-tick::before { content: ""; position: absolute; top: 0; left: 50%; width: 1.5px; height: 5px; margin-left: -0.75px; background: var(--muted); }
 .walk-facts { margin: 12px 0 0; padding-left: 20px; font-size: 14px; }
 .walk-h { margin: 16px 0 4px; font: 700 15px/1.3 var(--font-body); }
 .modal-body .walk-remarks { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
@@ -547,6 +560,7 @@ dialog.walk-modal { width: min(480px, calc(100vw - 24px)); }
 .walk-verdict.is-caution { border-left-color: var(--alert-orange); background: var(--attention); }
 .walk-verdict.is-ice { border-left-color: var(--alert-red); background: var(--error); }
 .walk-note { margin: 12px 0 0; }
+.walk-sources { margin: 12px 0 0; color: var(--ink); }
 .walk-msg { margin: 8px 0; }
 .walk-msg.is-err { padding: 8px 10px; border-radius: 8px; background: var(--error); border: 1px solid var(--error-border); }
 

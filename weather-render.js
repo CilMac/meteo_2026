@@ -242,10 +242,11 @@ export function buildMini(data, n = MINI_HOURS, { walk = false } = {}) {
   const table = h("table", { class: "mini-table" },
     h("caption", { class: "sr-only", text: `Prévisions des ${rows.length} prochaines heures à ${data.location.name}` }),
     h("thead", {}, h("tr", {}, h("th", { scope: "col" }, "Heure", h("button", { type: "button", class: "mini-info-btn", "aria-expanded": "false", "aria-controls": "mini-hour-help", "aria-label": "Que veut dire l'heure d'une ligne ?", title: "Que veut dire l'heure d'une ligne ?", text: "i" })), h("th", { scope: "col", class: "mini-ico-col" }, h("span", { class: "sr-only", text: "Temps" })), h("th", { scope: "col", text: "Pluie" }), h("th", { scope: "col", text: "Probabilité" }), h("th", { scope: "col", text: "Température" }), h("th", { scope: "col", text: "Vent" }))),
-    h("tbody", {}, rows.map((r) => h("tr", { class: r.afterNoon ? "mini-noon" : null },
+    h("tbody", {}, rows.map((r, i) => h("tr", { class: r.afterNoon ? "mini-noon" : null },
       h("th", { scope: "row" },
         walk
-          ? h("button", { type: "button", class: `mini-hour mini-walk${r.sun ? ` is-${r.sun}` : ""}`, "data-time": r.time, title: `Balade ? Départ à ${r.hour}${r.sun === "night" ? " (soleil couché)" : r.sun === "day" ? " (soleil levé)" : ""}`, "aria-label": `${r.hour} : balade ? départ à cette heure${r.sun === "night" ? ", soleil couché" : r.sun === "day" ? ", soleil levé" : ""}`, text: r.hour })
+          // première ligne = heure en cours : départ maintenant (« Dans l'heure ») ; les suivantes : départ à l'heure de la ligne
+          ? h("button", { type: "button", class: `mini-hour mini-walk${r.sun ? ` is-${r.sun}` : ""}`, "data-time": r.time, "data-now": i === 0 ? "1" : null, title: `Balade ? ${i === 0 ? "Départ maintenant" : `Départ à ${r.hour}`}${r.sun === "night" ? " (soleil couché)" : r.sun === "day" ? " (soleil levé)" : ""}`, "aria-label": `${r.hour} : balade ? ${i === 0 ? "départ maintenant" : "départ à cette heure"}${r.sun === "night" ? ", soleil couché" : r.sun === "day" ? ", soleil levé" : ""}`, text: r.hour })
           : h("span", { class: `mini-hour${r.sun ? ` is-${r.sun}` : ""}`, title: r.sun === "night" ? "Soleil couché" : r.sun === "day" ? "Soleil levé" : null, text: r.hour }),
         r.sun && !walk ? h("span", { class: "sr-only", text: r.sun === "night" ? " (soleil couché)" : " (soleil levé)" }) : null),
       h("td", { class: "mini-ico", title: r.sky }, h("span", { "aria-hidden": "true", text: r.icon }), h("span", { class: "sr-only", text: r.sky })),
@@ -259,12 +260,29 @@ export function buildMini(data, n = MINI_HOURS, { walk = false } = {}) {
           isNum(r.gustPct) ? h("div", { class: "hbar", style: { width: `${minVisible(r.gustPct)}%`, background: "var(--wind-2)" } }) : null,
           isNum(r.windPct) ? h("div", { class: "hbar over", style: { width: `${minVisible(r.windPct)}%`, background: "var(--wind)" } }) : null))))));
   const labelOf = (k) => { const ms = new Set(hours.map((x) => x[k].model).filter(Boolean)); return ms.size ? [...ms].map(modelShort).join(" puis ") : "indisponible"; };
-  const notes = `mm : ${labelOf("precip")} · % : ${labelOf("precipProb")} · T : ${labelOf("temp")} · vent : ${labelOf("wind")} · rafales : ${labelOf("gust")}. Heure « 18 h » : pluie, % et rafales de 17 h à 18 h ; température et vent à 18 h. Pluie : barre verticale = hauteur d'eau, proportionnelle de 0 à 3 mm (barre pleine, rouge et « + » au-delà) ; probabilité : barre horizontale = pourcentage ; température = de la plus basse à la plus haute de ces heures ; vent foncé, rafales clair.`;
+  // Explications sous le tableau, en petite liste repliée (« Comment lire ces valeurs », comme sur la page principale).
+  // Modèles regroupés : « Météo-France pour la pluie, la température, le vent et les rafales ; ECMWF pour la probabilité. »
+  const groups = new Map();
+  for (const [k, word] of [["precip", "la pluie"], ["precipProb", "la probabilité"], ["temp", "la température"], ["wind", "le vent"], ["gust", "les rafales"]]) {
+    const label = labelOf(k);
+    if (!groups.has(label)) groups.set(label, []);
+    groups.get(label).push(word);
+  }
+  const andList = (ws) => (ws.length > 1 ? `${ws.slice(0, -1).join(", ")} et ${ws.at(-1)}` : ws[0]);
+  const notes = [
+    `Modèles : ${[...groups].map(([label, ws]) => (label === "indisponible" ? `aucune valeur pour ${andList(ws)}` : `${label} pour ${andList(ws)}`)).join(" ; ")}.`,
+    "Exemple : ligne « 18 h » = pluie, probabilité et rafales de 17 h à 18 h ; température et vent à 18 h.",
+    `Pluie : la barre verticale monte avec les mm d'eau, pleine à ${MINI_MM_FULL} mm ; au-delà, rouge avec « + ».`,
+    "Probabilité : la barre suit le pourcentage.",
+    `Température : la barre va de la plus basse à la plus haute de ces ${rows.length} heures.`,
+    "Vent : barre foncée = vent, barre claire = rafales.",
+  ];
   // Explication de l'heure d'une ligne, ouverte par le « i » du titre de colonne.
   const help = h("div", { class: "compact-help mini-hour-help", id: "mini-hour-help", hidden: "" },
     h("ul", {},
       h("li", { text: "Exemple : ligne « 22 h » = pluie, probabilité et rafales de 21 h à 22 h ; température et vent à 22 h." }),
       walk ? h("li", { text: "Exemple : toucher « 22 h » ouvre « Balade ? » pour un départ à 22 h ; verdict de 22 h à 23 h, dont la pluie est sur la ligne « 23 h »." }) : null,
+      walk ? h("li", { text: "Exemple : toucher la première ligne ouvre « Balade ? » pour un départ maintenant." }) : null,
       h("li", { text: "Pastille foncée : soleil couché ; pastille claire : soleil levé." })));
   const infoBtn = table.querySelector(".mini-info-btn");
   infoBtn.addEventListener("click", () => {
@@ -273,7 +291,7 @@ export function buildMini(data, n = MINI_HOURS, { walk = false } = {}) {
     infoBtn.setAttribute("aria-expanded", String(open));
     if (open) help.scrollIntoView?.({ block: "nearest", behavior: "smooth" });
   });
-  return h("div", {}, help, h("div", { class: "mini-scroll" }, table), h("p", { class: "muted small", text: notes }));
+  return h("div", {}, help, h("div", { class: "mini-scroll" }, table), howTo("mini", notes));
 }
 
 // Bandeau 24 h piloté par l'onglet actif.

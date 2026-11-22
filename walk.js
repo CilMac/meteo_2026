@@ -4,6 +4,7 @@
 // Sans dépendance au DOM (tests Node).
 
 import { timed, seconds, TIMEOUTS } from "./net.js";
+import { modelShort } from "./weather-provider.js";
 
 const API = "https://api.open-meteo.com/v1/forecast";
 export const STEP_MS = 15 * 60 * 1000;
@@ -45,13 +46,33 @@ export function snowLevel(cm15) {
 }
 export const LEVEL_WORD = ["sec", "faible", "modérée", "forte"];
 
-// Lecture : { rows, prob (%), depth (m de neige au sol), uv } ; rows = [{ t (fin du pas, ms UTC), mm, snow (cm), code, gust, feels, temp, day, vis }].
-export async function fetchNextHour({ lat, lon }, { fetchImpl = fetch, now = Date.now(), timeoutMs = TIMEOUTS.walk } = {}) {
+// Modèles : ceux du tableau « Lieu actuel » (même ordre de priorité, valeur par valeur, comme weather-provider.js), puis en dernier
+// recours le choix automatique d'Open-Meteo (« best_match »), seul à fournir la visibilité et l'indice UV (vérifié le 22/11/2026).
+export const FALLBACK_MODEL = "best_match";
+export function walkModels(models) {
+  const list = Array.isArray(models) ? models.filter((m) => typeof m === "string" && m) : [];
+  return [...new Set([...list, FALLBACK_MODEL])];
+}
+// Colonne d'une variable pour un modèle : suffixée (plusieurs modèles demandés) ou simple (un seul).
+const column = (block, variable, model, models) => block?.[`${variable}_${model}`] ?? (models.length === 1 ? block?.[variable] : undefined) ?? null;
+// Premier modèle de la liste qui donne une valeur pour ce pas : { v, m } ; aucun : { v: null, m: null } (jamais 0 deviné).
+function pickAt(block, variable, i, models, ok = isNum) {
+  for (const m of models) { const v = column(block, variable, m, models)?.[i]; if (ok(v)) return { v, m }; }
+  return { v: null, m: null };
+}
+const MINUTELY = { mm: "precipitation", snow: "snowfall", code: "weather_code", gust: "wind_gusts_10m", feels: "apparent_temperature", temp: "temperature_2m", day: "is_day", vis: "visibility" };
+const HOURLY = { prob: "precipitation_probability", depth: "snow_depth", uv: "uv_index" };
+
+// Lecture : { rows, hourly, prob (%), depth (m de neige au sol), uv } ; rows = [{ t (fin du pas, ms UTC), mm, snow (cm), code, gust, feels, temp, day, vis, src }],
+// src = modèle de chaque valeur ({ mm: "meteofrance_seamless", … }).
+export async function fetchNextHour({ lat, lon, models: plan = [] }, { fetchImpl = fetch, now = Date.now(), timeoutMs = TIMEOUTS.walk } = {}) {
+  const models = walkModels(plan);
   const q = new URLSearchParams({
     latitude: String(r2(lat)), longitude: String(r2(lon)), // arrondi à 0,01° (environ 1 km), comme pour la prévision
-    minutely_15: "precipitation,snowfall,weather_code,wind_gusts_10m,apparent_temperature,temperature_2m,is_day,visibility",
+    minutely_15: Object.values(MINUTELY).join(","),
     past_minutely_15: "1", forecast_minutely_15: String((MAX_OFFSET_H + 2) * 4),
-    hourly: "precipitation_probability,snow_depth,uv_index", forecast_hours: String(MAX_OFFSET_H + 2),
+    hourly: Object.values(HOURLY).join(","), forecast_hours: String(MAX_OFFSET_H + 2),
+    models: models.join(","),
     timezone: "GMT", wind_speed_unit: "kmh",
   });
   const body = await timed(timeoutMs, async (signal) => {
@@ -61,17 +82,20 @@ export async function fetchNextHour({ lat, lon }, { fetchImpl = fetch, now = Dat
     try { return await res.json(); } catch { throw new WalkError("format", "réponse illisible"); }
   }, () => new WalkError("timeout", `Open-Meteo ne répond pas (aucune réponse en ${seconds(timeoutMs)})`));
   const m = body?.minutely_15;
-  if (!m || !Array.isArray(m.time) || !Array.isArray(m.precipitation)) throw new WalkError("format", "réponse inattendue (pas de données à 15 minutes)");
-  const num = (arr, i) => (isNum(arr?.[i]) ? arr[i] : null);
-  const rows = m.time.map((s, i) => ({
-    t: Date.parse(`${s}Z`), // fuseau GMT demandé
-    mm: isNum(m.precipitation[i]) && m.precipitation[i] >= 0 ? m.precipitation[i] : null,
-    snow: num(m.snowfall, i), code: num(m.weather_code, i), gust: num(m.wind_gusts_10m, i), feels: num(m.apparent_temperature, i),
-    temp: num(m.temperature_2m, i), day: m.is_day?.[i] === 1 ? 1 : m.is_day?.[i] === 0 ? 0 : null, vis: num(m.visibility, i),
-  })).filter((r) => Number.isFinite(r.t));
+  if (!m || !Array.isArray(m.time) || !models.some((x) => Array.isArray(column(m, "precipitation", x, models)))) throw new WalkError("format", "réponse inattendue (pas de données à 15 minutes)");
+  const OK = { mm: (v) => isNum(v) && v >= 0, day: (v) => v === 0 || v === 1 };
+  const rows = m.time.map((s, i) => {
+    const r = { t: Date.parse(`${s}Z`), src: {} }; // fuseau GMT demandé
+    for (const [k, variable] of Object.entries(MINUTELY)) { const { v, m: mod } = pickAt(m, variable, i, models, OK[k]); r[k] = v; r.src[k] = mod; }
+    return r;
+  }).filter((r) => Number.isFinite(r.t));
   // valeurs horaires : une entrée par heure ; on prend celle de l'heure qui contient l'instant voulu (hourlyAt)
   const h = body?.hourly;
-  const hourly = h && Array.isArray(h.time) ? h.time.map((s, i) => ({ t: Date.parse(`${s}Z`), prob: num(h.precipitation_probability, i), depth: num(h.snow_depth, i), uv: num(h.uv_index, i) })).filter((x) => Number.isFinite(x.t)) : [];
+  const hourly = h && Array.isArray(h.time) ? h.time.map((s, i) => {
+    const x = { t: Date.parse(`${s}Z`), src: {} };
+    for (const [k, variable] of Object.entries(HOURLY)) { const { v, m: mod } = pickAt(h, variable, i, models); x[k] = v; x.src[k] = mod; }
+    return x;
+  }).filter((x) => Number.isFinite(x.t)) : [];
   return { rows, hourly, ...hourlyAt(hourly, now) };
 }
 
@@ -83,16 +107,35 @@ const PRECEDING_HOUR = new Set(["prob", "uv"]);
 const HOUR_MS = 60 * 60 * 1000;
 export function hourlyAt(hourly, t) {
   const out = { prob: null, depth: null, uv: null };
+  const src = { prob: null, depth: null, uv: null }; // modèle de chaque valeur retenue
   for (const key of Object.keys(out)) {
     if (PRECEDING_HOUR.has(key)) {
       const x = (hourly ?? []).find((e) => e.t > t && e.t <= t + HOUR_MS);
-      out[key] = x && isNum(x[key]) ? x[key] : null;
+      if (x && isNum(x[key])) { out[key] = x[key]; src[key] = x.src?.[key] ?? null; }
       continue;
     }
     let bestT = -Infinity;
-    for (const x of hourly ?? []) if (isNum(x[key]) && x.t <= t && x.t > bestT) { bestT = x.t; out[key] = x[key]; }
+    for (const x of hourly ?? []) if (isNum(x[key]) && x.t <= t && x.t > bestT) { bestT = x.t; out[key] = x[key]; src[key] = x.src?.[key] ?? null; }
   }
-  return out;
+  return { ...out, src };
+}
+
+// « Modèles : pluie, neige, type de temps, température, rafales : Météo-France ; probabilité : ECMWF ; visibilité, UV : choix automatique d'Open-Meteo. »
+// Seules les grandeurs qui ont une valeur dans la fenêtre sont citées ; plusieurs modèles pour une même grandeur : « A puis B » (ordre des pas).
+const SOURCE_WORDS = [["mm", "pluie"], ["snow", "neige"], ["code", "type de temps"], ["temp", "température"], ["feels", "ressenti"], ["gust", "rafales"], ["vis", "visibilité"]];
+const HOURLY_WORDS = [["prob", "probabilité"], ["depth", "neige au sol"], ["uv", "UV"]];
+export function walkSources(steps, hourSrc = {}) {
+  const groups = new Map(); // libellé des modèles → grandeurs
+  const add = (word, models) => {
+    const label = [...new Set(models.filter(Boolean))].map(modelShort).join(" puis ");
+    if (!label) return;
+    if (!groups.has(label)) groups.set(label, []);
+    groups.get(label).push(word);
+  };
+  for (const [k, word] of SOURCE_WORDS) add(word, steps.map((s) => s.src?.[k]));
+  for (const [k, word] of HOURLY_WORDS) add(word, [hourSrc?.[k]]);
+  if (!groups.size) return null;
+  return `Modèles : ${[...groups].map(([label, words]) => `${words.join(", ")} : ${label}`).join(" ; ")}.`;
 }
 
 // Heure locale « AAAA-MM-JJTHH:MM » d'un fuseau IANA → instant (ms UTC), sans bibliothèque ; illisible : null.

@@ -23,6 +23,7 @@ export const MODEL_INFO = {
   ecmwf_ifs025: { short: "ECMWF", label: "ECMWF IFS, via Open-Meteo" },
   jma_seamless: { short: "JMA", label: "JMA, via Open-Meteo" },
   gem_seamless: { short: "GEM", label: "GEM (Environnement Canada), via Open-Meteo" },
+  best_match: { short: "choix automatique d'Open-Meteo", label: "choix automatique du modèle par Open-Meteo (« best match »)" }, // « Balade ? » : visibilité, UV, et secours
 };
 export const modelShort = (m) => (m ? MODEL_INFO[m]?.short ?? m : null);
 export const modelLabel = (m) => (m ? MODEL_INFO[m]?.label ?? `${m}, via Open-Meteo` : null);

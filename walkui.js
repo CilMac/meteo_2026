@@ -1,28 +1,49 @@
 // Fenêtre « Balade dans l'heure ? » : lit la pluie, la neige et le contexte à 15 minutes à la position de l'appareil (walk.js) et affiche
 // le verdict, avec un sélecteur pour avancer le départ d'heure en heure. Tout le texte est écrit par textContent.
-import { fetchNextHour, walkAdvice, hourlyAt, mmPerHour, MODERATE_MMH, MAX_OFFSET_H, WalkError } from "./walk.js";
+import { fetchNextHour, walkAdvice, walkSources, hourlyAt, mmPerHour, MAX_OFFSET_H, STEP_MS, SNOW_CM_PER_MM, WalkError } from "./walk.js";
+import { MINI_MM_FULL } from "./weather-render.js";
+
+// Échelle de la frise : la même que la barre de pluie du tableau « Lieu actuel » (pleine à 3 mm dans l'heure),
+// soit 0,75 mm par quart d'heure ; au-delà, bâton plein et rouge (choix de l'utilisateur, 22/11/2026).
+const FULL_MMH = MINI_MM_FULL;
 
 const ICON = { go: "🚶", caution: "⚠️", short: "⏳", light: "🌂", wait: "⏸️", shower: "🌦️", mixed: "🌧️", no: "☔", storm: "⛈️", ice: "🧊", unknown: "❓" };
 const CACHE_MS = 5 * 60 * 1000;
 const HOUR_MS = 60 * 60 * 1000;
 const nf1 = new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 1 });
+const nf2 = new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 2 });
 const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
 
-// Petite frise : un bâton par pas de 15 minutes (hauteur = mm/h, pleine à 4 mm/h, rouge si plus), avec l'heure de fin du pas.
+// Petite frise : un bâton par quart d'heure (hauteur proportionnelle aux mm, plein à 0,75 mm, soit 3 mm/h comme le tableau ; rouge au-delà), le chiffre = mm
+// tombés pendant ce quart d'heure (ils s'additionnent : cumul de la fenêtre, lignes du tableau) ; dessous, un axe avec les heures
+// placées ENTRE les bâtons : chaque bâton est visiblement compris entre son heure de début et son heure de fin.
 function timeline(steps, fmtTime) {
+  const n = steps.length;
+  const bounds = [steps[0].t - STEP_MS, ...steps.map((s) => s.t)]; // n + 1 limites
   const wrap = el("div", "walk-tl");
   wrap.setAttribute("role", "img");
-  wrap.setAttribute("aria-label", `Pluie par pas de 15 minutes : ${steps.map((s) => `${fmtTime(s.t)} ${nf1.format(mmPerHour(s.mm))} mm/h`).join(", ")}`);
-  for (const s of steps) {
-    const mmh = mmPerHour(s.mm), over = mmh > MODERATE_MMH;
+  wrap.setAttribute("aria-label", `Pluie prévue par quart d'heure : ${steps.map((s, i) => `de ${fmtTime(bounds[i])} à ${fmtTime(s.t)}, ${nf1.format(s.mm)} mm`).join(" ; ")}`);
+  const cols = el("div", "walk-cols");
+  cols.style.setProperty("--n", String(n));
+  steps.forEach((s, i) => {
+    const mmh = mmPerHour(s.mm), over = mmh > FULL_MMH;
     const col = el("div", "walk-col");
     const box = el("div", "walk-bar-box");
     const bar = el("div", `walk-bar${over ? " is-over" : ""}`);
-    bar.style.height = `${mmh > 0 ? Math.max(4, Math.min(100, (mmh / MODERATE_MMH) * 100)) : 0}%`;
+    bar.style.height = `${mmh > 0 ? Math.max(4, Math.min(100, (mmh / FULL_MMH) * 100)) : 0}%`;
     box.append(bar);
-    col.append(box, el("div", "walk-val", `${nf1.format(mmh)}`), el("div", "walk-time", fmtTime(s.t)));
-    wrap.append(col);
-  }
+    col.title = `De ${fmtTime(bounds[i])} à ${fmtTime(s.t)} : ${nf1.format(s.mm)} mm`;
+    col.append(box, el("div", "walk-val", nf1.format(s.mm)));
+    cols.append(col);
+  });
+  const axis = el("div", "walk-axis");
+  axis.setAttribute("aria-hidden", "true");
+  bounds.forEach((t, i) => {
+    const tick = el("span", "walk-tick", fmtTime(t));
+    tick.style.left = `${(i / n) * 100}%`;
+    axis.append(tick);
+  });
+  wrap.append(cols, axis);
   return wrap;
 }
 
@@ -34,7 +55,7 @@ export function initWalk({ openBtn, getHere, fmtTime }) {
   };
   const dlg = $("walk"), body = $("walk-body"), prev = $("walk-prev"), next = $("walk-next"), when = $("walk-when");
   // Départ : « maintenant + offset heures », ou une heure fixe (anchor, ms) choisie en touchant une heure de « Lieu actuel ».
-  let cache = null, seq = 0, offset = 0, anchor = null;
+  let cache = null, seq = 0, offset = 0, anchor = null, tlHelpOpen = false, moreOpen = false; // l'explication de la frise reste ouverte d'un départ à l'autre
   const startMs = () => anchor ?? Date.now() + offset * HOUR_MS;
   const latestMs = () => Date.now() + MAX_OFFSET_H * HOUR_MS;
 
@@ -45,7 +66,7 @@ export function initWalk({ openBtn, getHere, fmtTime }) {
     when.title = isNow ? "Départ maintenant" : `Départ à ${fmtTime(start)}`;
   }
 
-  function render(advice, at) {
+  function render(advice, at, sources) {
     const snowy = advice.kind === "snow";
     const verdict = el("div", `walk-verdict is-${advice.level}`);
     verdict.append(el("div", "walk-ico", ICON[advice.level] ?? "❓"));
@@ -54,7 +75,26 @@ export function initWalk({ openBtn, getHere, fmtTime }) {
     verdict.append(txt);
     const kids = [verdict];
     if (advice.steps.length >= 3 && advice.level !== "unknown") {
-      kids.push(el("p", "walk-sub", `Précipitations prévues (mm d'eau par heure${snowy ? ", la neige est comptée en eau" : ""}), pas de 15 minutes, heure de fin de chaque pas :`), timeline(advice.steps, fmtTime));
+      // légende + « i » à droite : explication courte de la frise, ouverte ou fermée d'un toucher
+      const head = el("div", "walk-sub-row");
+      const info = el("button", "mini-info-btn walk-info-btn", "i");
+      Object.assign(info, { type: "button", title: "Comment lire cette frise ?" });
+      info.setAttribute("aria-label", "Comment lire cette frise ?");
+      info.setAttribute("aria-controls", "walk-tl-help");
+      info.setAttribute("aria-expanded", String(tlHelpOpen));
+      head.append(el("p", "walk-sub", snowy ? "Précipitations prévues, en mm d'eau par quart d'heure :" : "Pluie prévue, en mm par quart d'heure :"), info);
+      const help = el("ul", "compact-help walk-tl-help");
+      help.id = "walk-tl-help";
+      help.hidden = !tlHelpOpen;
+      const lines = [
+        "Un bâton = un quart d'heure, entre les deux heures de l'axe.",
+        "Le chiffre = les mm d'eau tombés pendant ce quart d'heure : additionnés, ils donnent le cumul.",
+        `Bâton plein = ${nf2.format(FULL_MMH / 4)} mm en 15 min (${FULL_MMH} mm/h, même échelle que le tableau) ; rouge = davantage.`,
+      ];
+      if (snowy) lines.push(`Neige comptée en eau : 1 mm d'eau ≈ ${nf1.format(SNOW_CM_PER_MM)} cm de neige.`);
+      lines.forEach((t) => help.append(el("li", "", t)));
+      info.addEventListener("click", () => { tlHelpOpen = help.hidden; help.hidden = !tlHelpOpen; info.setAttribute("aria-expanded", String(tlHelpOpen)); });
+      kids.push(head, help, timeline(advice.steps, fmtTime));
     }
     if (advice.remarks?.length) {
       const ul = el("ul", "walk-remarks");
@@ -62,7 +102,14 @@ export function initWalk({ openBtn, getHere, fmtTime }) {
       kids.push(el("h4", "walk-h", "À savoir"), ul);
     }
     if (advice.facts.length) { const ul = el("ul", "walk-facts"); advice.facts.forEach((f) => ul.append(el("li", "", f))); kids.push(ul); }
-    kids.push(el("p", "muted small walk-note", `Calculé à ${fmtTime(at)} avec les valeurs des modèles d'Open-Meteo (pas un radar), pour votre position arrondie à 1 km. Selon la région, les valeurs à 15 minutes sont interpolées à partir de valeurs horaires. Un aperçu à prendre avec prudence : une averse locale peut échapper aux modèles, et plus le départ est lointain, moins la prévision est sûre.`));
+    // Modèles et précautions : repliés (demande de l'utilisateur, 22/11/2026) ; l'état ouvert/fermé est gardé d'un départ à l'autre
+    const more = el("details", "howto walk-more");
+    more.open = moreOpen;
+    more.addEventListener("toggle", () => { moreOpen = more.open; });
+    more.append(el("summary", "", "Modèles et précautions"));
+    if (sources) more.append(el("p", "small walk-sources", sources));
+    more.append(el("p", "muted small walk-note", `Calculé à ${fmtTime(at)} avec les valeurs des modèles d'Open-Meteo (pas un radar), choisies valeur par valeur dans le même ordre que pour le tableau (modèles ci-dessus), pour votre position arrondie à 1 km. Selon la région, les valeurs à 15 minutes sont interpolées à partir de valeurs horaires. Un aperçu à prendre avec prudence : une averse locale peut échapper aux modèles, et plus le départ est lointain, moins la prévision est sûre.`));
+    kids.push(more);
     body.replaceChildren(...kids);
   }
 
@@ -70,14 +117,18 @@ export function initWalk({ openBtn, getHere, fmtTime }) {
   function show() {
     const start = startMs();
     syncStepper(start);
-    const ctx = { ...hourlyAt(cache.hourly, start), depart: anchor !== null || offset > 0 ? fmtTime(start) : null };
-    render(walkAdvice(cache.rows, ctx, start), cache.at);
+    const at = hourlyAt(cache.hourly, start);
+    const ctx = { ...at, depart: anchor !== null || offset > 0 ? fmtTime(start) : null };
+    const advice = walkAdvice(cache.rows, ctx, start);
+    // grandeurs de la probabilité / neige au sol / UV : citées seulement si la valeur sert (fait ou remarque)
+    const used = { prob: at.prob !== null ? at.src.prob : null, depth: at.depth >= 0.01 ? at.src.depth : null, uv: at.uv >= 6 ? at.src.uv : null };
+    render(advice, cache.at, advice.level === "unknown" ? null : walkSources(advice.steps, used));
   }
 
   async function load() {
     const here = getHere();
     if (!here) { body.replaceChildren(el("p", "walk-msg is-err", "Position indisponible : ouvrez d'abord « Lieu actuel » et attendez la position.")); return; }
-    const key = `${here.lat.toFixed(2)},${here.lon.toFixed(2)}`;
+    const key = `${here.lat.toFixed(2)},${here.lon.toFixed(2)},${(here.models ?? []).join("+")}`;
     if (cache && Date.now() - cache.at < CACHE_MS && cache.key === key) { show(); return; }
     const id = ++seq;
     syncStepper(startMs());

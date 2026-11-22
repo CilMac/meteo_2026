@@ -253,13 +253,15 @@ function setMini(open) {
 if (typeof ResizeObserver !== "undefined") { const top = document.querySelector(".mini-top"); new ResizeObserver(() => $("mini").style.setProperty("--mini-top-h", `${top.offsetHeight}px`)).observe(top); }
 const walk = initWalk({
   openBtn: $("walk-btn"),
-  getHere: () => (geo.coords ? { lat: geo.coords.latitude, lon: geo.coords.longitude } : null),
+  // mêmes modèles que le tableau « Lieu actuel » (selon le pays de la position)
+  getHere: () => (geo.coords ? { lat: geo.coords.latitude, lon: geo.coords.longitude, models: geo.data?.metadata?.modelsRequested ?? [] } : null),
   fmtTime: (ms) => formatLocal(new Date(ms), geo.data?.location.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone, { hour: "2-digit", minute: "2-digit" }),
 });
 // Toucher une heure du tableau : « Balade ? » pour un départ à cette heure (heure locale du lieu → instant).
 $("mini-body").addEventListener("click", (e) => {
   const b = e.target.closest("button.mini-walk");
   if (!b || $("walk-btn").disabled || !geo.data) return;
+  if (b.dataset.now) { walk.openAt(null, b); return; } // première ligne (heure en cours) : « Dans l'heure »
   const at = localToMs(b.dataset.time, geo.data.location.timezone);
   if (at !== null) walk.openAt(at, b);
 });
