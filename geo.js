@@ -80,3 +80,11 @@ export function placeFromPosition(pos, named, timezone = Intl.DateTimeFormat().r
   });
   return place ? { ...place, id: GEO_ID } : null;
 }
+
+// « Ma position » mémorisée pour la page principale (accepté par l'utilisateur le 22/11/2026 : coordonnées arrondies à 0,01°) :
+// relue et revalidée comme un lieu libre, jamais prise telle quelle ; `at` = heure de la position (ms), si elle est valable.
+export function storedGeoPlace(p) {
+  const place = validatePlace(p);
+  if (!place) return null;
+  return { ...place, id: GEO_ID, at: Number.isFinite(p.at) && p.at > 0 ? p.at : null };
+}

@@ -9,7 +9,7 @@ import { createSkyLayer } from "./skymap.js";
 import { initWalk } from "./walkui.js";
 import { localToMs } from "./walk.js";
 import { fetchObservedPressure, pressureDisplay } from "./observation.js";
-import { getPosition, reverseGeocode, placeFromPosition, formatCoords, deniedHelp, GEO_MAX_AGE_MS } from "./geo.js";
+import { getPosition, reverseGeocode, placeFromPosition, storedGeoPlace, formatCoords, deniedHelp, GEO_ID, GEO_MAX_AGE_MS } from "./geo.js";
 import { createLoader } from "./loading.js";
 import { makeRecord, saveRecord, loadJournal, exportText, exportName } from "./journal.js";
 import { chooseView, isIOS } from "./device.js";
@@ -21,7 +21,7 @@ const $ = (id) => {
   if (!el) throw new Error(`élément « #${id} » introuvable : les fichiers du site ne sont pas tous de la même version (republiez-les tous, puis rechargez avec Cmd+Maj+R)`);
   return el;
 };
-const PLACE_KEY = "meteo.lastPlace", CUSTOM_KEY = "meteo.customPlace", TAB_DEFAULT = "precip", STALE_MS = 30 * 60 * 1000;
+const PLACE_KEY = "meteo.lastPlace", CUSTOM_KEY = "meteo.customPlace", POSITION_KEY = "meteo.position", TAB_DEFAULT = "precip", STALE_MS = 30 * 60 * 1000;
 
 const loader = createLoader($("loader"));
 const state = { place: null, data: null, warnings: null, ensemble: undefined, view: "detail", tab: TAB_DEFAULT, loading: false, loadId: 0 };
@@ -38,7 +38,13 @@ function saveLastPlace(place) {
   try {
     localStorage.setItem(PLACE_KEY, place.id);
     if (place.id === CUSTOM_ID) localStorage.setItem(CUSTOM_KEY, JSON.stringify(place));
+    if (place.id === GEO_ID) localStorage.setItem(POSITION_KEY, JSON.stringify(place));
   } catch { /* ignoré */ }
+}
+const lastPlaceId = () => { try { return localStorage.getItem(PLACE_KEY); } catch { return null; } };
+// Dernière position connue (« Ma position »), relue et revalidée ; absente ou illisible : null.
+function readStoredPosition() {
+  try { return storedGeoPlace(JSON.parse(localStorage.getItem(POSITION_KEY))); } catch { return null; }
 }
 
 function setStatus(text, kind = "") { const s = $("status"); s.className = kind; s.textContent = text; }
@@ -91,7 +97,7 @@ function renderTabbed() {
 function renderAll() {
   const d = state.data;
   $("content").hidden = false;
-  $("where").textContent = `${d.location.name} (${d.location.country}) · fuseau ${d.location.timezone} · ` +
+  $("where").textContent = `${d.location.name}${d.location.country ? ` (${d.location.country})` : ""} · fuseau ${d.location.timezone} · ` +
     formatLocal(new Date(), d.location.timezone, { dateStyle: "full", timeStyle: "short" });
   $("current").replaceChildren(buildCurrent(d));
   $("top-place").replaceChildren(buildTopPlace(d));
@@ -174,13 +180,14 @@ function showMiniPlace(data, coords, named, pressure, at) {
   when.textContent = `· actualisé ${refreshedText(at, data.location.timezone)}`; // le « · » part avec l'heure : jamais seul en fin de ligne
   $("mini-gps").replaceChildren(`GPS : ${formatCoords(coords.latitude, coords.longitude)}${coords.accuracy !== null ? ` · précision ± ${Math.round(coords.accuracy)} m` : ""}${named ? "" : " · nom du lieu indisponible"} `, when);
   $("mini-body").replaceChildren(buildMini(data, undefined, { walk: true })); // position réelle : chaque heure ouvre « Balade ? »
+  $("mini-lead").textContent = "Météo des 12 prochaines heures, à votre position. Touchez une heure pour savoir si vous pouvez partir marcher à ce moment-là.";
 }
 async function locate(force = false) {
   if (!force && geo.data && Date.now() - geo.at < GEO_MAX_AGE_MS) { showMiniPlace(geo.data, geo.coords, geo.named, geo.pressure, geo.at); miniMessage(""); $("mini-map-btn").disabled = false; return; }
   const id = ++geo.loadId;
   $("mini-refresh").disabled = true;
   $("mini-map-btn").disabled = true;
-  $("mini-place").textContent = ""; $("mini-gps").textContent = ""; $("mini-pressure").textContent = ""; $("mini-baro-btn").disabled = true; $("walk-btn").disabled = true; $("mini-body").replaceChildren();
+  $("mini-place").textContent = ""; $("mini-gps").textContent = ""; $("mini-pressure").textContent = ""; $("mini-baro-btn").disabled = true; $("walk-btn").disabled = true; $("mini-lead").textContent = ""; $("mini-body").replaceChildren();
   miniMessage("Recherche de votre position…");
   try {
     const coords = await getPosition();
@@ -215,6 +222,7 @@ async function locate(force = false) {
       $("mini-place").textContent = `📍 Lieu choisi sur la page : ${state.data.location.name} (${state.data.location.country})`;
       $("mini-gps").textContent = "Ce n'est pas votre position actuelle.";
       $("mini-body").replaceChildren(buildMini(state.data));
+      $("mini-lead").textContent = "Météo des 12 prochaines heures, au lieu choisi sur la page (pas votre position).";
     }
   } finally { if (id === geo.loadId) $("mini-refresh").disabled = false; }
 }
@@ -291,10 +299,11 @@ function updateFreshness() {
   const age = Date.now() - new Date(d.metadata.fetchedAt).getTime();
   if (!d.metadata.firstDayIsToday) setStatus("Ces données ne commencent plus à la date locale d'aujourd'hui : actualisez.", "warn");
   else if (age > STALE_MS) setStatus(`Données récupérées il y a ${Math.round(age / 60000)} min : actualisez pour les mettre à jour.`, "warn");
-  else setStatus("");
+  else setStatus(state.note?.text ?? "", state.note?.kind ?? ""); // message propre au lieu affiché (ex. « dernière position connue »)
 }
 
-async function load(place) {
+// note : message affiché après un chargement réussi (ex. « dernière position connue »), au lieu de vider la zone d'état.
+async function load(place, { note = "", kind = "" } = {}) {
   const id = ++state.loadId;
   state.loading = true;
   setStatus("Chargement…");
@@ -307,7 +316,7 @@ async function load(place) {
     loader.done("forecast");
     loader.begin("ensemble");
     state.place = place; state.data = data; state.warnings = null; state.ensemble = undefined; state.loading = false;
-    setStatus("");
+    state.note = note ? { text: note, kind } : null; // reste affiché tant que ces données sont à l'écran (renderAll → état « périmé »)
     renderAll();
     warningsP.then((w) => { if (id === state.loadId) { state.warnings = w; renderWarnings(); loader.done("warnings", true); } });
     // Scénarios d'ensemble (J+4 à J+14) : chargés après l'affichage de la prévision, sans la bloquer.
@@ -326,6 +335,10 @@ async function load(place) {
 }
 
 const select = $("place");
+// « Ma position » en tête de liste : toute la page (24 h, 7 et 15 jours) à la position réelle de l'appareil.
+const POSITION_LABEL = "📍 Ma position";
+select.add(new Option(POSITION_LABEL, GEO_ID));
+const setPositionLabel = (place) => { const o = select.querySelector(`option[value="${GEO_ID}"]`); if (o) o.text = place ? `${POSITION_LABEL} (${place.name})` : POSITION_LABEL; };
 for (const p of FAVORITES) select.add(new Option(`${p.name} (${p.country})`, p.id));
 
 // Lieu libre : une option dédiée dans le sélecteur ; aucune requête météo tant que le bouton n'est pas validé.
@@ -339,13 +352,60 @@ const initial = readLastPlace();
 if (initial.id === CUSTOM_ID) setCustomPlace(initial);
 select.value = initial.id;
 
-$("form").addEventListener("submit", (ev) => {
-  ev.preventDefault(); // changer la valeur du sélecteur ne lance rien ; le bouton valide
+// Choisir un lieu dans la liste suffit à le valider : la météo se charge aussitôt (choix de l'utilisateur, 22/11/2026, écart avec le
+// cahier v1.1 qui demandait un bouton « Afficher la météo »). Petit délai : si l'on fait défiler la liste fermée au clavier
+// (une flèche = un changement), seul le dernier lieu est chargé.
+// Position réelle de l'appareil pour la page principale. Échec : le motif est affiché ; avec une position déjà connue, celle-ci est
+// montrée en le disant (« dernière position connue ») ; sans, le lieu affiché ne change pas : jamais une autre ville présentée comme ici.
+let posSeq = 0;
+async function showPosition() {
+  const seq = ++posSeq;
+  const stillWanted = () => seq === posSeq && select.value === GEO_ID;
+  setStatus("Recherche de votre position…");
+  try {
+    const coords = await getPosition();
+    if (!stillWanted()) return;
+    let named = null;
+    try { named = await reverseGeocode(coords.latitude, coords.longitude); } catch { /* repli : « Position GPS » */ }
+    if (!stillWanted()) return;
+    const place = placeFromPosition(coords, named);
+    if (!place) throw new Error("coordonnées ou fuseau horaire invalides");
+    const stamped = { ...place, at: Date.now() };
+    setPositionLabel(stamped);
+    saveLastPlace(stamped);
+    load(stamped);
+  } catch (e) {
+    if (!stillWanted()) return;
+    const why = `Position indisponible : ${e.message}${e.kind === "denied" ? ` ${deniedHelp(isIOS())}` : ""}`;
+    const stored = readStoredPosition();
+    if (stored) {
+      setPositionLabel(stored);
+      const when = stored.at ? ` (${formatLocal(new Date(stored.at), Intl.DateTimeFormat().resolvedOptions().timeZone, { weekday: "short", day: "numeric", month: "numeric", hour: "2-digit", minute: "2-digit" })})` : "";
+      // l'essentiel d'abord (ce qui est affiché), puis le motif et l'aide
+      load(stored, { note: `Dernière position connue${when}, qui n'est peut-être plus la vôtre. ${why}`, kind: "warn" });
+    } else {
+      const back = state.place ?? readLastPlaceOrDefault();
+      select.value = back.id === GEO_ID ? DEFAULT_PLACE.id : back.id;
+      setStatus(`${why} Le lieu affiché n'a pas changé.`, "err");
+      if (!state.data) load(back.id === GEO_ID ? DEFAULT_PLACE : back);
+    }
+  }
+}
+const readLastPlaceOrDefault = () => { const p = readLastPlace(); return p.id === GEO_ID ? DEFAULT_PLACE : p; };
+
+const CHANGE_DELAY_MS = 400;
+let changeTimer = null;
+function showSelected() {
+  clearTimeout(changeTimer);
+  if (select.value === GEO_ID) { showPosition(); return; }
+  posSeq++; // une recherche de position en cours est abandonnée
   const place = select.value === CUSTOM_ID ? state.customPlace : FAVORITES.find((p) => p.id === select.value);
   if (!place) return;
   saveLastPlace(place);
   load(place);
-});
+}
+select.addEventListener("change", () => { clearTimeout(changeTimer); changeTimer = setTimeout(showSelected, CHANGE_DELAY_MS); });
+$("form").addEventListener("submit", (ev) => { ev.preventDefault(); showSelected(); }); // Entrée dans le formulaire : tout de suite
 
 // À l'ouverture de « Autre lieu », le curseur va directement dans le champ de saisie.
 $("other").addEventListener("toggle", () => { if ($("other").open) $("q").focus(); });
@@ -365,11 +425,14 @@ $("search").addEventListener("submit", async (ev) => {
       const sub = document.createElement("span"); sub.className = "sub";
       sub.textContent = `${p.latitude.toFixed(2)}, ${p.longitude.toFixed(2)} · ${p.timezone}${p.elevation !== null ? ` · ${Math.round(p.elevation)} m` : ""}`;
       b.append(sub);
+      // Toucher un résultat = choisir ce lieu : la météo s'affiche, la recherche se referme.
       b.addEventListener("click", () => {
         setCustomPlace(p);
         list.replaceChildren();
-        msg.textContent = `Lieu choisi : ${placeLabel(p)}. Validez avec « Afficher la météo ».`;
-        $("form").querySelector("button[type=submit]").focus();
+        msg.textContent = "";
+        $("other").open = false;
+        select.focus();
+        showSelected();
       });
       li.append(b); list.append(li);
     }
@@ -377,7 +440,7 @@ $("search").addEventListener("submit", async (ev) => {
     msg.textContent = e.message;
   } finally { btn.disabled = false; }
 });
-$("refresh").addEventListener("click", () => state.place && load(state.place));
+$("refresh").addEventListener("click", () => { if (select.value === GEO_ID) showPosition(); else if (state.place) load(state.place); }); // « Ma position » : la position est recherchée à nouveau
 document.addEventListener("visibilitychange", () => { if (!document.hidden) updateFreshness(); });
 
 // Vue détaillée (par défaut) ou compacte (15 jours dans un seul pavé). Le choix est retenu sur l'appareil.
@@ -422,4 +485,4 @@ try { localStorage.removeItem("meteo.theme"); } catch { /* ignoré */ }
 initInfo();
 
 // Premier lancement : lieu mémorisé (Bar-le-Duc par défaut).
-load(readLastPlace());
+if (lastPlaceId() === GEO_ID) { select.value = GEO_ID; setPositionLabel(readStoredPosition()); showPosition(); } else load(readLastPlace());

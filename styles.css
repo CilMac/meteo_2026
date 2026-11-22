@@ -363,10 +363,9 @@ body:has(dialog.modal[open]) { overflow: hidden; }
 /* Vue minimale : les prochaines heures, un tableau et rien d'autre */
 .head-actions { display: flex; align-items: center; gap: 8px; flex: none; margin-top: 4px; }
 .head-actions .info-btn { margin-top: 0; }
-.mini-btn { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; font-weight: 600; background: var(--precip-bg); border-color: var(--precip-border); }
+.mini-btn { display: inline-flex; align-items: center; justify-content: center; width: 44px; padding: 0; background: var(--precip-bg); border-color: var(--precip-border); } /* chaussure seule : « Rando ici ? » (le texte est lu par les lecteurs d'écran) */
 .mini-ico-boot { flex: none; font-size: 24px; line-height: 1; }
 @media (max-width: 520px) {
-  .mini-btn { width: 44px; padding: 0; justify-content: center; } .mini-lbl { display: none; }
   /* Petit écran : titre court et boutons réduits à leur icône (le texte reste lu par les lecteurs d'écran) */
   .mini-act { width: 40px; padding: 0; justify-content: center; }
   .mini-pressure { font-size: 15px; }
@@ -444,6 +443,8 @@ dialog.baro-modal { width: min(440px, calc(100vw - 24px)); }
 @media (max-width: 520px) { .leaflet-bottom.leaflet-left .sky-legend { margin-bottom: 28px; } .sky-panel, .sky-wind-sub { font-size: 12px; } .sky-switch { gap: 6px; padding-left: 8px; } .sky-wind-text { max-width: 8.5em; } .sky-wind { padding-right: 8px; } .sky-legend { width: min(170px, calc(100vw - 90px)); } }
 .mini-place { margin: 0; font-size: 18px; font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
 .mini-gps { margin: 4px 0 14px; font-variant-numeric: tabular-nums; }
+.mini-lead { margin: 4px 0 14px; font-size: 16px; font-weight: 600; line-height: 1.45; color: var(--ink); }
+.mini-lead:empty { display: none; }
 .mini-when { white-space: nowrap; } /* « actualisé sam. 21/11 17:42 » passe à la ligne d'un seul bloc */
 .mini-msg { margin: 10px 0 14px; padding: 10px 14px; border: 1px solid var(--information-border); border-left-width: 4px; border-radius: var(--radius-control); background: var(--information); }
 .mini-msg.is-err { border-color: var(--error-border); background: var(--error); }
