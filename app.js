@@ -1,19 +1,19 @@
 // Orchestration : lieu, un appel réseau par validation, onglets qui re-rendent sans appel réseau.
-import { FAVORITES, DEFAULT_PLACE, CUSTOM_ID, searchPlaces, validatePlace, placeLabel } from "./places.js";
-import { fetchForecast } from "./weather-provider.js";
-import { loadWarnings } from "./warnings.js";
-import { fetchEnsemble } from "./ensemble.js";
-import { initInfo } from "./info.js";
-import { initBarometer, preloadDial } from "./barometer.js";
-import { createSkyLayer } from "./skymap.js";
-import { initWalk } from "./walkui.js";
-import { localToMs } from "./walk.js";
-import { fetchObservedPressure, pressureDisplay } from "./observation.js";
-import { getPosition, reverseGeocode, placeFromPosition, storedGeoPlace, formatCoords, deniedHelp, GEO_ID, GEO_MAX_AGE_MS } from "./geo.js";
-import { createLoader } from "./loading.js";
-import { makeRecord, saveRecord, loadJournal, exportText, exportName } from "./journal.js";
-import { chooseView, isIOS } from "./device.js";
-import { TABS, buildTopPlace, buildTopNow, buildCurrent, buildHourly, buildWeek, buildTrend, buildCompact, buildMini, COMPACT_HELP_ITEMS, buildSources, buildWarnings, buildAttribution, warningsStatus, formatLocal } from "./weather-render.js";
+import { FAVORITES, DEFAULT_PLACE, CUSTOM_ID, searchPlaces, validatePlace, placeLabel } from "./places.js?v=521daa6a";
+import { fetchForecast } from "./weather-provider.js?v=631084d1";
+import { loadWarnings } from "./warnings.js?v=79a17bd6";
+import { fetchEnsemble } from "./ensemble.js?v=88c38ccc";
+import { initInfo } from "./info.js?v=89ebfb1f";
+import { initBarometer, preloadDial } from "./barometer.js?v=c1fd2d41";
+import { createSkyLayer } from "./skymap.js?v=490696b3";
+import { initWalk } from "./walkui.js?v=9ba6e5d1";
+import { localToMs } from "./walk.js?v=0dac4a6e";
+import { fetchObservedPressure, pressureDisplay } from "./observation.js?v=823a9402";
+import { getPosition, reverseGeocode, placeFromPosition, storedGeoPlace, formatCoords, deniedHelp, GEO_ID, GEO_MAX_AGE_MS } from "./geo.js?v=b6df63a8";
+import { createLoader } from "./loading.js?v=956b591b";
+import { makeRecord, saveRecord, loadJournal, exportText, exportName } from "./journal.js?v=7657e461";
+import { chooseView, isIOS } from "./device.js?v=78893f99";
+import { TABS, buildTopPlace, buildTopNow, buildCurrent, buildHourly, buildWeek, buildTrend, buildCompact, buildMini, COMPACT_HELP_ITEMS, buildSources, buildWarnings, buildAttribution, warningsStatus, formatLocal } from "./weather-render.js?v=d80bf8c6";
 
 const $ = (id) => {
   const el = document.getElementById(id);

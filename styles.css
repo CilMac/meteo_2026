@@ -143,6 +143,12 @@ summary { min-height: 44px; display: flex; align-items: center; cursor: pointer;
 .vbar-box { height: 44px; display: flex; align-items: flex-end; justify-content: center; margin: 2px 0; }
 .vbar { width: 18px; border-radius: 4px 4px 0 0; }
 .vbars { display: flex; gap: 2px; justify-content: center; } .vbars .vbar-box { width: 14px; } .vbars .vbar { width: 100%; }
+/* Bandeau 24 h, onglet Précipitations : barre de mm sur fond gris (échelle fixe, comme la vue 🥾), petite barre de % dessous */
+.vbar-box.is-track { width: 18px; margin-inline: auto; background: color-mix(in srgb, var(--line) 70%, transparent); border-radius: 4px; overflow: hidden; }
+.vbar-box.is-track .vbar { width: 100%; background: var(--rain); border-radius: 4px; }
+.vbar-box.is-track .vbar.is-over { display: flex; justify-content: center; align-items: flex-start; background: var(--alert-red); color: #fff; font: 700 11px/12px var(--font-body); }
+.hcell .hbar-box.prob { height: 6px; margin: 3px 6px 0; }
+.hcell .hv1 { white-space: nowrap; } /* « 0,4 mm » jamais coupé entre le nombre et l'unité */
 
 /* E/F. jours */
 .week { list-style: none; margin: 0; padding: 0; }
@@ -328,10 +334,10 @@ body:has(dialog.modal[open]) { overflow: hidden; }
 .is-compact #hourly-card h2 .h2-main { display: inline; margin-right: 6px; font-size: 17px; }
 .is-compact #hourly-card .rubric { margin-top: 0; }
 .is-compact .strip { gap: 6px; padding-bottom: 4px; }
-.is-compact .hcell { flex-basis: 52px; padding: 5px 2px; }
+.is-compact .hcell { flex-basis: 58px; padding: 5px 2px; } /* 58 px : « 0,4 mm » tient sur une ligne */
 .is-compact .hicon { font-size: 1.15rem; }
 .is-compact .vbar-box { height: 26px; margin: 1px 0; }
-.is-compact .vbar { width: 14px; }
+.is-compact .vbar { width: 14px; } .is-compact .vbar-box.is-track { width: 14px; } .is-compact .vbar-box.is-track .vbar { width: 100%; }
 .is-compact .vbars .vbar-box { width: 11px; }
 .is-compact .hv1 { font-size: .85rem; } .is-compact .hv2 { font-size: 11px; }
 

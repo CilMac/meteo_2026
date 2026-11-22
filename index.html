@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="light dark">
 <title>Météo</title>
-<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="styles.css?v=ec57bf20">
 </head>
 <body>
 <!-- Bandeau affiché si la page ne se charge pas correctement (fichiers manquants ou de versions différentes) -->
@@ -175,7 +175,7 @@
   </div>
 </section>
 
-<!-- Baromètre marin : s'ouvre depuis la pression affichée dans « Lieu actuel » -->
+<!-- Baromètre marin : s'ouvre depuis le bouton de la pression, dans la vue 🥾 -->
 <dialog id="baro" class="modal baro-modal" aria-labelledby="baro-title">
   <div class="modal-head">
     <h2 id="baro-title">Baromètre</h2>
@@ -190,7 +190,7 @@
   </div>
 </dialog>
 
-<!-- Balade dans l'heure : s'ouvre depuis l'icône d'imperméable de « Lieu actuel » -->
+<!-- Balade dans l'heure : s'ouvre en touchant une heure du tableau de la vue 🥾 -->
 <dialog id="walk" class="modal walk-modal" aria-labelledby="walk-title">
   <div class="modal-head walk-head">
     <h2 id="walk-title">Balade ?</h2>
@@ -227,11 +227,11 @@
   <div class="modal-body">
     <section id="m-panel-how" role="tabpanel" aria-labelledby="m-tab-how" tabindex="0">
       <h3>À quoi ça sert</h3>
-      <p>Un tableau de bord météo personnel, pensé pour iPhone et Mac : situation actuelle, prochaines 24 heures, 7 jours, puis une tendance jusqu'à 15 jours. Une vue à part, « Lieu actuel », donne les 12 prochaines heures à l'endroit où vous êtes. Usage personnel et non commercial, sans publicité ni compte, et sans collecte de données.</p>
+      <p>Un tableau de bord météo personnel, pensé pour iPhone et Mac : situation actuelle, prochaines 24 heures, 7 jours, puis une tendance jusqu'à 15 jours. Une vue à part, ouverte par la chaussure 🥾, donne les 12 prochaines heures à l'endroit où vous êtes. Usage personnel et non commercial, sans publicité ni compte, et sans collecte de données.</p>
 
       <h3>Choisir un lieu</h3>
       <p>Huit lieux sont proposés dans la liste (Bar-le-Duc par défaut), précédés de <strong>« 📍 Ma position »</strong> : toute la page (situation, 24 heures, 7 et 15 jours) pour la position réelle de l'appareil, recherchée à chaque choix, à chaque « Actualiser » et à l'ouverture si c'était le dernier lieu choisi. Si la position n'est pas disponible, le motif est affiché et la dernière position connue est montrée en le disant (ou, à défaut, le lieu affiché ne change pas). « Autre lieu » permet de chercher n'importe quelle ville : si plusieurs lieux portent le même nom, on choisit le bon dans la liste. Choisir un lieu dans la liste, ou toucher un résultat de la recherche, affiche aussitôt sa météo. Le dernier lieu validé est retenu sur cet appareil.</p>
-      <p>L'icône de chaussure de randonnée (🥾), en haut à droite, ouvre <strong>« Lieu actuel »</strong> : une vue minimale des 12 prochaines heures à votre <strong>position réelle</strong> (celle de l'appareil ; le navigateur demande l'autorisation). Elle ne change pas le lieu choisi dans la liste. Le haut de la vue donne le nom du lieu, ses coordonnées GPS et la précision de la position, et, à droite du titre, la pression atmosphérique au niveau de la mer en hPa. C'est une <strong>mesure</strong> : le dernier relevé de la station météo d'aéroport la plus proche (à moins de 100 km, relevé de moins de 3 h), dont le nom, la distance et l'heure sont dans l'info-bulle. Ce relevé est un QNH : la pression de la station ramenée au niveau de la mer selon l'atmosphère standard, qui peut différer d'environ 1 à 2 hPa de la pression au niveau de la mer calculée avec la température réelle (surtout pour une station en altitude par temps froid ou chaud). Sans station récente à proximité, la valeur du modèle la remplace et s'affiche précédée de « ≈ ». Le bouton « Baromètre », juste à droite de la pression, ouvre un baromètre à aiguille, avec l'aiguille sur la valeur. Toucher une heure du tableau ouvre « Balade ? » (départ à cette heure-là, ou maintenant pour la première ligne ; un petit sélecteur à droite du titre (‹ ›) avance ou recule le départ d'heure en heure, jusqu'à 12 h : le verdict, la frise et les remarques valent alors pour l'heure qui commence à ce moment-là, et la prévision est moins sûre plus on s'éloigne) : un verdict (pas une goutte en vue, restez près de chez vous, petite pluie ou quelques flocons, attendez, averse de passage, averses successives, vous allez prendre la sauce ou il va neiger toute l'heure, pluie verglaçante, orage, conditions difficiles même sans pluie, ou « je ne sais pas » si les données manquent), une petite frise des précipitations par pas de 15 minutes, une rubrique « À savoir » (forte chaleur, froid, gel et verglas possible, neige au sol, brouillard, vent fort, UV, nuit qui tombe) et quelques faits (précipitation la plus forte, cumul, probabilité, température). Ce sont les valeurs des modèles, pas un radar ; les seuils (pluie faible sous 1 mm/h, modérée sous 4, forte au-delà ; neige faible sous 1 cm/h, modérée sous 3 ; ressenti 30 °C et 35 °C pour la chaleur, 5, 0 et −10 °C pour le froid ; rafales 50 et 75 km/h ; visibilité 1 000 et 200 m ; UV 6 et plus) sont ceux de l'application, pas des seuils officiels. La vigilance canicule officielle n'est pas vérifiée. Si la position n'est pas disponible, le motif est affiché et la vue montre alors le lieu choisi sur la page, signalé comme n'étant pas votre position. Chaque ouverture garde aussi un relevé de la prévision affichée : voir l'onglet « Relevés ».</p>
+      <p>L'icône de chaussure de randonnée (🥾), en haut à droite, ouvre la vue <strong>« Météo des 12 prochaines heures »</strong> : un tableau des 12 prochaines heures à votre <strong>position réelle</strong> (celle de l'appareil ; le navigateur demande l'autorisation). Elle ne change pas le lieu choisi dans la liste. Sous le titre : le nom du lieu, ses coordonnées GPS et la précision de la position, puis deux boutons. Le premier affiche la pression atmosphérique au niveau de la mer en hPa. C'est une <strong>mesure</strong> : le dernier relevé de la station météo d'aéroport la plus proche (à moins de 100 km, relevé de moins de 3 h), dont le nom, la distance et l'heure sont dans l'info-bulle. Ce relevé est un QNH : la pression de la station ramenée au niveau de la mer selon l'atmosphère standard, qui peut différer d'environ 1 à 2 hPa de la pression au niveau de la mer calculée avec la température réelle (surtout pour une station en altitude par temps froid ou chaud). Sans station récente à proximité, la valeur du modèle la remplace et s'affiche précédée de « ≈ ». Ce bouton ouvre un baromètre à aiguille, avec l'aiguille sur la valeur ; le second, « Carte », affiche la carte. Toucher une heure du tableau ouvre « Balade ? » (départ à cette heure-là, ou maintenant pour la première ligne ; un petit sélecteur à droite du titre (‹ ›) avance ou recule le départ d'heure en heure, jusqu'à 12 h : le verdict, la frise et les remarques valent alors pour l'heure qui commence à ce moment-là, et la prévision est moins sûre plus on s'éloigne) : un verdict (pas une goutte en vue, restez près de chez vous, petite pluie ou quelques flocons, attendez, averse de passage, averses successives, vous allez prendre la sauce ou il va neiger toute l'heure, pluie verglaçante, orage, conditions difficiles même sans pluie, ou « je ne sais pas » si les données manquent), une petite frise des précipitations par pas de 15 minutes, une rubrique « À savoir » (forte chaleur, froid, gel et verglas possible, neige au sol, brouillard, vent fort, UV, nuit qui tombe) et quelques faits (précipitation la plus forte, cumul, probabilité, température). Ce sont les valeurs des modèles, pas un radar ; les seuils (pluie faible sous 1 mm/h, modérée sous 4, forte au-delà ; neige faible sous 1 cm/h, modérée sous 3 ; ressenti 30 °C et 35 °C pour la chaleur, 5, 0 et −10 °C pour le froid ; rafales 50 et 75 km/h ; visibilité 1 000 et 200 m ; UV 6 et plus) sont ceux de l'application, pas des seuils officiels. La vigilance canicule officielle n'est pas vérifiée. Si la position n'est pas disponible, le motif est affiché et la vue montre alors le lieu choisi sur la page, signalé comme n'étant pas votre position. Chaque ouverture garde aussi un relevé de la prévision affichée : voir l'onglet « Relevés ».</p>
       <ul>
         <li><strong>Une ligne par heure</strong> : le pictogramme du temps, puis la pluie (hauteur en mm, avec une barre verticale proportionnelle, échelle fixe de 0 à 3 mm ; au-delà de 3 mm la barre est pleine, rouge et porte un « + », le chiffre donnant la valeur exacte), la probabilité de pluie (en %, barre horizontale qui suit le pourcentage), la température et le vent (km/h, avec les rafales dessous). Les autres petites barres : pour la température elle va de la plus basse à la plus haute de ces heures, pour le vent la partie foncée est le vent et la claire les rafales.</li>
         <li><strong>L'étiquette de l'heure</strong> est ambrée quand le soleil est levé et bleu nuit quand il est couché, d'après le lever et le coucher du jour du lieu. Si ces heures manquent, l'étiquette reste neutre.</li>
@@ -257,10 +257,10 @@
 
       <h3>Pluie, vent, températures</h3>
       <ul>
-        <li><strong>Pluie</strong> : jusqu'à J+3, la quantité (mm) est affichée, écrite en texte. À partir de J+4, la quantité n'est plus donnée : mesurée sur des pluviomètres de Météo-France (2,5 ans, 5 villes), elle ne fait pas mieux que d'annoncer « sec » à 5 jours et n'est pas fiable à 7 jours. On affiche alors la classe (sec, faible, modéré, fort) et le pourcentage. Les barres de pluie suivent toujours le pourcentage, jamais la quantité. Jusqu'à J+7, ce pourcentage est la probabilité horaire maximale du jour, pas la probabilité de pluie sur toute la journée ; il n'a pas été mesuré de la même façon. En France, Météo-France ne publie pas de probabilité (via Open-Meteo) : le pourcentage vient alors d'ECMWF, et les mm de Météo-France. Deux modèles différents peuvent se contredire (par exemple « 0 mm · 63 % ») ; les étiquettes « mm : … · % : … » le signalent.</li>
+        <li><strong>Pluie</strong> : jusqu'à J+3, la quantité (mm) est affichée, écrite en texte. À partir de J+4, la quantité n'est plus donnée : mesurée sur des pluviomètres de Météo-France (2,5 ans, 5 villes), elle ne fait pas mieux que d'annoncer « sec » à 5 jours et n'est pas fiable à 7 jours. On affiche alors la classe (sec, faible, modéré, fort) et le pourcentage. Partout, une barre <strong>horizontale</strong> de pluie suit le pourcentage, et une barre <strong>verticale</strong> la quantité en mm (bandeau des 24 heures et vue 🥾, échelle fixe de 0 à 3 mm). Les vues à la journée n'ont que des barres horizontales : elles suivent toujours le pourcentage, jamais la quantité. Jusqu'à J+7, ce pourcentage est la probabilité horaire maximale du jour, pas la probabilité de pluie sur toute la journée ; il n'a pas été mesuré de la même façon. En France, Météo-France ne publie pas de probabilité (via Open-Meteo) : le pourcentage vient alors d'ECMWF, et les mm de Météo-France. Deux modèles différents peuvent se contredire (par exemple « 0 mm · 63 % ») ; les étiquettes « mm : … · % : … » le signalent.</li>
         <li><strong>Vent</strong> : seuls des maxima quotidiens existent (« vent max », « rafales max »), jamais une moyenne. Le vent n'a pas de dispersion : au-delà de J+7, c'est la valeur d'un seul scénario.</li>
         <li><strong>Température</strong> : minimale et maximale du jour local, ressenti pour les heures.</li>
-        <li><strong>Pluie heure par heure</strong> (24 heures et « Lieu actuel ») : la quantité par heure n'a pas été mesurée comme celle du jour ; elle est probablement moins fiable, car une averse décalée d'une heure fausse la ligne. Le pourcentage est affiché à côté pour aider à la lire.</li>
+        <li><strong>Pluie heure par heure</strong> (24 heures et vue 🥾) : la quantité par heure n'a pas été mesurée comme celle du jour ; elle est probablement moins fiable, car une averse décalée d'une heure fausse la ligne. Le pourcentage est affiché à côté pour aider à la lire.</li>
       </ul>
 
       <h3>Vigilances</h3>
@@ -269,7 +269,7 @@
       <h3>Sources et licences</h3>
       <ul>
         <li><a href="https://open-meteo.com/" rel="noopener">Weather data by Open-Meteo.com</a> : prévisions, scénarios d'ensemble et recherche de lieux (<a href="https://open-meteo.com/en/terms" rel="noopener">conditions d'utilisation</a>, usage non commercial).</li>
-        <li><a href="https://mesonet.agron.iastate.edu/" rel="noopener">Iowa Environmental Mesonet</a> (Université d'État de l'Iowa, domaine public) : messages METAR des stations d'aéroport, pour la pression mesurée de la vue « Lieu actuel ».</li>
+        <li><a href="https://mesonet.agron.iastate.edu/" rel="noopener">Iowa Environmental Mesonet</a> (Université d'État de l'Iowa, domaine public) : messages METAR des stations d'aéroport, pour la pression mesurée de la vue 🥾.</li>
         <li><strong>Météo-France</strong> (AROME, ARPEGE, via Open-Meteo), sous Licence Ouverte : « Source : Météo-France », mentionné seulement quand ses valeurs sont affichées.</li>
         <li><strong>ECMWF</strong>, <strong>NOAA (GFS)</strong>, <strong>JMA</strong> et <strong>Environnement et Changement climatique Canada (GEM)</strong>, via Open-Meteo.</li>
         <li>Alertes canadiennes : <em>Contains information licenced under the Data Server End-use Licence of Environment and Climate Change Canada.</em></li>
@@ -287,11 +287,11 @@
 
     <section id="m-panel-log" role="tabpanel" aria-labelledby="m-tab-log" tabindex="0" hidden>
       <h3>À quoi ça sert</h3>
-      <p>Mesurer, sur des semaines, si la vue « Lieu actuel » (🥾) annonce juste. Les prévisions affichées sont gardées au moment où vous les consultez, puis comparées plus tard à ce qui s'est réellement passé. On ne peut pas les reconstituer après coup : la vue choisit son modèle valeur par valeur, et les archives des services météo ne gardent pas ce mélange.</p>
+      <p>Mesurer, sur des semaines, si la vue 🥾 « Météo des 12 prochaines heures » annonce juste. Les prévisions affichées sont gardées au moment où vous les consultez, puis comparées plus tard à ce qui s'est réellement passé. On ne peut pas les reconstituer après coup : la vue choisit son modèle valeur par valeur, et les archives des services météo ne gardent pas ce mélange.</p>
 
       <h3>Quand un relevé est pris</h3>
       <ul>
-        <li>À chaque ouverture de « Lieu actuel » où la position est trouvée et la météo chargée, et à chaque « Actualiser ». Rien à faire de votre part.</li>
+        <li>À chaque ouverture de la vue 🥾 où la position est trouvée et la météo chargée, et à chaque « Actualiser ». Rien à faire de votre part.</li>
         <li>Pas de relevé si la position n'est pas disponible : la vue montre alors le lieu choisi sur la page, qui n'est pas l'endroit où vous êtes.</li>
         <li>Un relevé pris au même endroit (à environ 1 km près) moins d'une heure après le précédent le <strong>remplace</strong> : pas de doublons si vous rouvrez la vue plusieurs fois.</li>
       </ul>
@@ -312,7 +312,7 @@
       </ul>
 
       <h3>Exporter</h3>
-      <p>Le bouton « Exporter les relevés », en bas de « Lieu actuel », indique combien de relevés sont gardés et crée le fichier <code>releves-rando-AAAA-MM-JJ.json</code>. Sur iPhone, il ouvre la feuille de partage : « Enregistrer dans Fichiers » (dans iCloud Drive, par exemple, pour le retrouver sur le Mac), AirDrop, Mail… Sinon, le fichier est téléchargé. Exporter n'efface rien. Le fichier contient vos positions (à environ 1 km près) : pensez-y avant de le partager.</p>
+      <p>Le bouton « Exporter les relevés », en bas de la vue 🥾, indique combien de relevés sont gardés et crée le fichier <code>releves-rando-AAAA-MM-JJ.json</code>. Sur iPhone, il ouvre la feuille de partage : « Enregistrer dans Fichiers » (dans iCloud Drive, par exemple, pour le retrouver sur le Mac), AirDrop, Mail… Sinon, le fichier est téléchargé. Exporter n'efface rien. Le fichier contient vos positions (à environ 1 km près) : pensez-y avant de le partager.</p>
 
       <h3>La comparaison</h3>
       <p>Elle se fait plus tard, hors de l'application, à partir du fichier : les prévisions sont confrontées aux observations des stations météo les plus proches (température, vent et rafales des stations d'aéroport, pluie des stations Météo-France). Limites connues : la station peut être à plusieurs dizaines de kilomètres et à une autre altitude, et une averse peut tomber sur la station et pas sur vous, ou l'inverse. La probabilité de pluie ne peut être jugée qu'avec beaucoup de relevés (des centaines d'heures).</p>
@@ -325,14 +325,14 @@
       <h3>Fichiers</h3>
       <ul class="code-list">
         <li><code>index.html</code>, <code>styles.css</code> : structure, charte « Carnet pastel », mode clair et mode sombre selon le réglage du système (<code>prefers-color-scheme</code>), mise en page responsive.</li>
-        <li><code>app.js</code> : orchestration, lieu, onglets, états chargement, erreur et périmé ; vue « Lieu actuel » (position, actualisation, carte).</li>
+        <li><code>app.js</code> : orchestration, lieu, onglets, états chargement, erreur et périmé ; « Ma position » ; vue 🥾 (position, actualisation, carte).</li>
         <li><code>weather-provider.js</code> : appel de prévision, normalisation, choix du modèle pour chaque valeur.</li>
         <li><code>ensemble.js</code> : scénarios d'ensemble et statistiques.</li>
         <li><code>weather-render.js</code> : construction des sections, valeurs manquantes, textes, tableau des prochaines heures.</li>
         <li><code>walk.js</code> et <code>walkui.js</code> : verdict « balade dans l'heure » (pluie à 15 minutes) et sa fenêtre.</li>
         <li><code>weathermap.js</code> et <code>skymap.js</code> : calque nuages et pluie de la carte, flèche du vent (grille de points, interpolation, flèche, légende).</li>
         <li><code>barometer.js</code> : cadran du baromètre (SVG : échelle, aiguille) et sa fenêtre ; <code>cadran-laiton.webp</code> : image du boîtier en laiton, créée avec ChatGPT à la demande de l'auteur. <code>observation.js</code> : pression mesurée par la station la plus proche.</li>
-        <li><code>journal.js</code> : relevés de « Lieu actuel » (prévision affichée gardée sur l'appareil) et fichier d'export.</li>
+        <li><code>journal.js</code> : relevés de la vue 🥾 (prévision affichée gardée sur l'appareil) et fichier d'export.</li>
         <li><code>geo.js</code> : position de l'appareil (arrondie avant tout envoi à un service tiers) et nom du lieu.</li>
         <li><code>warnings.js</code> : vigilances. <code>places.js</code> : favoris et géocodage. <code>info.js</code> : cette fenêtre (et date de dernière modification, lue dans les en-têtes des fichiers du site).</li>
       </ul>
@@ -342,8 +342,8 @@
         <li><strong>Prévision</strong> : un seul appel par lieu à Open-Meteo, 16 jours demandés (15 gardés), plusieurs modèles en une requête, avec la liste de priorité du pays : France Météo-France puis ECMWF, Japon JMA puis ECMWF, Canada GEM puis ECMWF, ailleurs ECMWF seul. Variables horaires, quotidiennes et « current », fuseau du lieu obligatoire.</li>
         <li><strong>Scénarios</strong> : un appel à l'API d'ensemble, chargé après l'affichage de la prévision, pour les jours J+4 à J+14, quatre modèles, variables quotidiennes (maximale, minimale, cumul de pluie). Délai maximal de 12 secondes ; en cas d'échec la page garde la valeur d'un seul scénario et le dit.</li>
         <li><strong>Géocodage</strong> : à chaque recherche d'un autre lieu, jusqu'à 10 résultats.</li>
-        <li><strong>Position réelle</strong> (« Lieu actuel » et « Ma position ») : la géolocalisation du navigateur donne les coordonnées de l'appareil. Seules des coordonnées arrondies à 0,01° (environ 1 km) quittent l'appareil, vers Open-Meteo (prévision) et vers le service de noms de lieux OpenStreetMap Nominatim (géocodage inverse, un appel par position, <a href="https://operations.osmfoundation.org/policies/nominatim/" rel="noopener">conditions d'utilisation</a>). Sans nom trouvé, la vue affiche « Position GPS ». Le fuseau est celui de l'appareil. Pour « Ma position », la dernière position (arrondie à 0,01°) et son nom sont gardés sur l'appareil, pour la montrer si la position n'est plus disponible.</li>
-        <li><strong>Balade dans l'heure</strong> (icône de parapluie de « Lieu actuel », à l'ouverture de la fenêtre seulement) : un appel à Open-Meteo pour la pluie et la neige par pas de 15 minutes, le code météo (orage, verglas), les rafales, les températures, la visibilité et le jour ou la nuit à votre position arrondie à 0,01°, plus la probabilité de précipitations, la neige au sol et l'indice UV de chaque heure, jusqu'à 10 h à l'avance. Avancer le départ ne fait pas de nouvel appel : tout est déjà en mémoire (5 minutes). Résultat mis en mémoire 5 minutes.</li>
+        <li><strong>Position réelle</strong> (vue 🥾 et « Ma position ») : la géolocalisation du navigateur donne les coordonnées de l'appareil. Seules des coordonnées arrondies à 0,01° (environ 1 km) quittent l'appareil, vers Open-Meteo (prévision) et vers le service de noms de lieux OpenStreetMap Nominatim (géocodage inverse, un appel par position, <a href="https://operations.osmfoundation.org/policies/nominatim/" rel="noopener">conditions d'utilisation</a>). Sans nom trouvé, la vue affiche « Position GPS ». Le fuseau est celui de l'appareil. Pour « Ma position », la dernière position (arrondie à 0,01°) et son nom sont gardés sur l'appareil, pour la montrer si la position n'est plus disponible.</li>
+        <li><strong>Balade dans l'heure</strong> (en touchant une heure de la vue 🥾, à l'ouverture de la fenêtre seulement) : un appel à Open-Meteo pour la pluie et la neige par pas de 15 minutes, le code météo (orage, verglas), les rafales, les températures, la visibilité et le jour ou la nuit à votre position arrondie à 0,01°, plus la probabilité de précipitations, la neige au sol et l'indice UV de chaque heure, jusqu'à 10 h à l'avance. Avancer le départ ne fait pas de nouvel appel : tout est déjà en mémoire (5 minutes). Résultat mis en mémoire 5 minutes.</li>
         <li><strong>Pression mesurée</strong> : un appel à l'Iowa Environmental Mesonet pour obtenir les derniers messages METAR des stations du pays (par exemple <code>FR__ASOS</code>), sans envoyer votre position : la station la plus proche est choisie sur l'appareil. Disponible pour les pays qui ont un réseau national chez ce service ; pas pour le Canada ni les États-Unis, découpés par région (la valeur du modèle s'affiche alors, précédée de « ≈ »). Le QNH (pression ramenée au niveau de la mer selon l'atmosphère standard) est lu dans le message (« Q1013 »).</li>
         <li><strong>Carte</strong> (bouton « Carte », à la demande seulement) : la bibliothèque <a href="https://leafletjs.com/" rel="noopener">Leaflet</a> 1.9.4 est chargée depuis unpkg.com au premier clic, avec contrôle d'intégrité, et les tuiles viennent d'OpenStreetMap (<a href="https://operations.osmfoundation.org/policies/tiles/" rel="noopener">conditions d'utilisation</a>). L'interrupteur « Nuages · pluie » de la carte fait, à chaque activation ou déplacement, un appel à Open-Meteo pour une grille d'environ 50 points couvrant la zone affichée (nuages, pluie et vent « à l'instant » ; le premier point est votre position arrondie à 0,01°). L'image est interpolée entre ces points : un ordre de grandeur, pas une observation ; la pluie est le cumul du pas du modèle ramené à l'heure. Le serveur de tuiles voit la zone affichée (environ 1 km au premier zoom) et la page l'adresse ; la position exacte n'est dessinée que sur l'appareil.</li>
         <li><strong>Alertes ECCC</strong> : pour les lieux du Canada seulement, avec un délai de 8 secondes.</li>
@@ -400,6 +400,6 @@
   window.addEventListener("unhandledrejection", function (e) { show(String((e.reason && e.reason.message) || e.reason)); });
 })();
 </script>
-<script type="module" src="app.js"></script>
+<script type="module" src="app.js?v=911f1deb"></script>
 </body>
 </html>

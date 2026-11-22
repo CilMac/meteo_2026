@@ -1,6 +1,6 @@
 // Commandes Leaflet du calque « nuages et pluie » : interrupteur ON/OFF, légende, et flèche du vent toujours affichée. Le calcul est dans weathermap.js.
 // Tout le texte affiché est écrit par textContent ; seules des valeurs numériques calculées ici sont injectées dans les styles.
-import { fetchSky, fetchHere, gridDims, skyImageUrl, windFromText, arrowAngle, cloudGradientCss, rainGradientCss, MAX_LAT, RAIN_STOPS } from "./weathermap.js";
+import { fetchSky, fetchHere, gridDims, skyImageUrl, windFromText, arrowAngle, cloudGradientCss, rainGradientCss, MAX_LAT, RAIN_STOPS } from "./weathermap.js?v=d14e9b77";
 
 const SKY_ZOOM = 8;      // à l'échelle d'un village, la grille des modèles n'a aucun sens : le calque s'ouvre sur une zone d'environ 200 km
 const REFETCH_MS = 700;  // délai après un déplacement de la carte avant de relire la grille

@@ -1,7 +1,7 @@
 // Position réelle de l'appareil (géolocalisation du navigateur) et nom du lieu (géocodage inverse OpenStreetMap / Nominatim).
 // Rien n'est stocké : la position n'est gardée qu'en mémoire, le temps de la session.
-import { validatePlace } from "./places.js";
-import { timed, seconds, TIMEOUTS } from "./net.js";
+import { validatePlace } from "./places.js?v=521daa6a";
+import { timed, seconds, TIMEOUTS } from "./net.js?v=26ccf5e2";
 
 const REVERSE_URL = "https://nominatim.openstreetmap.org/reverse";
 export const GEO_ID = "geo";

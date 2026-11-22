@@ -1,8 +1,8 @@
 // Carnet de relevés de la vue « Lieu actuel » : chaque ouverture (position réelle trouvée, météo chargée) garde ce que
 // l'application affichait pour les 12 heures suivantes, afin de le comparer plus tard à ce qui s'est réellement passé.
 // Stockage local de l'appareil uniquement (rien n'est envoyé) ; export en fichier JSON à la demande.
-import { next24h } from "./weather-provider.js";
-import { MINI_HOURS } from "./weather-render.js";
+import { next24h } from "./weather-provider.js?v=631084d1";
+import { MINI_HOURS } from "./weather-render.js?v=d80bf8c6";
 
 export const JOURNAL_KEY = "meteo.journal";
 export const JOURNAL_FORMAT = 1;

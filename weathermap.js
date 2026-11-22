@@ -2,7 +2,7 @@
 // couvrant la zone affichée (le premier point est la position de l'appareil, arrondie à 0,01°), puis interpolées en image.
 // Rien n'est inventé : un point sans valeur reste transparent, jamais « 0 ». Pas de dépendance au DOM à l'import (tests Node).
 
-import { timed, seconds, TIMEOUTS } from "./net.js";
+import { timed, seconds, TIMEOUTS } from "./net.js?v=26ccf5e2";
 
 const API = "https://api.open-meteo.com/v1/forecast";
 export const MAX_LAT = 80;

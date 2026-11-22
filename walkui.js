@@ -1,7 +1,7 @@
 // Fenêtre « Balade dans l'heure ? » : lit la pluie, la neige et le contexte à 15 minutes à la position de l'appareil (walk.js) et affiche
 // le verdict, avec un sélecteur pour avancer le départ d'heure en heure. Tout le texte est écrit par textContent.
-import { fetchNextHour, walkAdvice, walkSources, hourlyAt, mmPerHour, MAX_OFFSET_H, STEP_MS, SNOW_CM_PER_MM, WalkError } from "./walk.js";
-import { MINI_MM_FULL } from "./weather-render.js";
+import { fetchNextHour, walkAdvice, walkSources, hourlyAt, mmPerHour, MAX_OFFSET_H, STEP_MS, SNOW_CM_PER_MM, WalkError } from "./walk.js?v=0dac4a6e";
+import { MINI_MM_FULL } from "./weather-render.js?v=d80bf8c6";
 
 // Échelle de la frise : la même que la barre de pluie du tableau « Lieu actuel » (pleine à 3 mm dans l'heure),
 // soit 0,75 mm par quart d'heure ; au-delà, bâton plein et rouge (choix de l'utilisateur, 22/11/2026).
@@ -127,7 +127,7 @@ export function initWalk({ openBtn, getHere, fmtTime }) {
 
   async function load() {
     const here = getHere();
-    if (!here) { body.replaceChildren(el("p", "walk-msg is-err", "Position indisponible : ouvrez d'abord « Lieu actuel » et attendez la position.")); return; }
+    if (!here) { body.replaceChildren(el("p", "walk-msg is-err", "Position indisponible : ouvrez d'abord la vue 🥾 et attendez la position.")); return; }
     const key = `${here.lat.toFixed(2)},${here.lon.toFixed(2)},${(here.models ?? []).join("+")}`;
     if (cache && Date.now() - cache.at < CACHE_MS && cache.key === key) { show(); return; }
     const id = ++seq;

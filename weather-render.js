@@ -1,7 +1,7 @@
 // Rendu des sections (cahier 4 à 8, 13). Les helpers purs sont testables sous Node ; `document` n'est utilisé que dans les builders.
-import { ECCC_ATTRIBUTION, ECCC_LICENCE_URL } from "./warnings.js";
-import { ENSEMBLE_FIRST_DAY, ENSEMBLE_MEDIAN_FROM, WET_MM } from "./ensemble.js";
-import { modelShort, modelLabel, next24h, firstWeek, secondWeek } from "./weather-provider.js";
+import { ECCC_ATTRIBUTION, ECCC_LICENCE_URL } from "./warnings.js?v=79a17bd6";
+import { ENSEMBLE_FIRST_DAY, ENSEMBLE_MEDIAN_FROM, WET_MM } from "./ensemble.js?v=88c38ccc";
+import { modelShort, modelLabel, next24h, firstWeek, secondWeek } from "./weather-provider.js?v=631084d1";
 
 export const TABS = [
   { id: "precip", label: "Précipitations" },
@@ -307,11 +307,17 @@ export function buildHourly(data, tab) {
   const strip = h("div", { class: "strip", role: "list", tabindex: "0", "aria-label": "Prévisions horaires, défilement horizontal" });
   for (const x of hours) {
     const info = weatherInfo(x.weatherCode.value, isNight(x.time, data.daily));
-    let bars, l1, l2;
+    let bars, l1, l2, extra = null;
     if (tab === "precip") {
-      bars = vbar(isNum(x.precipProb.value) ? Math.max(0, Math.min(100, x.precipProb.value)) : null, "var(--rain)");
-      l1 = isNum(x.precipProb.value) ? `${num0(x.precipProb.value)} %` : "— %";
-      l2 = isNum(x.precip.value) ? `${num1(x.precip.value)} mm` : "— mm";
+      // Même convention que la vue 🥾 (23/11/2026) : barre verticale = mm d'eau (pleine à MINI_MM_FULL, rouge et « + » au-delà),
+      // petite barre horizontale = probabilité. Probabilité et quantité restent deux informations distinctes.
+      const mm = x.precip.value, over = isNum(mm) && mm > MINI_MM_FULL;
+      bars = h("div", { class: "vbar-box is-track" }, isNum(mm)
+        ? h("div", { class: `vbar${over ? " is-over" : ""}`, style: { height: `${minVisible(barPct(mm, MINI_MM_FULL))}%` } }, over ? h("span", { text: "+" }) : null)
+        : null);
+      l1 = isNum(mm) ? `${num1(mm)} mm` : "— mm";
+      l2 = isNum(x.precipProb.value) ? `${num0(x.precipProb.value)} %` : "— %";
+      extra = probBar(x.precipProb.value);
     } else if (tab === "temp") {
       const pct = isNum(x.temp.value) && tmax > tmin ? 15 + ((x.temp.value - tmin) / (tmax - tmin)) * 85 : isNum(x.temp.value) ? 50 : null;
       bars = vbar(pct, isNum(x.temp.value) ? tempColor(x.temp.value) : "transparent");
@@ -322,7 +328,7 @@ export function buildHourly(data, tab) {
     }
     strip.append(h("div", { class: "hcell", role: "listitem" },
       h("div", { class: "hhour", text: hourLabel(x.time) }), h("div", { class: "hicon", "aria-hidden": "true", text: info.icon }),
-      bars, h("div", { class: "hv1", text: l1 }), h("div", { class: "hv2", text: l2 })));
+      bars, h("div", { class: "hv1", text: l1 }), h("div", { class: "hv2", text: l2 }), extra));
   }
   wrap.append(strip);
 
@@ -332,7 +338,7 @@ export function buildHourly(data, tab) {
   const labelOf = (k) => { const ms = new Set(hours.map((x) => x[k].model).filter(Boolean)); return ms.size ? [...ms].map(modelShort).join(" puis ") : null; };
   const modelNotes = fieldsByTab.map(([l, k]) => `${l} : ${labelOf(k) ?? "indisponible"}`).join(" · ");
   const notes = [`Pas de 1 h · ${modelNotes}.`, HOUR_NOTE[tab]];
-  if (tab === "precip") notes.push("Barres proportionnelles au pourcentage (risque de pluie), pas à la quantité.");
+  if (tab === "precip") notes.push(`Barre verticale = mm d'eau, pleine à ${MINI_MM_FULL} mm (rouge et « + » au-delà) ; petite barre horizontale = probabilité.`);
   wrap.append(h("p", { class: "muted small h-note", text: notes.join(" ") }));
   // Données manquantes : toujours signalées, même en vue compacte.
   const warn = [];

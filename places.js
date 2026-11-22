@@ -1,6 +1,6 @@
 // Lieux favoris. Coordonnées issues du géocodage Open-Meteo (Agay : point littoral, voir RAPPORT_LOT0.md).
 // `countryCode` choisit le plan de modèles dans weather-provider.js.
-import { timed, seconds, TIMEOUTS } from "./net.js";
+import { timed, seconds, TIMEOUTS } from "./net.js?v=26ccf5e2";
 
 export const FAVORITES = [
   { id: "bar-le-duc", name: "Bar-le-Duc", country: "France", countryCode: "FR", latitude: 48.77275, longitude: 5.16108, timezone: "Europe/Paris" },

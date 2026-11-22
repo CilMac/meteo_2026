@@ -1,6 +1,6 @@
 // Couche fournisseur : un appel Open-Meteo par lieu, normalisation, sélection du modèle par valeur.
 // Aucune valeur n'est inventée : une donnée absente reste null (jamais 0).
-import { timed, seconds, TIMEOUTS } from "./net.js";
+import { timed, seconds, TIMEOUTS } from "./net.js?v=26ccf5e2";
 
 const API_URL = "https://api.open-meteo.com/v1/forecast";
 export const FORECAST_DAYS = 16; // l'API renvoie 16 jours ; le 16e (J+15) est vide pour ECMWF, on garde J..J+14

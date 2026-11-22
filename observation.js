@@ -2,7 +2,7 @@
 // (domaine public, attribution souhaitée). La position de l'utilisateur ne quitte pas l'appareil pour cet appel : on ne demande que la liste
 // des stations d'un pays, et la plus proche est choisie ici. Rien n'est inventé : sans station proche et récente, l'appelant garde la valeur du modèle.
 
-import { timed, seconds, TIMEOUTS } from "./net.js";
+import { timed, seconds, TIMEOUTS } from "./net.js?v=26ccf5e2";
 
 const IEM_URL = "https://mesonet.agron.iastate.edu/api/1/currents.json";
 export const OBS_MAX_KM = 100;                 // au-delà, la pression d'une station n'est plus celle d'ici
