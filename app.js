@@ -84,11 +84,19 @@ function renderTitles() {
     pill.className = `rubric fam-${state.tab}`;
   }
 }
+// Bandeau 24 h : en changeant d'onglet (ou quand les scénarios arrivent), on reste sur les mêmes heures ; nouvelles données
+// (autre lieu, Actualiser) : retour au début. Les cases ont la même largeur dans les trois onglets, la position suffit.
+let stripScroll = { data: null, left: 0 };
 function renderTabbed() {
   renderTitles();
   if (!state.data) return;
+  const oldStrip = $("hourly").querySelector(".strip");
+  if (oldStrip) stripScroll = { data: stripScroll.data, left: oldStrip.scrollLeft };
+  if (stripScroll.data !== state.data) stripScroll = { data: state.data, left: 0 };
   $("hourly").setAttribute("aria-labelledby", `tab-${state.tab}`);
   $("hourly").replaceChildren(buildHourly(state.data, state.tab));
+  const newStrip = $("hourly").querySelector(".strip");
+  if (newStrip) newStrip.scrollLeft = stripScroll.left;
   $("week").replaceChildren(buildWeek(state.data, state.tab, state.ensemble));
   $("trend").replaceChildren(buildTrend(state.data, state.tab, state.ensemble));
   $("compact").replaceChildren(buildCompact(state.data, state.tab, state.ensemble));
