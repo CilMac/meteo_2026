@@ -4,6 +4,7 @@ Application météo web personnelle (HTML, CSS, JavaScript natifs, sans framewor
 Dossier du projet : `/Users/mbp16cil/Documents/ AA IA/AA IA applis web/Claude/meteo_IA` (attention : le chemin contient des espaces, dont un au début de « AA IA »). L'utilisateur gère lui-même Git et la publication.
 
 ## Façon de travailler
+- Après chaque nouveauté visible, **mettre à jour la fenêtre « i »** (`index.html`, onglets Fonctionnement et Sous le capot) dans le même lot : l'utilisateur l'a demandé le 23/11/2026 après un retard de mise à jour.
 - Répondre en français, ton direct et précis. Dire honnêtement ce qui n'est pas vérifié (iPhone réel, VoiceOver…).
 - Petites étapes validées. Une question de l'utilisateur n'est pas une demande de modification : répondre d'abord, proposer ensuite.
 - Après chaque modification, **lister les fichiers modifiés** (l'utilisateur les republie à la main).
