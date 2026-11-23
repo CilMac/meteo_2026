@@ -521,6 +521,7 @@ button.mini-hour:focus-visible { outline: 2px solid var(--ink); outline-offset: 
   .mini-table td.mini-ico, .mini-ico { min-width: 20px; font-size: 18px; }
   .mini-mm .vbar-box { margin-right: 3px; }
   .mini-table td strong { white-space: normal; }
+  .mini-mm strong { max-width: calc(100% - 13px); } /* 13 px = barre (10) + marge (3) : sans cette limite, le texte ignore la barre et déborde sur le % ; trop étroit : « mm » passe sous le chiffre */
 }
 
 /* Boutons de « Lieu actuel » : même contour, bien visible (la couleur de fond garde la distinction entre familles) */
