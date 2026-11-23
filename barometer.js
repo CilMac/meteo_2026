@@ -29,8 +29,9 @@ export const BARO_ZONES = [
 
 export const baroLabel = (p) => (isNum(p) ? `${Math.round(p)} hPa` : "pression indisponible");
 
-export function baroSvg(pressure) {
-  const has = isNum(pressure);
+// past : pression mesurée environ 3 h plus tôt (aiguille repère dorée), ou null : pas d'aiguille.
+export function baroSvg(pressure, past = null) {
+  const has = isNum(pressure), hasPast = has && isNum(past);
   let ticks = "", nums = "";
   for (let p = BARO_MIN; p <= BARO_MAX; p++) {
     const big = p % 10 === 0, mid = p % 5 === 0;
@@ -48,10 +49,15 @@ export function baroSvg(pressure) {
       <path d="M${C} 44 L${C + 4.6} 150 L${C} 182 L${C - 4.6} 150 Z" fill="#241b12"/>
       <path d="M${C} 52 L${C + 1.6} 150 L${C} 160 L${C - 1.6} 150 Z" fill="#7a5a2a" opacity=".55"/>
     </g>` : "";
+  // Aiguille repère : fine, dorée, cerclée près de la pointe, sous l'aiguille noire ; posée sur sa valeur, sans animation.
+  const ref = hasPast ? `<g class="baro-ref" data-angle="${f(baroAngle(past))}" transform="rotate(${f(baroAngle(past))} ${C} ${C})">
+      <path d="M${C} 34 L${C} 160" stroke="#5a3f12" stroke-width="4.6" stroke-linecap="round"/><path d="M${C} 34 L${C} 160" stroke="#d9a53a" stroke-width="3" stroke-linecap="round"/>
+      <circle cx="${C}" cy="38" r="6.5" fill="#d9a53a" stroke="#5a3f12" stroke-width="1.2"/>
+    </g>` : "";
   const D = DIAL_IMG, s = D.scale;
   const imgX = f(C - D.faceX * s), imgY = f(C - D.faceY * s), imgS = f(D.px * s);
   const clipX = f(C + (D.outerX - D.faceX) * s), clipY = f(C + (D.outerY - D.faceY) * s), clipR = f((D.outerR - 4) * s);
-  return `<svg class="baro-svg" viewBox="0 0 320 320" role="img" aria-label="Baromètre : ${baroLabel(pressure)}" xmlns="http://www.w3.org/2000/svg">
+  return `<svg class="baro-svg" viewBox="0 0 320 320" role="img" aria-label="Baromètre : ${baroLabel(pressure)}${hasPast ? ` ; aiguille repère : ${baroLabel(past)}` : ""}" xmlns="http://www.w3.org/2000/svg">
   <defs>
     <radialGradient id="bhub" cx=".35" cy=".3" r=".8"><stop offset="0" stop-color="#f6e2a5"/><stop offset=".6" stop-color="#b98a35"/><stop offset="1" stop-color="#6e4e17"/></radialGradient>
     <filter id="bshadow" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="2.5" dy="3.5" stdDeviation="2.2" flood-color="#000" flood-opacity=".35"/></filter>
@@ -66,7 +72,7 @@ export function baroSvg(pressure) {
       <text x="${C}" y="${C + 62}" text-anchor="middle" font-size="14" letter-spacing="2" fill="#6b4a1e">hPa</text>
       <text x="${C}" y="${C + 88}" text-anchor="middle" font-size="26" font-weight="700">${has ? Math.round(pressure) : "—"}</text>
     </g>
-    ${needle}
+    ${ref}${needle}
     <circle cx="${C}" cy="${C}" r="10" fill="url(#bhub)" stroke="#5a3f12" stroke-width="1"/>
     <circle cx="${C}" cy="${C}" r="3.2" fill="#241b12"/>
   </g>
@@ -85,7 +91,9 @@ export function initBarometer(entries) {
   for (const { openBtn, getPressure } of entries) openBtn.addEventListener("click", () => {
     opener = openBtn;
     const info = getPressure(), p = typeof info?.hpa === "number" ? info.hpa : null;
-    $("baro-dial").innerHTML = baroSvg(p);
+    $("baro-dial").innerHTML = baroSvg(p, info?.trend?.hpa ?? null);
+    $("baro-trend").textContent = info?.trendText ?? "";
+    $("baro-trend").hidden = $("baro-trend-note").hidden = !info?.trendText;
     $("baro-value").textContent = info?.text ?? baroLabel(p);
     $("baro-src").textContent = info?.note ?? ""; // texte venu du réseau (nom de station) : toujours textContent
     $("baro-range").hidden = !(typeof p === "number" && (p < BARO_MIN || p > BARO_MAX));

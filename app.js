@@ -4,11 +4,11 @@ import { fetchForecast, localDateISO } from "./weather-provider.js?v=631084d1";
 import { loadWarnings } from "./warnings.js?v=79a17bd6";
 import { fetchEnsemble } from "./ensemble.js?v=88c38ccc";
 import { initInfo } from "./info.js?v=89ebfb1f";
-import { initBarometer, preloadDial } from "./barometer.js?v=4c78ae1f";
+import { initBarometer, preloadDial } from "./barometer.js?v=c389d0e2";
 import { createSkyLayer } from "./skymap.js?v=490696b3";
-import { initWalk } from "./walkui.js?v=5d4ba810";
+import { initWalk } from "./walkui.js?v=c59bfd96";
 import { localToMs } from "./walk.js?v=68874bb7";
-import { fetchObservedPressure, fetchObservedStorms, stormText, pressureDisplay } from "./observation.js?v=67278bcd";
+import { fetchObservedPressure, fetchPressureTrend, fetchObservedStorms, stormText, pressureDisplay, TREND_WORD } from "./observation.js?v=25a46dff";
 import { getPosition, reverseGeocode, placeFromPosition, storedGeoPlace, formatCoords, deniedHelp, GEO_ID, GEO_MAX_AGE_MS } from "./geo.js?v=b6df63a8";
 import { shouldRefresh, STALE_MS, TRY_GAP_MS, RETRY_MS, QUIET_WAIT_MS } from "./refresh.js?v=beadd3fe";
 import { createLoader } from "./loading.js?v=956b591b";
@@ -183,12 +183,26 @@ const refreshedText =(ms, tz) => formatLocal(new Date(ms), tz, { weekday: "short
 // Titre de la vue 🥾 : ce qu'elle montre vraiment (position de l'appareil, ou, à défaut, lieu choisi sur la page).
 const MINI_TITLE = "Météo des 12 prochaines heures, à votre position";
 const MINI_TITLE_FALLBACK = "Météo des 12 prochaines heures, au lieu choisi";
+// Pression et sa tendance : flèche verte (hausse) ou rouge (baisse), simple trait si stable (dessinés : le caractère ↗ devient un pictogramme bleu sur iPhone), dite aussi aux lecteurs d'écran.
+function showPressure(el, p) {
+  el.textContent = p?.text ?? "… hPa";
+  if (!p?.trend) return;
+  const word = document.createElement("span");
+  word.className = "sr-only"; word.textContent = `, ${TREND_WORD[p.trend.dir]}`;
+  el.append(word);
+  el.insertAdjacentHTML("beforeend", '<svg class="trend-arrow" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path/></svg>');
+  el.lastElementChild.classList.add(`is-${p.trend.dir}`);
+  el.lastElementChild.firstElementChild.setAttribute("d", p.trend.dir === "steady" ? "M3 8h10" : "M2 8h12M9 3l5 5-5 5");
+}
+// Textes de la pression à l'heure du lieu ; la tendance arrive un peu après la mesure et complète l'affichage.
+const pressureOf = (data, observed, trend = null) => pressureDisplay(data.current.pressure, observed, (ms) => formatLocal(new Date(ms), data.location.timezone, { hour: "2-digit", minute: "2-digit" }), trend);
+const trendOf = (observedP) => observedP.then((o) => (o ? fetchPressureTrend(o) : null)).catch(() => null); // sans tendance : ni flèche ni aiguille dorée
 function showMiniPlace(data, coords, named, pressure, at) {
   geo.shown = true;
   $("mini-title").textContent = MINI_TITLE;
   $("mini-tools").hidden = false; // baromètre et carte : seulement quand la vraie position est connue
   const pb = $("mini-pressure");
-  pb.textContent = pressure.text; pb.title = pressure.title;
+  showPressure(pb, pressure); pb.title = pressure.title;
   $("mini-baro-btn").disabled = pressure.hpa === null; // sans valeur, rien à montrer sur le cadran
   $("mini-place").textContent = `${data.location.name}${data.location.country ? ` (${data.location.country})` : ""}`;
   // L'heure d'actualisation suit la ligne GPS ; sur téléphone, elle passe à la ligne d'un seul bloc (jamais coupée).
@@ -227,12 +241,18 @@ async function locate(force = false, { quiet = false } = {}) {
     const where = { latitude: coords.latitude, longitude: coords.longitude, countryCode: place.countryCode };
     const observedP = fetchObservedPressure(where).catch(() => null);
     const stormsP = observedP.then(() => fetchObservedStorms(where)).catch(() => null); // null = inconnu (rien affiché)
+    const trendP = trendOf(observedP);
     const [data, observed, storms] = await Promise.all([fetchForecast(place), observedP, stormsP]);
     if (id !== geo.loadId) return;
-    const pressure = pressureDisplay(data.current.pressure, observed, (ms) => formatLocal(new Date(ms), data.location.timezone, { hour: "2-digit", minute: "2-digit" }));
+    const pressure = pressureOf(data, observed);
     Object.assign(geo, { at: Date.now(), data, coords, named: Boolean(named), pressure, storms });
     showMiniPlace(data, coords, Boolean(named), pressure, geo.at);
     miniMessage("");
+    trendP.then((t) => {
+      if (!t || geo.data !== data) return; // une autre position a été chargée entre-temps
+      geo.pressure = pressureOf(data, observed, t);
+      if (geo.shown) { showPressure($("mini-pressure"), geo.pressure); $("mini-pressure").title = geo.pressure.title; }
+    });
     // Carnet de relevés : la prévision affichée est gardée sur l'appareil, pour la comparer plus tard aux observations.
     const saved = saveRecord(makeRecord(data, coords, { named: Boolean(named), at: geo.at }));
     showJournal(saved.ok ? null : "Relevé non enregistré : stockage de l'appareil plein ou bloqué.");
@@ -332,7 +352,7 @@ function renderPressure() {
   btn.hidden = !state.data;
   btn.disabled = typeof p?.hpa !== "number";
   btn.title = p?.title ?? "Lecture de la pression…";
-  $("place-pressure").textContent = p?.text ?? "… hPa";
+  showPressure($("place-pressure"), p);
   if (!btn.disabled) preloadDial();
 }
 
@@ -357,6 +377,7 @@ async function load(place, { note = "", kind = "", quiet = false } = {}) {
   if (!quiet) loader.start(place.name);
   const warningsP = loadWarnings(place);
   const observedP = fetchObservedPressure(place).catch(() => null); // pression mesurée : n'attend pas la météo et ne la bloque pas
+  const trendP = trendOf(observedP);
   try {
     const data = await fetchForecast(place);
     if (id !== state.loadId) return; // un lieu plus récent a été demandé entre-temps
@@ -365,7 +386,7 @@ async function load(place, { note = "", kind = "", quiet = false } = {}) {
     // Scénarios d'ensemble (J+4 à J+14) : chargés après la prévision, sans bloquer son affichage (sauf retour discret : tout d'un coup).
     const ensembleP = fetchEnsemble(place, data.daily.map((d) => d.date));
     if (quiet) {
-      await Promise.race([Promise.allSettled([warningsP, observedP, ensembleP]), new Promise((r) => setTimeout(r, QUIET_WAIT_MS))]);
+      await Promise.race([Promise.allSettled([warningsP, trendP, ensembleP]), new Promise((r) => setTimeout(r, QUIET_WAIT_MS))]);
       if (id !== state.loadId) return;
     }
     const focusId = document.activeElement?.id; // redessiner les onglets leur ferait perdre le curseur
@@ -376,8 +397,9 @@ async function load(place, { note = "", kind = "", quiet = false } = {}) {
     if (quiet && focusId && document.activeElement === document.body) document.getElementById(focusId)?.focus({ preventScroll: true });
     observedP.then((o) => {
       if (id !== state.loadId) return;
-      state.pressure = pressureDisplay(data.current.pressure, o, (ms) => formatLocal(new Date(ms), data.location.timezone, { hour: "2-digit", minute: "2-digit" }));
+      state.pressure = pressureOf(data, o);
       renderPressure();
+      trendP.then((t) => { if (t && id === state.loadId) { state.pressure = pressureOf(data, o, t); renderPressure(); } });
     });
     warningsP.then((w) => { if (id === state.loadId) { state.warnings = w; renderWarnings(); loader.done("warnings", true); } });
     ensembleP.then((e) => {

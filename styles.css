@@ -27,6 +27,7 @@
 
   /* données météo : teintes douces, petites surfaces uniquement */
   --rain: #5b8fb0; --wind: #4a9387; --wind-2: #b3d8d1; --alert-yellow: #d9a400; --alert-orange: #d9822b; --alert-red: #c0392b;
+  --trend-up: #2f7d4f; --trend-down: #a8412c; --trend-steady: #6f7d73; /* tendance de la pression ; rouge brique, pas celui des alertes */
 
   --font-body: system-ui, -apple-system, sans-serif; --font-title: Georgia, serif;
   --radius-control: 10px; --radius-panel: 16px; --radius-card: 12px;
@@ -55,6 +56,7 @@
     --temp-bg: #342e22; --temp-sel: #4a3f28; --temp-border: #cdab6e;
     --wind-bg: #2a322b; --wind-sel: #3a4b36; --wind-border: #93b08b;
     --rain: #7fb3d6; --wind: #52c0b0; --wind-2: #2c6a62; --alert-yellow: #e6b800; --alert-orange: #e8923a; --alert-red: #e05a4b;
+    --trend-up: #7cc79a; --trend-down: #f0957b; --trend-steady: #8e9a90;
   }
 }
 
@@ -99,13 +101,13 @@ select, .search-form input { min-height: 44px; padding: 10px 12px; border: 1px s
 select { flex: 1 1 180px; min-width: 0; }
 .place-form label { grid-area: label; }
 #place { grid-area: lieu; }
-#refresh { grid-area: actu; min-width: 132px; } /* même largeur que la pression, l'un sous l'autre (« ≈ 1024 hPa » tient aussi) */
+#refresh { grid-area: actu; min-width: 142px; } /* même largeur que la pression, l'un sous l'autre (« ≈ 1024 hPa » et « 1024 hPa » avec sa flèche tiennent) */
 .place-baro { grid-area: baro; justify-content: center; align-self: start; }
 #where { grid-area: info; margin: 0; font-size: 14px; align-self: start; }
 @media (max-width: 450px) { /* téléphone : Lieu + liste, puis Actualiser et pression côte à côte, puis le texte */
   .place-form { display: flex; flex-wrap: wrap; gap: 10px; }
   #place { flex-basis: calc(100% - 60px); }
-  #refresh, .place-baro { flex: 1 1 0; min-width: auto; align-self: stretch; }
+  #refresh, .place-baro { flex: 1 1 0; min-width: auto; align-self: stretch; padding-inline: 6px; white-space: nowrap; }
   #where { flex-basis: 100%; }
 }
 
@@ -408,6 +410,7 @@ dialog.baro-modal { width: min(440px, calc(100vw - 24px)); }
 @keyframes baro-sweep { from { transform: rotate(-135deg); } }
 @media (prefers-reduced-motion: reduce) { .baro-needle { animation: none; } }
 .baro-value { margin: 10px 0 0; font: 700 26px/1.2 var(--font-title); }
+.baro-trend { margin: 4px 0 0; font-weight: 600; text-wrap: balance; }
 .baro-note { margin: 8px 0 0; }
 .mini-act { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; font-weight: 600; }
 .mini-svg { flex: none; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
@@ -454,6 +457,10 @@ dialog.baro-modal { width: min(440px, calc(100vw - 24px)); }
 .mini-tools { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 2px; }
 .mini-tool { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 12px; font-size: 14px; font-weight: 600; white-space: nowrap; background: var(--surface); color: var(--ink); }
 .mini-pressure { font-variant-numeric: tabular-nums; }
+.trend-arrow { width: 14px; height: 14px; margin-left: 5px; vertical-align: -2px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+.trend-arrow.is-up { color: var(--trend-up); transform: rotate(-45deg); }
+.trend-arrow.is-down { color: var(--trend-down); transform: rotate(45deg); }
+.trend-arrow.is-steady { color: var(--trend-steady); stroke-width: 3.2; } /* trait épais : un trait fin se lirait « — », donnée absente */
 .mini-lead { margin: 6px 0 12px; font-size: 14px; line-height: 1.45; color: var(--muted); }
 .mini-lead:empty { display: none; }
 /* Orage observé par une station d'aéroport proche : bandeau d'alerte, couleurs « attention » de la charte */

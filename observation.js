@@ -70,15 +70,78 @@ export async function fetchObservedPressure({ latitude, longitude, countryCode }
   return best;
 }
 
+// ── Tendance sur 3 heures (23/11/2026) ───────────────────────────────────────────────────────────────────────────────────────
+// Pression mesurée par la MÊME station environ 3 h plus tôt. Les stations européennes et japonaises donnent le QNH au hPa entier : un
+// écart affiché de 1 hPa peut n'être presque rien, il est donc dit « à peu près stable ». Sans relevé à l'heure voulue : pas de tendance.
+const IEM_HISTORY_URL = "https://mesonet.agron.iastate.edu/cgi-bin/request/asos.py";
+export const TREND_MS = 3 * 60 * 60 * 1000;
+export const TREND_TOLERANCE_MS = 30 * 60 * 1000; // relevé retenu : entre 2 h 30 et 3 h 30 avant le dernier
+export const TREND_MIN_HPA = 2;                   // en dessous : « à peu près stable »
+
+// Réponse CSV « station,valid,alti,metar » (heures UTC) → [{ at, hpa }], lignes illisibles ignorées.
+export function parseHistory(csv, station) {
+  const out = [];
+  for (const line of String(csv ?? "").split(/\r?\n/)) {
+    const m = /^([^,]+),(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}),([^,]*),(.*)$/.exec(line);
+    if (!m || m[1] !== station) continue;
+    const at = Date.parse(`${m[2]}T${m[3]}:00Z`), alti = Number.parseFloat(m[4]);
+    const hpa = qnhHpa({ raw: m[5], alti: Number.isFinite(alti) ? alti : null });
+    if (Number.isFinite(at) && hpa !== null) out.push({ at, hpa });
+  }
+  return out;
+}
+// Relevé le plus proche de « 3 h avant » ; null si aucun dans la tolérance.
+export function pressureTrend(observed, history) {
+  if (!observed || !isNum(observed.hpa) || !isNum(observed.at)) return null;
+  const target = observed.at - TREND_MS;
+  let past = null;
+  for (const h of Array.isArray(history) ? history : []) {
+    const gap = Math.abs(h.at - target);
+    if (gap <= TREND_TOLERANCE_MS && (!past || gap < Math.abs(past.at - target))) past = h;
+  }
+  if (!past) return null;
+  const delta = observed.hpa - past.hpa;
+  return { hpa: past.hpa, at: past.at, delta, dir: delta >= TREND_MIN_HPA ? "up" : delta <= -TREND_MIN_HPA ? "down" : "steady" };
+}
+const historyCache = new Map();
+// Tendance de la station déjà choisie, ou null (relevé absent) ; lève ObsError si le service est illisible.
+export async function fetchPressureTrend(observed, { fetchImpl = fetch, now = Date.now(), timeoutMs = TIMEOUTS.pressure } = {}) {
+  if (!observed || !/^[A-Z0-9]{3,8}$/.test(observed.station)) return null;
+  const key = `${observed.station}|${observed.at}`;
+  let hit = historyCache.get(key);
+  if (!hit || now - hit.at > OBS_CACHE_MS) {
+    const hours = Math.min(12, Math.ceil((now - observed.at + TREND_MS + TREND_TOLERANCE_MS) / 3600000) + 1);
+    const q = `station=${observed.station}&data=alti&data=metar&hours=${hours}&tz=Etc/UTC&format=onlycomma&latlon=no&missing=null&trace=null&direct=no&report_type=3&report_type=4`;
+    const csv = await timed(timeoutMs, async (signal) => {
+      let res;
+      try { res = await fetchImpl(`${IEM_HISTORY_URL}?${q}`, { signal }); } catch (e) { throw new ObsError("network", `Historique de la station indisponible (réseau) : ${e.message}`); }
+      if (!res.ok) throw new ObsError("http", `Le service des stations a répondu HTTP ${res.status}`);
+      return res.text();
+    }, () => new ObsError("timeout", `Le service des stations ne répond pas (aucune réponse en ${seconds(timeoutMs)})`));
+    hit = { at: now, history: parseHistory(csv, observed.station) };
+    historyCache.set(key, hit);
+  }
+  return pressureTrend(observed, hit.history);
+}
+export const TREND_WORD = { up: "en hausse", down: "en baisse", steady: "à peu près stable" };
+// « En hausse : +2 hPa depuis 16:00 (1023 hPa). » ; « À peu près stable depuis 16:00 (1024 hPa). »
+export function trendText(trend, fmtTime) {
+  if (!trend) return null;
+  const since = `depuis ${fmtTime(trend.at)} (${trend.hpa}\u00a0hPa)`;
+  if (trend.dir === "steady") return `À peu près stable ${since}.`;
+  return `${trend.dir === "up" ? "En hausse : +" : "En baisse : −"}${Math.abs(trend.delta)}\u00a0hPa ${since}.`;
+}
+
 // Textes de la pression affichée : mesure d'une station (valeur seule, avec le détail dans l'info-bulle) ou, à défaut, valeur du modèle (« ≈ »).
-export function pressureDisplay(model, observed, fmtTime = (ms) => new Date(ms).toISOString().slice(11, 16)) {
+// trend : tendance de cette mesure (jamais avec la valeur d'un modèle).
+export function pressureDisplay(model, observed, fmtTime = (ms) => new Date(ms).toISOString().slice(11, 16), trend = null) {
   if (observed) {
     const detail = `${observed.name} (${observed.station}), à ${Math.round(observed.km)} km, relevé de ${fmtTime(observed.at)}`;
     return {
-      hpa: observed.hpa, text: `${observed.hpa} hPa`, measured: true,
+      hpa: observed.hpa, text: `${observed.hpa} hPa`, measured: true, trend: trend ?? null, trendText: trendText(trend, fmtTime),
       // QNH : pression de la station ramenée au niveau de la mer avec l'atmosphère STANDARD (pas la température réelle, contrairement
       // à la pression au niveau de la mer des modèles) ; l'écart reste faible en plaine, plus marqué en altitude par temps froid ou chaud.
-      title: `Pression MESURÉE à la station (QNH, ramenée au niveau de la mer selon l'atmosphère standard) : ${detail}.`,
+      title: `Pression MESURÉE à la station (QNH, ramenée au niveau de la mer selon l'atmosphère standard) : ${detail}.${trend ? ` ${trendText(trend, fmtTime)}` : ""}`,
       note: `Pression mesurée par la station météo d'aéroport la plus proche, ramenée au niveau de la mer selon l'atmosphère standard (QNH) : ${detail}. Ce n'est pas la mesure de l'emplacement exact. Le QNH peut différer d'environ 1 à 2 hPa de la pression au niveau de la mer calculée avec la température réelle, surtout pour une station en altitude par temps froid ou chaud. Source : messages METAR, via l'Iowa Environmental Mesonet.`,
     };
   }
