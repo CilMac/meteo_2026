@@ -79,7 +79,7 @@ export function pressureDisplay(model, observed, fmtTime = (ms) => new Date(ms).
       // QNH : pression de la station ramenée au niveau de la mer avec l'atmosphère STANDARD (pas la température réelle, contrairement
       // à la pression au niveau de la mer des modèles) ; l'écart reste faible en plaine, plus marqué en altitude par temps froid ou chaud.
       title: `Pression MESURÉE à la station (QNH, ramenée au niveau de la mer selon l'atmosphère standard) : ${detail}.`,
-      note: `Pression mesurée par la station météo d'aéroport la plus proche, ramenée au niveau de la mer selon l'atmosphère standard (QNH) : ${detail}. Ce n'est pas la mesure de votre emplacement exact. Le QNH peut différer d'environ 1 à 2 hPa de la pression au niveau de la mer calculée avec la température réelle, surtout pour une station en altitude par temps froid ou chaud. Source : messages METAR, via l'Iowa Environmental Mesonet.`,
+      note: `Pression mesurée par la station météo d'aéroport la plus proche, ramenée au niveau de la mer selon l'atmosphère standard (QNH) : ${detail}. Ce n'est pas la mesure de l'emplacement exact. Le QNH peut différer d'environ 1 à 2 hPa de la pression au niveau de la mer calculée avec la température réelle, surtout pour une station en altitude par temps froid ou chaud. Source : messages METAR, via l'Iowa Environmental Mesonet.`,
     };
   }
   if (isNum(model)) {

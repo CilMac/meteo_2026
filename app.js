@@ -4,16 +4,16 @@ import { fetchForecast } from "./weather-provider.js?v=631084d1";
 import { loadWarnings } from "./warnings.js?v=79a17bd6";
 import { fetchEnsemble } from "./ensemble.js?v=88c38ccc";
 import { initInfo } from "./info.js?v=89ebfb1f";
-import { initBarometer, preloadDial } from "./barometer.js?v=c1fd2d41";
+import { initBarometer, preloadDial } from "./barometer.js?v=4c78ae1f";
 import { createSkyLayer } from "./skymap.js?v=490696b3";
-import { initWalk } from "./walkui.js?v=cceee626";
+import { initWalk } from "./walkui.js?v=5d4ba810";
 import { localToMs } from "./walk.js?v=68874bb7";
-import { fetchObservedPressure, fetchObservedStorms, stormText, pressureDisplay } from "./observation.js?v=689a320a";
+import { fetchObservedPressure, fetchObservedStorms, stormText, pressureDisplay } from "./observation.js?v=67278bcd";
 import { getPosition, reverseGeocode, placeFromPosition, storedGeoPlace, formatCoords, deniedHelp, GEO_ID, GEO_MAX_AGE_MS } from "./geo.js?v=b6df63a8";
 import { createLoader } from "./loading.js?v=956b591b";
-import { makeRecord, saveRecord, loadJournal, exportText, exportName } from "./journal.js?v=accf1f25";
+import { makeRecord, saveRecord, loadJournal, exportText, exportName } from "./journal.js?v=f033a713";
 import { chooseView, isIOS } from "./device.js?v=78893f99";
-import { TABS, buildTopPlace, buildTopNow, buildCurrent, buildHourly, buildWeek, buildTrend, buildCompact, buildMini, COMPACT_HELP_ITEMS, buildSources, buildWarnings, buildAttribution, warningsStatus, formatLocal } from "./weather-render.js?v=65d4fbfd";
+import { TABS, buildTopPlace, buildTopNow, buildCurrent, buildHourly, buildWeek, buildTrend, buildCompact, buildMini, COMPACT_HELP_ITEMS, buildSources, buildWarnings, buildAttribution, warningsStatus, formatLocal } from "./weather-render.js?v=6d68c32f";
 
 const $ = (id) => {
   const el = document.getElementById(id);
@@ -24,7 +24,7 @@ const $ = (id) => {
 const PLACE_KEY = "meteo.lastPlace", CUSTOM_KEY = "meteo.customPlace", POSITION_KEY = "meteo.position", TAB_DEFAULT = "precip", STALE_MS = 30 * 60 * 1000;
 
 const loader = createLoader($("loader"));
-const state = { place: null, data: null, warnings: null, ensemble: undefined, view: "detail", tab: TAB_DEFAULT, loading: false, loadId: 0 };
+const state = { place: null, data: null, warnings: null, ensemble: undefined, pressure: null, view: "detail", tab: TAB_DEFAULT, loading: false, loadId: 0 };
 
 // Dernier lieu validé : favori, ou lieu libre relu et revalidé (jamais pris tel quel dans le stockage).
 function readLastPlace() {
@@ -294,7 +294,10 @@ $("mini-body").addEventListener("click", (e) => {
   const at = localToMs(b.dataset.time, geo.data.location.timezone);
   if (at !== null) walk.openAt(at, b);
 });
-initBarometer({ getPressure: () => geo.pressure, openBtn: $("mini-baro-btn") });
+initBarometer([
+  { openBtn: $("mini-baro-btn"), getPressure: () => geo.pressure },
+  { openBtn: $("place-baro-btn"), getPressure: () => state.pressure },
+]);
 $("mini-open").addEventListener("click", () => setMini(true));
 $("mini-close").addEventListener("click", () => setMini(false));
 $("mini-refresh").addEventListener("click", () => locate(true));
@@ -311,6 +314,16 @@ function renderWarnings() {
   $("warnings-status").classList.toggle("is-alert", st.alert);
   $("sources").replaceChildren(buildSources(state.data, state.warnings, state.ensemble));
   $("attribution").replaceChildren(buildAttribution(state.data, state.warnings, state.ensemble));
+}
+
+// Pression du lieu affiché (bouton sous Actualiser) ; null = mesure en cours de lecture, jamais la pression du lieu précédent.
+function renderPressure() {
+  const btn = $("place-baro-btn"), p = state.pressure;
+  btn.hidden = !state.data;
+  btn.disabled = typeof p?.hpa !== "number";
+  btn.title = p?.title ?? "Lecture de la pression…";
+  $("place-pressure").textContent = p?.text ?? "… hPa";
+  if (!btn.disabled) preloadDial();
 }
 
 // Données périmées ou premier jour ≠ aujourd'hui : signalé, jamais masqué.
@@ -331,14 +344,21 @@ async function load(place, { note = "", kind = "" } = {}) {
   // Vigilance en parallèle : n'attend pas la météo et ne la bloque pas (loadWarnings ne lève jamais).
   loader.start(place.name);
   const warningsP = loadWarnings(place);
+  const observedP = fetchObservedPressure(place).catch(() => null); // pression mesurée : n'attend pas la météo et ne la bloque pas
   try {
     const data = await fetchForecast(place);
     if (id !== state.loadId) return; // un lieu plus récent a été demandé entre-temps
     loader.done("forecast");
     loader.begin("ensemble");
-    state.place = place; state.data = data; state.warnings = null; state.ensemble = undefined; state.loading = false;
+    state.place = place; state.data = data; state.warnings = null; state.ensemble = undefined; state.pressure = null; state.loading = false;
     state.note = note ? { text: note, kind } : null; // reste affiché tant que ces données sont à l'écran (renderAll → état « périmé »)
     renderAll();
+    renderPressure();
+    observedP.then((o) => {
+      if (id !== state.loadId) return;
+      state.pressure = pressureDisplay(data.current.pressure, o, (ms) => formatLocal(new Date(ms), data.location.timezone, { hour: "2-digit", minute: "2-digit" }));
+      renderPressure();
+    });
     warningsP.then((w) => { if (id === state.loadId) { state.warnings = w; renderWarnings(); loader.done("warnings", true); } });
     // Scénarios d'ensemble (J+4 à J+14) : chargés après l'affichage de la prévision, sans la bloquer.
     fetchEnsemble(place, data.daily.map((d) => d.date)).then((e) => {

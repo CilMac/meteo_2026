@@ -73,15 +73,17 @@ export function baroSvg(pressure) {
 </svg>`;
 }
 
-// Fenêtre du baromètre : ouverte depuis la pression affichée ; l'aiguille balaie l'échelle depuis 950 hPa jusqu'à la valeur (animation CSS ; position finale correcte même sans animation).
-export function initBarometer({ getPressure, openBtn }) {
+// Fenêtre du baromètre : ouverte depuis une pression affichée (page principale ou vue 🥾 : liste de { openBtn, getPressure }) ; l'aiguille balaie l'échelle depuis 950 hPa jusqu'à la valeur (animation CSS ; position finale correcte même sans animation).
+export function initBarometer(entries) {
   const $ = (id) => {
     const el = document.getElementById(id);
     if (!el) throw new Error(`élément « #${id} » introuvable : les fichiers du site ne sont pas tous de la même version (republiez-les tous, puis rechargez avec Cmd+Maj+R)`);
     return el;
   };
   const dlg = $("baro");
-  openBtn.addEventListener("click", () => {
+  let opener = null; // bouton d'origine : le curseur y revient à la fermeture
+  for (const { openBtn, getPressure } of entries) openBtn.addEventListener("click", () => {
+    opener = openBtn;
     const info = getPressure(), p = typeof info?.hpa === "number" ? info.hpa : null;
     $("baro-dial").innerHTML = baroSvg(p);
     $("baro-value").textContent = info?.text ?? baroLabel(p);
@@ -90,7 +92,7 @@ export function initBarometer({ getPressure, openBtn }) {
     dlg.showModal(); // l'aiguille est posée sur la valeur dès le dessin ; le balayage est une simple animation CSS qui y mène
   });
   $("baro-close").addEventListener("click", () => dlg.close());
-  dlg.addEventListener("close", () => openBtn.focus());
+  dlg.addEventListener("close", () => opener?.focus());
   // Comme la fenêtre « i » : seul un clic dont la cible est le dialogue lui-même, hors de son cadre, le ferme.
   dlg.addEventListener("click", (e) => {
     if (e.target !== dlg) return;
