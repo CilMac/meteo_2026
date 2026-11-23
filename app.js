@@ -6,14 +6,14 @@ import { fetchEnsemble } from "./ensemble.js?v=88c38ccc";
 import { initInfo } from "./info.js?v=89ebfb1f";
 import { initBarometer, preloadDial } from "./barometer.js?v=c1fd2d41";
 import { createSkyLayer } from "./skymap.js?v=490696b3";
-import { initWalk } from "./walkui.js?v=594612e4";
+import { initWalk } from "./walkui.js?v=299dbdea";
 import { localToMs } from "./walk.js?v=68874bb7";
 import { fetchObservedPressure, fetchObservedStorms, stormText, pressureDisplay } from "./observation.js?v=689a320a";
 import { getPosition, reverseGeocode, placeFromPosition, storedGeoPlace, formatCoords, deniedHelp, GEO_ID, GEO_MAX_AGE_MS } from "./geo.js?v=b6df63a8";
 import { createLoader } from "./loading.js?v=956b591b";
-import { makeRecord, saveRecord, loadJournal, exportText, exportName } from "./journal.js?v=71665057";
+import { makeRecord, saveRecord, loadJournal, exportText, exportName } from "./journal.js?v=8b05991c";
 import { chooseView, isIOS } from "./device.js?v=78893f99";
-import { TABS, buildTopPlace, buildTopNow, buildCurrent, buildHourly, buildWeek, buildTrend, buildCompact, buildMini, COMPACT_HELP_ITEMS, buildSources, buildWarnings, buildAttribution, warningsStatus, formatLocal } from "./weather-render.js?v=67e7aee1";
+import { TABS, buildTopPlace, buildTopNow, buildCurrent, buildHourly, buildWeek, buildTrend, buildCompact, buildMini, COMPACT_HELP_ITEMS, buildSources, buildWarnings, buildAttribution, warningsStatus, formatLocal } from "./weather-render.js?v=e2c0e381";
 
 const $ = (id) => {
   const el = document.getElementById(id);
@@ -78,7 +78,7 @@ function selectTab(id, focus = false) {
 // Le titre de chaque section nomme la rubrique active (précipitations, températures, vent).
 const RUBRIC = { precip: "précipitations", temp: "températures", wind: "vent" };
 function renderTitles() {
-  for (const id of ["h-24", "h-7", "h-15", "h-compact"]) {
+  for (const id of ["h-24", "h-7", "h-15", "h-compact", "h-compact-15"]) {
     const pill = $(id).querySelector(".rubric");
     pill.textContent = RUBRIC[state.tab];
     pill.className = `rubric fam-${state.tab}`;
@@ -99,7 +99,10 @@ function renderTabbed() {
   if (newStrip) newStrip.scrollLeft = stripScroll.left;
   $("week").replaceChildren(buildWeek(state.data, state.tab, state.ensemble));
   $("trend").replaceChildren(buildTrend(state.data, state.tab, state.ensemble));
-  $("compact").replaceChildren(buildCompact(state.data, state.tab, state.ensemble));
+  const compact = buildCompact(state.data, state.tab, state.ensemble);
+  $("compact").replaceChildren(compact.week);
+  $("compact-trend").replaceChildren(compact.trend);
+  $("compact-trend-fold").hidden = !compact.hasTrend;
 }
 
 function renderAll() {
@@ -461,12 +464,12 @@ $("search").addEventListener("submit", async (ev) => {
 $("refresh").addEventListener("click", () => { if (select.value === GEO_ID) showPosition(); else if (state.place) load(state.place); }); // « Ma position » : la position est recherchée à nouveau
 document.addEventListener("visibilitychange", () => { if (!document.hidden) updateFreshness(); });
 
-// Vue détaillée (par défaut) ou compacte (15 jours dans un seul pavé). Le choix est retenu sur l'appareil.
+// Vue détaillée (par défaut) ou compacte (7 jours dans un pavé, jours 8 à 15 repliés). Le choix est retenu sur l'appareil.
 const VIEW_KEY = "meteo.view";
 function applyView() {
   const compact = state.view === "compact";
   $("detail-only").hidden = compact; // situation et 24 h restent visibles dans les deux vues (condensées en compact)
-  $("compact-card").hidden = !compact;
+  $("compact-only").hidden = !compact;
   $("content").classList.toggle("is-compact", compact);
   // La vue en cours est signalée sur le sélecteur lui-même (aria-pressed, rendu enfoncé).
   $("view-detail").setAttribute("aria-pressed", String(!compact));

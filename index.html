@@ -13,7 +13,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#f6f3eb" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#1b201d" media="(prefers-color-scheme: dark)">
-<link rel="stylesheet" href="styles.css?v=fc4abf34">
+<link rel="stylesheet" href="styles.css?v=30298343">
 </head>
 <body>
 <!-- Bandeau affiché si la page ne se charge pas correctement (fichiers manquants ou de versions différentes) -->
@@ -87,15 +87,24 @@
     <section class="card" id="hourly-card" aria-labelledby="h-24"><h2 id="h-24"><span class="h2-main">Prochaines 24 heures</span> <span class="rubric rubric-precip">précipitations</span></h2><div id="hourly" role="tabpanel"></div></section>
 
 
-    <!-- Vue compacte : 15 jours dans un seul pavé, sans commentaire (masquée par défaut) -->
-    <section class="card compact-card" id="compact-card" aria-labelledby="h-compact" hidden>
+    <!-- Vue compacte seulement (masquée par défaut) : 7 jours dans un pavé, jours 8 à 15 repliés, sans commentaire -->
+    <div id="compact-only" hidden>
+    <section class="card compact-card" id="compact-card" aria-labelledby="h-compact">
       <div class="compact-head">
-        <h2 id="h-compact"><span class="h2-main">15 jours</span> <span class="rubric rubric-precip">précipitations</span></h2>
+        <h2 id="h-compact"><span class="h2-main">7 jours</span> <span class="rubric rubric-precip">précipitations</span></h2>
         <button type="button" id="compact-info-btn" class="compact-info-btn" aria-expanded="false" aria-controls="compact-help" aria-label="Explications de cette vue" title="Explications">i</button>
       </div>
       <div class="compact-help" id="compact-help" hidden></div>
       <div id="compact"></div>
     </section>
+    <details class="card fold" id="compact-trend-fold">
+      <summary>
+        <h2 id="h-compact-15"><span class="h2-main">Jours 8 à 15</span> <span class="rubric rubric-precip">précipitations</span></h2>
+        <span class="trend-warning">Au-delà de 7 jours, la fiabilité baisse nettement : ces prévisions sont des tendances susceptibles d'évoluer.</span>
+      </summary>
+      <div id="compact-trend"></div>
+    </details>
+    </div><!-- /compact-only -->
 
     <!-- Vue détaillée seulement : 7 jours et jours 8 à 15 -->
     <div id="detail-only">
@@ -253,7 +262,7 @@
         <li><strong>Les onglets</strong> pilotent en même temps les prochaines 24 heures, les 7 jours et les jours 8 à 15. Changer d'onglet est instantané : rien n'est rechargé.</li>
         <li><strong>« Prochaines 24 heures »</strong> défile horizontalement. Changer d'onglet garde les mêmes heures à l'écran ; un autre lieu ou « Actualiser » repart de l'heure en cours. Onglet Précipitations : la barre verticale donne les mm (pleine à 3 mm), la petite barre horizontale le pourcentage.</li>
         <li><strong>« Situation actuelle »</strong> : valeurs calculées par un modèle pour l'heure en cours (pas un relevé de station).</li>
-        <li><strong>Vue compacte</strong> : le sélecteur à deux icônes au centre de la ligne du lieu (deux cartes empilées pour la vue détaillée, des lignes serrées pour la vue compacte ; la vue en cours est enfoncée) condense la situation actuelle et les 24 heures, et remplace le détail des 7 jours et des tendances par un seul pavé de 15 jours en trois blocs (4 jours, 3 jours, puis la suite). Chaque séparateur dit en une phrase ce qui change à partir de là ; le petit « i » du pavé rappelle ce que signifient les chiffres. Un clic sur l'icône de la vue détaillée y revient. Par défaut, la vue compacte s'ouvre sur iPhone et iPad, la vue détaillée sur ordinateur ; votre choix est ensuite retenu.</li>
+        <li><strong>Vue compacte</strong> : le sélecteur à deux icônes au centre de la ligne du lieu (deux cartes empilées pour la vue détaillée, des lignes serrées pour la vue compacte ; la vue en cours est enfoncée) condense la situation actuelle et les 24 heures, et remplace le détail des 7 jours par un pavé d'une ligne par jour, en deux blocs (4 jours, puis 3) séparés par une phrase qui dit ce qui change à partir de là, et terminé par le même résumé que dans la vue détaillée (maximales, pluie notable, rappel de tendance). Les jours 8 à 15 sont repliés en dessous, sous le même bouton « Déplier » que dans la vue détaillée, avec la même phrase d'avertissement. Les longueurs de barres se comparent d'un bout à l'autre des 15 jours (même échelle). Le petit « i » du pavé rappelle ce que signifient les chiffres. Un clic sur l'icône de la vue détaillée y revient. Par défaut, la vue compacte s'ouvre sur iPhone et iPad, la vue détaillée sur ordinateur ; votre choix est ensuite retenu.</li>
         <li><strong>Jour ou nuit</strong> : l'interface suit le réglage de votre appareil (apparence claire ou sombre) ; il n'y a rien à régler dans la page.</li>
         <li><strong>« — »</strong> veut dire « donnée absente ». Ce n'est jamais un zéro déguisé : un vrai « 0 mm » est affiché « 0 mm ».</li>
       </ul>
@@ -410,6 +419,6 @@
   window.addEventListener("unhandledrejection", function (e) { show(String((e.reason && e.reason.message) || e.reason)); });
 })();
 </script>
-<script type="module" src="app.js?v=30128a54"></script>
+<script type="module" src="app.js?v=715d3845"></script>
 </body>
 </html>

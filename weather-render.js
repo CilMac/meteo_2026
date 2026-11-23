@@ -377,10 +377,16 @@ export function dayViews(days, ensemble) {
   });
 }
 
-// Vue compacte : trois blocs (4 premiers jours, 3 suivants, le reste jusqu'à J+14), séparés par un simple trait.
+// Vue compacte : trois blocs (4 premiers jours, 3 suivants, le reste jusqu'à J+14) ; les deux premiers toujours visibles,
+// le dernier dans une section repliée.
 export const COMPACT_BLOCKS = [[0, 3], [4, 6], [7, 14]];
 export function compactBlocks(views) {
   return COMPACT_BLOCKS.map(([a, b]) => views.filter((v) => v.d.dayIndex >= a && v.d.dayIndex <= b)).filter((g) => g.length);
+}
+export const COMPACT_TREND_FROM = COMPACT_BLOCKS[2][0]; // premier jour de la section repliée « Jours 8 à 15 » (J+7)
+export function compactSplit(views) {
+  const blocks = compactBlocks(views), late = (g) => g[0].d.dayIndex >= COMPACT_TREND_FROM;
+  return { week: blocks.filter((g) => !late(g)), trend: blocks.filter(late) };
 }
 // Texte de valeur d'une ligne compacte, sans commentaire (les définitions sont dans le petit « i »).
 export function compactValue(v, tab) {
@@ -392,16 +398,14 @@ export function compactValue(v, tab) {
   if (tab === "temp") return `${deg(v.tmin)} / ${deg(v.tmax)}`;
   return `vent ${num0(d.windMax.value)} · raf. ${num0(d.gustMax.value)} km/h`;
 }
-// Texte des deux séparateurs de la vue compacte (avant J+4, avant J+7).
+// Textes courts de la vue compacte : séparateur avant J+4, puis, sans scénarios (chargement ou échec), note des jours 8 à 15
+// (sinon null : la médiane est expliquée dans le petit « i »).
 export function compactSepTexts(ensemble) {
   const sample = ensemble?.status === "ok" ? Object.values(ensemble.days).find((d) => d.nMembers) : null;
-  const second = sample
-    ? "Dès J+7 : tendance · J+8 : médiane"
-    : "Dès J+7 : tendance · J+8 : 1 scénario";
-  return ["Dès J+4 : fiabilité en baisse.", second];
+  return ["Dès J+4 : fiabilité en baisse.", sample ? null : `Dès J+${ENSEMBLE_MEDIAN_FROM} : valeurs d'un seul scénario, pas de médiane.`];
 }
 export const COMPACT_HELP_ITEMS = [
-  "3 blocs : J à J+3, J+4 à J+6, J+7 à J+14.",
+  "7 jours : J à J+3, puis J+4 à J+6. Jours 8 à 15 (J+7 à J+14) : section à déplier.",
   `Pluie : mm et % jusqu'à J+${RAIN_MM_UNTIL} ; ensuite classe (sec, faible, modéré, fort) et %, sans mm.`,
   `Barres de pluie : petite verticale = mm du jour (pleine à 10 mm, jusqu'à J+${RAIN_MM_UNTIL}) ; horizontale = %.`,
   "Jusqu'à J+7, le % est la probabilité horaire maximale du jour.",
@@ -545,32 +549,41 @@ function howTo(key, items) {
 const tmaxRange = (ens) => (ens?.tmax ? `T max ${num0(ens.tmax.p10)}–${num0(ens.tmax.p90)} °C (80 % des cas)${ens.spread ? ` · dispersion ${ens.spread}` : ""}` : null);
 const ensembleTag = (ens) => `médiane de ${ens.nMembers} scénarios (${ens.nModels} modèle${ens.nModels > 1 ? "s" : ""})`;
 
-// Pavé compact : 15 jours, un seul bloc ; une courte explication sur chacun des deux séparateurs entre les trois groupes de jours.
+// Vue compacte : lignes des 7 jours (deux blocs, séparateur expliqué) et lignes des jours 8 à 15 (section repliée, sa note à part).
+// Échelles communes aux 15 jours : les barres restent comparables une fois la suite dépliée.
 export function buildCompact(data, tab, ensemble) {
   const views = dayViews(data.daily, ensemble);
   const tMins = views.map((v) => v.tmin).filter(isNum), tMaxs = views.map((v) => v.tmax).filter(isNum);
   const gmin = Math.min(...tMins, ...tMaxs), gmax = Math.max(...tMins, ...tMaxs);
   const wMax = scaleMax(views.map((v) => v.d.gustMax.value ?? v.d.windMax.value), 20);
-  const list = h("ol", { class: "compact-list" });
-  const seps = compactSepTexts(ensemble);
-  compactBlocks(views).forEach((block, i) => {
-    if (i > 0) list.append(h("li", { class: `compact-sep compact-sep-${i}`, text: seps[i - 1] }));
-    for (const v of block) {
-      const { d } = v;
-      const info = weatherInfo(d.weatherCode.value, false);
-      let bar;
-      if (tab === "precip") bar = rainBars(v.mm, v.showMm, v.pct);
-      else if (tab === "temp") bar = rangeBar(v.tmin, v.tmax, gmin, gmax);
-      else bar = h("div", { class: "hbar-box" },
-        isNum(d.gustMax.value) ? h("div", { class: "hbar", style: { width: `${minVisible(barPct(d.gustMax.value, wMax))}%`, background: "var(--wind-2)" } }) : null,
-        isNum(d.windMax.value) ? h("div", { class: "hbar over", style: { width: `${minVisible(barPct(d.windMax.value, wMax))}%`, background: "var(--wind)" } }) : null);
-      list.append(h("li", { class: "compact-day" },
-        h("span", { class: "c-name", text: d.dayIndex === 0 ? "Auj." : dayLabel(d.date) }),
-        h("span", { class: "c-icon", "aria-hidden": "true", title: info.label, text: info.icon }),
-        bar, h("span", { class: "c-val", text: compactValue(v, tab) })));
-    }
-  });
-  return list;
+  const [sepText, trendNote] = compactSepTexts(ensemble);
+  const split = compactSplit(views);
+  const buildList = (blocks) => {
+    const list = h("ol", { class: "compact-list" });
+    blocks.forEach((block, i) => {
+      if (i > 0) list.append(h("li", { class: "compact-sep", text: sepText }));
+      for (const v of block) {
+        const { d } = v;
+        const info = weatherInfo(d.weatherCode.value, false);
+        let bar;
+        if (tab === "precip") bar = rainBars(v.mm, v.showMm, v.pct);
+        else if (tab === "temp") bar = rangeBar(v.tmin, v.tmax, gmin, gmax);
+        else bar = h("div", { class: "hbar-box" },
+          isNum(d.gustMax.value) ? h("div", { class: "hbar", style: { width: `${minVisible(barPct(d.gustMax.value, wMax))}%`, background: "var(--wind-2)" } }) : null,
+          isNum(d.windMax.value) ? h("div", { class: "hbar over", style: { width: `${minVisible(barPct(d.windMax.value, wMax))}%`, background: "var(--wind)" } }) : null);
+        list.append(h("li", { class: "compact-day" },
+          h("span", { class: "c-name", text: d.dayIndex === 0 ? "Auj." : dayLabel(d.date) }),
+          h("span", { class: "c-icon", "aria-hidden": "true", title: info.label, text: info.icon }),
+          bar, h("span", { class: "c-val", text: compactValue(v, tab) })));
+      }
+    });
+    return list;
+  };
+  // Sous les 7 jours : le même résumé que dans la vue détaillée.
+  const text = weekSummary(firstWeek(data));
+  const week = h("div", {}, buildList(split.week), text ? h("p", { class: "summary", text }) : null);
+  const trend = h("div", {}, trendNote ? h("p", { class: "muted small", text: trendNote }) : null, buildList(split.trend));
+  return { week, trend, hasTrend: split.trend.length > 0 };
 }
 
 // Cas observé à Montréal (GEM) : rafales max inférieures au vent max. Signalé, jamais retouché.

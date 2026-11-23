@@ -286,7 +286,7 @@ body:has(dialog.modal[open]) { overflow: hidden; }
 
 /* bouton de bascule vue détaillée / vue compacte (au-dessus des onglets) */
 
-/* pavé compact : 15 jours, une ligne par jour, séparateurs entre les trois blocs */
+/* vue compacte : une ligne par jour ; 7 jours (deux blocs et leur séparateur), jours 8 à 15 dans une section repliée */
 .compact-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
 .compact-head h2 { margin: 0; }
 .compact-info-btn { flex: none; width: 44px; height: 44px; padding: 0; border: 1px solid var(--help-border); border-radius: 50%; background: var(--help); color: var(--ink); font: italic 700 20px/1 var(--font-title); cursor: pointer; }
@@ -315,9 +315,8 @@ body:has(dialog.modal[open]) { overflow: hidden; }
 .top-cell-place { justify-self: start; min-width: 0; max-width: 100%; }
 .top-cell-now { justify-self: end; min-width: 0; max-width: 100%; }
 @media (max-width: 640px) { .top-desc { display: none; } }
-/* séparateurs de la vue compacte : plus hauts, avec une courte explication */
+/* séparateur de la vue compacte : plus haut, avec une courte explication */
 .compact-sep { height: auto; min-height: 44px; margin: 10px 0; padding: 10px 14px; border: 0; border-left: 4px solid var(--information-border); border-radius: var(--radius-control); background: var(--information); font-size: 14px; font-weight: 600; line-height: 1.45; }
-.compact-sep-2 { border-left-color: var(--attention-border); background: var(--attention); color: var(--attention-ink); }
 
 
 /* vue compacte : situation actuelle et 24 heures condensées (la température et le ciel sont déjà dans la barre du haut) */
