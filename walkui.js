@@ -47,7 +47,8 @@ function timeline(steps, fmtTime) {
   return wrap;
 }
 
-export function initWalk({ openBtn, getHere, fmtTime }) {
+// Ouverture : seulement par openAt (toucher une heure du tableau de la vue 🥾) ; le bouton parapluie a été retiré le 23/11/2026.
+export function initWalk({ getHere, fmtTime, fallbackFocus = () => null }) {
   const $ = (id) => {
     const e = document.getElementById(id);
     if (!e) throw new Error(`élément « #${id} » introuvable : les fichiers du site ne sont pas tous de la même version (republiez-les tous, puis rechargez avec Cmd+Maj+R)`);
@@ -156,15 +157,14 @@ export function initWalk({ openBtn, getHere, fmtTime }) {
   };
   prev.addEventListener("click", () => step(-1));
   next.addEventListener("click", () => step(1));
-  let returnFocus = openBtn;
+  let returnFocus = null;
   const open = (at, from) => {
     anchor = Number.isFinite(at) && at > Date.now() ? Math.min(at, latestMs()) : null; offset = 0;
-    returnFocus = from ?? openBtn;
+    returnFocus = from ?? null;
     dlg.showModal(); load();
   };
-  openBtn.addEventListener("click", () => open(null, openBtn)); // on repart toujours de « maintenant »
   $("walk-close").addEventListener("click", () => dlg.close());
-  dlg.addEventListener("close", () => { seq++; (returnFocus?.isConnected ? returnFocus : openBtn).focus(); });
+  dlg.addEventListener("close", () => { seq++; (returnFocus?.isConnected ? returnFocus : fallbackFocus())?.focus(); }); // le curseur revient sur l'heure touchée
   // Comme les autres fenêtres : seul un clic dont la cible est le dialogue lui-même, hors de son cadre, le ferme.
   dlg.addEventListener("click", (e) => {
     if (e.target !== dlg) return;

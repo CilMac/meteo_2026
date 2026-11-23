@@ -6,7 +6,7 @@ import { fetchEnsemble } from "./ensemble.js?v=88c38ccc";
 import { initInfo } from "./info.js?v=89ebfb1f";
 import { initBarometer, preloadDial } from "./barometer.js?v=c1fd2d41";
 import { createSkyLayer } from "./skymap.js?v=490696b3";
-import { initWalk } from "./walkui.js?v=fe72d645";
+import { initWalk } from "./walkui.js?v=7088253a";
 import { localToMs } from "./walk.js?v=0dac4a6e";
 import { fetchObservedPressure, pressureDisplay } from "./observation.js?v=823a9402";
 import { getPosition, reverseGeocode, placeFromPosition, storedGeoPlace, formatCoords, deniedHelp, GEO_ID, GEO_MAX_AGE_MS } from "./geo.js?v=b6df63a8";
@@ -185,7 +185,6 @@ function showMiniPlace(data, coords, named, pressure, at) {
   const pb = $("mini-pressure");
   pb.textContent = pressure.text; pb.title = pressure.title;
   $("mini-baro-btn").disabled = pressure.hpa === null; // sans valeur, rien à montrer sur le cadran
-  $("walk-btn").disabled = false; // la position est connue
   $("mini-place").textContent = `${data.location.name}${data.location.country ? ` (${data.location.country})` : ""}`;
   // L'heure d'actualisation suit la ligne GPS ; sur téléphone, elle passe à la ligne d'un seul bloc (jamais coupée).
   const when = document.createElement("span");
@@ -200,7 +199,7 @@ async function locate(force = false) {
   const id = ++geo.loadId;
   $("mini-refresh").disabled = true;
   $("mini-map-btn").disabled = true;
-  $("mini-title").textContent = MINI_TITLE; $("mini-tools").hidden = true; $("mini-place").textContent = ""; $("mini-gps").textContent = ""; $("mini-pressure").textContent = ""; $("mini-baro-btn").disabled = true; $("walk-btn").disabled = true; $("mini-lead").textContent = ""; $("mini-body").replaceChildren();
+  $("mini-title").textContent = MINI_TITLE; $("mini-tools").hidden = true; $("mini-place").textContent = ""; $("mini-gps").textContent = ""; $("mini-pressure").textContent = ""; $("mini-baro-btn").disabled = true; $("mini-lead").textContent = ""; $("mini-body").replaceChildren();
   miniMessage("Recherche de votre position…");
   try {
     const coords = await getPosition();
@@ -274,7 +273,7 @@ function setMini(open) {
 // Hauteur du haut de page fixe de « Lieu actuel » : les titres de colonnes se collent juste dessous.
 if (typeof ResizeObserver !== "undefined") { const top = document.querySelector(".mini-top"); new ResizeObserver(() => $("mini").style.setProperty("--mini-top-h", `${top.offsetHeight}px`)).observe(top); }
 const walk = initWalk({
-  openBtn: $("walk-btn"),
+  fallbackFocus: () => $("mini-close"), // si l'heure touchée n'existe plus (tableau redessiné), le curseur revient sur Retour
   // mêmes modèles que le tableau « Lieu actuel » (selon le pays de la position)
   getHere: () => (geo.coords ? { lat: geo.coords.latitude, lon: geo.coords.longitude, models: geo.data?.metadata?.modelsRequested ?? [] } : null),
   fmtTime: (ms) => formatLocal(new Date(ms), geo.data?.location.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone, { hour: "2-digit", minute: "2-digit" }),
@@ -282,7 +281,7 @@ const walk = initWalk({
 // Toucher une heure du tableau : « Balade ? » pour un départ à cette heure (heure locale du lieu → instant).
 $("mini-body").addEventListener("click", (e) => {
   const b = e.target.closest("button.mini-walk");
-  if (!b || $("walk-btn").disabled || !geo.data) return;
+  if (!b || !geo.coords || !geo.data) return; // les heures ne sont cliquables qu'avec la vraie position (buildMini … { walk: true })
   if (b.dataset.now) { walk.openAt(null, b); return; } // première ligne (heure en cours) : « Dans l'heure »
   const at = localToMs(b.dataset.time, geo.data.location.timezone);
   if (at !== null) walk.openAt(at, b);

@@ -525,7 +525,6 @@ button.mini-hour:focus-visible { outline: 2px solid var(--ink); outline-offset: 
 .mini .mini-map-btn[aria-expanded="true"] { border-width: 2px; }
 
 /* Balade dans l'heure : icône d'imperméable discrète à côté de « Carte » ; fenêtre avec verdict, frise de pluie, détails */
-.mini-walk .walk-svg { flex: none; }
 dialog.walk-modal { width: min(480px, calc(100vw - 24px)); }
 .walk-verdict { display: flex; gap: 12px; align-items: center; padding: 12px 14px; border-radius: var(--radius-card); border: 1px solid var(--line); border-left-width: 7px; background: var(--note); }
 .walk-verdict.is-go { border-left-color: var(--success-border); background: var(--success); }
