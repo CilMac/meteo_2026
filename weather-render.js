@@ -142,6 +142,9 @@ export function displayedModels(data) {
 
 // Quantité de pluie du jour affichée jusqu'à ce jour inclus (mesure sur pluviomètres : au-delà, la quantité ne bat plus « toujours sec »).
 export const RAIN_MM_UNTIL = 3;
+// Vue compacte : mm sur les 15 jours (demande du 23/11/2026, les classes y étaient jugées illisibles) ; la baisse de fiabilité est
+// annoncée juste au-dessus. Jusqu'à J+7 : valeur d'un modèle ; dès J+8 : moyenne des scénarios (dit dans la note de la section).
+export const COMPACT_MM_UNTIL = 14;
 export const RAIN_LEGEND = "sec < 0,2 mm · faible 0,2 à 2 mm · modéré 2 à 10 mm · fort > 10 mm";
 
 // ---------- construction DOM ----------
@@ -359,13 +362,13 @@ function vbar(pct, color) {
 }
 
 // Valeurs effectivement affichées pour chaque jour : la médiane des scénarios à partir de J+8, sinon la valeur d'un seul scénario.
-export function dayViews(days, ensemble) {
+export function dayViews(days, ensemble, { mmUntil = RAIN_MM_UNTIL } = {}) {
   const ensDays = ensemble?.status === "ok" ? ensemble.days : {};
   return days.map((d) => {
     const ens = ensDays[d.date] ?? null;
     const median = Boolean(ens) && d.dayIndex >= ENSEMBLE_MEDIAN_FROM;
     const range = Boolean(ens) && d.dayIndex >= ENSEMBLE_FIRST_DAY && !median;
-    const showMm = d.dayIndex <= RAIN_MM_UNTIL;
+    const showMm = d.dayIndex <= mmUntil;
     return {
       d, ens, median, range, showMm,
       cls: !showMm && !median ? d.precipClass ?? null : null,
@@ -398,18 +401,25 @@ export function compactValue(v, tab) {
   if (tab === "temp") return `${deg(v.tmin)} / ${deg(v.tmax)}`;
   return `vent ${num0(d.windMax.value)} · raf. ${num0(d.gustMax.value)} km/h`;
 }
-// Textes courts de la vue compacte : séparateur avant J+4, puis, sans scénarios (chargement ou échec), note des jours 8 à 15
-// (sinon null : la médiane est expliquée dans le petit « i »).
-export function compactSepTexts(ensemble) {
-  const sample = ensemble?.status === "ok" ? Object.values(ensemble.days).find((d) => d.nMembers) : null;
-  return ["Dès J+4 : fiabilité en baisse.", sample ? null : `Dès J+${ENSEMBLE_MEDIAN_FROM} : valeurs d'un seul scénario, pas de médiane.`];
+export const COMPACT_SEP_TEXT = "Dès J+4 : fiabilité en baisse.";
+// Note en tête des jours 8 à 15 (vue compacte) : d'où viennent les valeurs dès J+8, d'après ce qui est réellement affiché.
+// Sans scénarios (chargement ou échec), ou pour les jours qui n'en ont pas, la valeur d'un seul scénario est signalée. null = rien à dire.
+export function compactTrendNote(views, tab) {
+  const late = views.filter((v) => v.d.dayIndex >= ENSEMBLE_MEDIAN_FROM), single = late.filter((v) => !v.median);
+  if (!late.length) return null;
+  if (single.length === late.length) return `Dès J+${ENSEMBLE_MEDIAN_FROM} : valeurs d'un seul scénario, pas de médiane.`;
+  if (tab === "wind") return null;
+  const parts = [];
+  if (tab === "precip") parts.push(`Dès J+${ENSEMBLE_MEDIAN_FROM} : mm = moyenne des scénarios, % = part des scénarios à ${WET_MM} mm ou plus.`);
+  if (single.length) parts.push(`Un seul scénario : ${single.map((v) => dayLabel(v.d.date)).join(", ")}.`);
+  return parts.join(" ") || null;
 }
 export const COMPACT_HELP_ITEMS = [
   "7 jours : J à J+3, puis J+4 à J+6. Jours 8 à 15 (J+7 à J+14) : section à déplier.",
-  `Pluie : mm et % jusqu'à J+${RAIN_MM_UNTIL} ; ensuite classe (sec, faible, modéré, fort) et %, sans mm.`,
-  `Barres de pluie : petite verticale = mm du jour (pleine à 10 mm, jusqu'à J+${RAIN_MM_UNTIL}) ; horizontale = %.`,
+  `Pluie : mm et %. Les mm sont peu fiables dès J+${RAIN_MM_UNTIL + 1}, non fiables à 7 jours.`,
+  `Barres de pluie : petite verticale = mm du jour (pleine à 10 mm) ; horizontale = %.`,
   "Jusqu'à J+7, le % est la probabilité horaire maximale du jour.",
-  `Dès J+${ENSEMBLE_MEDIAN_FROM}, le % est la part des scénarios à ${WET_MM} mm ou plus.`,
+  `Dès J+${ENSEMBLE_MEDIAN_FROM} : mm = moyenne des scénarios ; % = part des scénarios à ${WET_MM} mm ou plus.`,
   `Températures : minimale / maximale (médiane des scénarios dès J+${ENSEMBLE_MEDIAN_FROM}).`,
   "Vent : maxima du jour.",
   "Détails et modèles : vue détaillée.",
@@ -552,16 +562,16 @@ const ensembleTag = (ens) => `médiane de ${ens.nMembers} scénarios (${ens.nMod
 // Vue compacte : lignes des 7 jours (deux blocs, séparateur expliqué) et lignes des jours 8 à 15 (section repliée, sa note à part).
 // Échelles communes aux 15 jours : les barres restent comparables une fois la suite dépliée.
 export function buildCompact(data, tab, ensemble) {
-  const views = dayViews(data.daily, ensemble);
+  const views = dayViews(data.daily, ensemble, { mmUntil: COMPACT_MM_UNTIL });
   const tMins = views.map((v) => v.tmin).filter(isNum), tMaxs = views.map((v) => v.tmax).filter(isNum);
   const gmin = Math.min(...tMins, ...tMaxs), gmax = Math.max(...tMins, ...tMaxs);
   const wMax = scaleMax(views.map((v) => v.d.gustMax.value ?? v.d.windMax.value), 20);
-  const [sepText, trendNote] = compactSepTexts(ensemble);
+  const trendNote = compactTrendNote(views, tab);
   const split = compactSplit(views);
   const buildList = (blocks) => {
     const list = h("ol", { class: "compact-list" });
     blocks.forEach((block, i) => {
-      if (i > 0) list.append(h("li", { class: "compact-sep", text: sepText }));
+      if (i > 0) list.append(h("li", { class: "compact-sep", text: COMPACT_SEP_TEXT }));
       for (const v of block) {
         const { d } = v;
         const info = weatherInfo(d.weatherCode.value, false);
