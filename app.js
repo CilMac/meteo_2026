@@ -1,6 +1,6 @@
 // Orchestration : lieu, un appel réseau par validation, onglets qui re-rendent sans appel réseau.
 import { FAVORITES, DEFAULT_PLACE, CUSTOM_ID, searchPlaces, validatePlace, placeLabel } from "./places.js?v=521daa6a";
-import { fetchForecast } from "./weather-provider.js?v=631084d1";
+import { fetchForecast, localDateISO } from "./weather-provider.js?v=631084d1";
 import { loadWarnings } from "./warnings.js?v=79a17bd6";
 import { fetchEnsemble } from "./ensemble.js?v=88c38ccc";
 import { initInfo } from "./info.js?v=89ebfb1f";
@@ -10,6 +10,7 @@ import { initWalk } from "./walkui.js?v=5d4ba810";
 import { localToMs } from "./walk.js?v=68874bb7";
 import { fetchObservedPressure, fetchObservedStorms, stormText, pressureDisplay } from "./observation.js?v=67278bcd";
 import { getPosition, reverseGeocode, placeFromPosition, storedGeoPlace, formatCoords, deniedHelp, GEO_ID, GEO_MAX_AGE_MS } from "./geo.js?v=b6df63a8";
+import { shouldRefresh, STALE_MS, TRY_GAP_MS, RETRY_MS, QUIET_WAIT_MS } from "./refresh.js?v=beadd3fe";
 import { createLoader } from "./loading.js?v=956b591b";
 import { makeRecord, saveRecord, loadJournal, exportText, exportName } from "./journal.js?v=f033a713";
 import { chooseView, isIOS } from "./device.js?v=78893f99";
@@ -21,10 +22,10 @@ const $ = (id) => {
   if (!el) throw new Error(`élément « #${id} » introuvable : les fichiers du site ne sont pas tous de la même version (republiez-les tous, puis rechargez avec Cmd+Maj+R)`);
   return el;
 };
-const PLACE_KEY = "meteo.lastPlace", CUSTOM_KEY = "meteo.customPlace", POSITION_KEY = "meteo.position", TAB_DEFAULT = "precip", STALE_MS = 30 * 60 * 1000;
+const PLACE_KEY = "meteo.lastPlace", CUSTOM_KEY = "meteo.customPlace", POSITION_KEY = "meteo.position", TAB_DEFAULT = "precip";
 
 const loader = createLoader($("loader"));
-const state = { place: null, data: null, warnings: null, ensemble: undefined, pressure: null, view: "detail", tab: TAB_DEFAULT, loading: false, loadId: 0 };
+const state = { place: null, data: null, warnings: null, ensemble: undefined, pressure: null, view: "detail", tab: TAB_DEFAULT, loading: false, searching: 0, loadId: 0 };
 
 // Dernier lieu validé : favori, ou lieu libre relu et revalidé (jamais pris tel quel dans le stockage).
 function readLastPlace() {
@@ -122,7 +123,7 @@ function renderAll() {
 
 // Vue minimale : les prochaines heures à la position réelle de l'appareil ; remplace la page tant qu'elle est ouverte.
 // La position n'est jamais stockée (mémoire seulement) ; la prévision est celle de la position, pas du lieu choisi dans la liste.
-const geo = { at: 0, data: null, coords: null, named: true, pressure: null, storms: null, loadId: 0 };
+const geo = { at: 0, shown: false, data: null, coords: null, named: true, pressure: null, storms: null, loadId: 0 };
 function miniMessage(text, kind = "") { const m = $("mini-msg"); m.hidden = !text; m.textContent = text; m.className = `mini-msg${kind ? ` is-${kind}` : ""}`; }
 // Carte : Leaflet est chargé au premier clic seulement (aucun appel réseau tant qu'on ne l'ouvre pas).
 const LEAFLET = {
@@ -183,6 +184,7 @@ const refreshedText =(ms, tz) => formatLocal(new Date(ms), tz, { weekday: "short
 const MINI_TITLE = "Météo des 12 prochaines heures, à votre position";
 const MINI_TITLE_FALLBACK = "Météo des 12 prochaines heures, au lieu choisi";
 function showMiniPlace(data, coords, named, pressure, at) {
+  geo.shown = true;
   $("mini-title").textContent = MINI_TITLE;
   $("mini-tools").hidden = false; // baromètre et carte : seulement quand la vraie position est connue
   const pb = $("mini-pressure");
@@ -200,17 +202,21 @@ function showMiniPlace(data, coords, named, pressure, at) {
   const st = stormText(geo.storms, (ms) => formatLocal(new Date(ms), data.location.timezone, { hour: "2-digit", minute: "2-digit" }));
   $("mini-storm").hidden = !st; $("mini-storm").textContent = st ?? "";
 }
-async function locate(force = false) {
+// quiet : retour dans l'application, l'ancien tableau (avec son heure d'actualisation) reste à l'écran pendant la recherche.
+async function locate(force = false, { quiet = false } = {}) {
   if (!force && geo.data && Date.now() - geo.at < GEO_MAX_AGE_MS) { showMiniPlace(geo.data, geo.coords, geo.named, geo.pressure, geo.at); miniMessage(""); $("mini-map-btn").disabled = false; return; }
   const id = ++geo.loadId;
   $("mini-refresh").disabled = true;
-  $("mini-map-btn").disabled = true;
-  $("mini-title").textContent = MINI_TITLE; $("mini-tools").hidden = true; $("mini-place").textContent = ""; $("mini-gps").textContent = ""; $("mini-pressure").textContent = ""; $("mini-baro-btn").disabled = true; $("mini-lead").textContent = ""; $("mini-storm").hidden = true; $("mini-body").replaceChildren();
-  miniMessage("Recherche de votre position…");
+  if (!quiet) {
+    $("mini-map-btn").disabled = true;
+    geo.shown = false;
+    $("mini-title").textContent = MINI_TITLE; $("mini-tools").hidden = true; $("mini-place").textContent = ""; $("mini-gps").textContent = ""; $("mini-pressure").textContent = ""; $("mini-baro-btn").disabled = true; $("mini-lead").textContent = ""; $("mini-storm").hidden = true; $("mini-body").replaceChildren();
+  }
+  miniMessage(quiet ? "Mise à jour de votre position et de la météo…" : "Recherche de votre position…");
   try {
     const coords = await getPosition();
     if (id !== geo.loadId) return;
-    miniMessage("Position trouvée, chargement de la météo…");
+    if (!quiet) miniMessage("Position trouvée, chargement de la météo…");
     let named = null;
     try { named = await reverseGeocode(coords.latitude, coords.longitude); } catch { /* repli : « Position GPS » */ }
     if (id !== geo.loadId) return;
@@ -234,6 +240,10 @@ async function locate(force = false) {
     if (!$("mini-map-wrap").hidden && globalThis.L) drawMap(globalThis.L); // carte ouverte : recentrée sur la nouvelle position
   } catch (e) {
     if (id !== geo.loadId) return;
+    if (quiet) { // l'ancien tableau reste, daté ; il n'est plus présenté comme étant « ici et maintenant »
+      miniMessage(`Mise à jour impossible : ${e.message}${e.kind === "denied" ? ` ${deniedHelp(isIOS())}` : ""} Le tableau est celui du ${refreshedText(geo.at, geo.data.location.timezone)}, à votre position d'alors.`, "err");
+      return false;
+    }
     // Échec : dit pourquoi, et ne montre pas pour autant une autre ville comme si c'était la position réelle.
     $("mini-map-wrap").hidden = true; setMapButton(false);
     miniMessage(`Position actuelle indisponible : ${e.message}${e.kind === "denied" ? ` ${deniedHelp(isIOS())}` : ""}`, "err");
@@ -275,7 +285,7 @@ function setMini(open) {
   document.querySelector("main.shell").hidden = open;
   $("mini").hidden = !open;
   window.scrollTo({ top: 0 });
-  if (open) { showJournal(); locate(false); preloadDial(); $("mini-close").focus(); } else { geo.loadId++; $("mini-open").focus(); } // fermer abandonne une recherche en cours
+  if (open) { showJournal(); locate(false); preloadDial(); $("mini-close").focus(); } else { geo.loadId++; $("mini-refresh").disabled = false; $("mini-open").focus(); autoRefresh(); } // fermer abandonne une recherche en cours ; la page principale a pu vieillir entre-temps
 }
 // Hauteur du haut de page fixe de « Lieu actuel » : les titres de colonnes se collent juste dessous.
 if (typeof ResizeObserver !== "undefined") { const top = document.querySelector(".mini-top"); new ResizeObserver(() => $("mini").style.setProperty("--mini-top-h", `${top.offsetHeight}px`)).observe(top); }
@@ -331,18 +341,20 @@ function updateFreshness() {
   const d = state.data;
   if (!d || state.loading) return;
   const age = Date.now() - new Date(d.metadata.fetchedAt).getTime();
-  if (!d.metadata.firstDayIsToday) setStatus("Ces données ne commencent plus à la date locale d'aujourd'hui : actualisez.", "warn");
+  if (d.daily[0]?.date !== localDateISO(new Date(), d.location.timezone)) setStatus("Ces données ne commencent plus à la date locale d'aujourd'hui : actualisez.", "warn");
   else if (age > STALE_MS) setStatus(`Données récupérées il y a ${Math.round(age / 60000)} min : actualisez pour les mettre à jour.`, "warn");
   else setStatus(state.note?.text ?? "", state.note?.kind ?? ""); // message propre au lieu affiché (ex. « dernière position connue »)
 }
 
 // note : message affiché après un chargement réussi (ex. « dernière position connue »), au lieu de vider la zone d'état.
-async function load(place, { note = "", kind = "" } = {}) {
+// quiet : retour dans l'application. Les anciennes valeurs restent à l'écran, sans fenêtre de chargement, jusqu'à ce que tout soit arrivé.
+// Rend true (affiché), false (échec, dit à l'écran) ou undefined (un autre chargement a pris le relais).
+async function load(place, { note = "", kind = "", quiet = false } = {}) {
   const id = ++state.loadId;
   state.loading = true;
-  setStatus("Chargement…");
+  setStatus(quiet ? "Mise à jour des prévisions…" : "Chargement…");
   // Vigilance en parallèle : n'attend pas la météo et ne la bloque pas (loadWarnings ne lève jamais).
-  loader.start(place.name);
+  if (!quiet) loader.start(place.name);
   const warningsP = loadWarnings(place);
   const observedP = fetchObservedPressure(place).catch(() => null); // pression mesurée : n'attend pas la météo et ne la bloque pas
   try {
@@ -350,28 +362,37 @@ async function load(place, { note = "", kind = "" } = {}) {
     if (id !== state.loadId) return; // un lieu plus récent a été demandé entre-temps
     loader.done("forecast");
     loader.begin("ensemble");
+    // Scénarios d'ensemble (J+4 à J+14) : chargés après la prévision, sans bloquer son affichage (sauf retour discret : tout d'un coup).
+    const ensembleP = fetchEnsemble(place, data.daily.map((d) => d.date));
+    if (quiet) {
+      await Promise.race([Promise.allSettled([warningsP, observedP, ensembleP]), new Promise((r) => setTimeout(r, QUIET_WAIT_MS))]);
+      if (id !== state.loadId) return;
+    }
+    const focusId = document.activeElement?.id; // redessiner les onglets leur ferait perdre le curseur
     state.place = place; state.data = data; state.warnings = null; state.ensemble = undefined; state.pressure = null; state.loading = false;
     state.note = note ? { text: note, kind } : null; // reste affiché tant que ces données sont à l'écran (renderAll → état « périmé »)
     renderAll();
     renderPressure();
+    if (quiet && focusId && document.activeElement === document.body) document.getElementById(focusId)?.focus({ preventScroll: true });
     observedP.then((o) => {
       if (id !== state.loadId) return;
       state.pressure = pressureDisplay(data.current.pressure, o, (ms) => formatLocal(new Date(ms), data.location.timezone, { hour: "2-digit", minute: "2-digit" }));
       renderPressure();
     });
     warningsP.then((w) => { if (id === state.loadId) { state.warnings = w; renderWarnings(); loader.done("warnings", true); } });
-    // Scénarios d'ensemble (J+4 à J+14) : chargés après l'affichage de la prévision, sans la bloquer.
-    fetchEnsemble(place, data.daily.map((d) => d.date)).then((e) => {
+    ensembleP.then((e) => {
       if (id !== state.loadId) return;
       state.ensemble = e; renderTabbed(); renderWarnings();
       loader.done("ensemble", e.status === "ok");
     });
+    return true;
   } catch (e) {
     if (id !== state.loadId) return;
     loader.fail(); // l'erreur est affichée ci-dessous : la fenêtre de chargement se ferme
     state.loading = false;
     // L'erreur reste visible ; les anciennes données éventuelles restent affichées mais signalées.
     setStatus(`Impossible de récupérer la météo (${e.kind ?? "erreur"}) : ${e.message}.${state.data ? ` Les données affichées (${state.data.location.name}) sont celles de la dernière consultation réussie.` : ""}`, "err");
+    return false;
   }
 }
 
@@ -399,8 +420,9 @@ select.value = initial.id;
 // Position réelle de l'appareil pour la page principale. Échec : le motif est affiché ; avec une position déjà connue, celle-ci est
 // montrée en le disant (« dernière position connue ») ; sans, le lieu affiché ne change pas : jamais une autre ville présentée comme ici.
 let posSeq = 0;
-async function showPosition() {
+async function showPosition({ quiet = false } = {}) {
   const seq = ++posSeq;
+  state.searching++;
   const stillWanted = () => seq === posSeq && select.value === GEO_ID;
   setStatus("Recherche de votre position…");
   try {
@@ -414,7 +436,7 @@ async function showPosition() {
     const stamped = { ...place, at: Date.now() };
     setPositionLabel(stamped);
     saveLastPlace(stamped);
-    load(stamped);
+    return await load(stamped, { quiet });
   } catch (e) {
     if (!stillWanted()) return;
     const why = `Position indisponible : ${e.message}${e.kind === "denied" ? ` ${deniedHelp(isIOS())}` : ""}`;
@@ -423,24 +445,25 @@ async function showPosition() {
       setPositionLabel(stored);
       const when = stored.at ? ` (${formatLocal(new Date(stored.at), Intl.DateTimeFormat().resolvedOptions().timeZone, { weekday: "short", day: "numeric", month: "numeric", hour: "2-digit", minute: "2-digit" })})` : "";
       // l'essentiel d'abord (ce qui est affiché), puis le motif et l'aide
-      load(stored, { note: `Dernière position connue${when}, qui n'est peut-être plus la vôtre. ${why}`, kind: "warn" });
+      return await load(stored, { note: `Dernière position connue${when}, qui n'est peut-être plus la vôtre. ${why}`, kind: "warn", quiet });
     } else {
       const back = state.place ?? readLastPlaceOrDefault();
       select.value = back.id === GEO_ID ? DEFAULT_PLACE.id : back.id;
       setStatus(`${why} Le lieu affiché n'a pas changé.`, "err");
       if (!state.data) load(back.id === GEO_ID ? DEFAULT_PLACE : back);
     }
-  }
+  } finally { state.searching--; }
 }
 const readLastPlaceOrDefault = () => { const p = readLastPlace(); return p.id === GEO_ID ? DEFAULT_PLACE : p; };
 
 const CHANGE_DELAY_MS = 400;
 let changeTimer = null;
+const selectedPlace = () => (select.value === CUSTOM_ID ? state.customPlace : FAVORITES.find((p) => p.id === select.value));
 function showSelected() {
   clearTimeout(changeTimer);
   if (select.value === GEO_ID) { showPosition(); return; }
   posSeq++; // une recherche de position en cours est abandonnée
-  const place = select.value === CUSTOM_ID ? state.customPlace : FAVORITES.find((p) => p.id === select.value);
+  const place = selectedPlace();
   if (!place) return;
   saveLastPlace(place);
   load(place);
@@ -482,7 +505,36 @@ $("search").addEventListener("submit", async (ev) => {
   } finally { btn.disabled = false; }
 });
 $("refresh").addEventListener("click", () => { if (select.value === GEO_ID) showPosition(); else if (state.place) load(state.place); }); // « Ma position » : la position est recherchée à nouveau
-document.addEventListener("visibilitychange", () => { if (!document.hidden) updateFreshness(); });
+// Retour dans l'application (icône de l'écran d'accueil, changement d'onglet, appareil réveillé) : des prévisions périmées sont relues
+// d'elles-mêmes ; en attendant, les anciennes restent affichées. Vue 🥾 ouverte : c'est elle qui est relue (position comprise).
+const lastAutoTry = { page: null, mini: null };
+async function autoRefresh({ retry = true } = {}) {
+  if (document.hidden) return;
+  const now = Date.now(), view = $("mini").hidden ? "page" : "mini", lastTryMs = retry ? lastAutoTry[view] : null;
+  let ok;
+  if (view === "mini") {
+    const busy = !geo.shown || $("mini-refresh").disabled; // rien à garder à l'écran, ou recherche déjà en cours
+    if (busy || now - geo.at < GEO_MAX_AGE_MS || (lastTryMs !== null && now - lastTryMs < TRY_GAP_MS)) return;
+    lastAutoTry.mini = now;
+    ok = await locate(true, { quiet: true });
+  } else {
+    const d = state.data;
+    const due = shouldRefresh({
+      hasData: Boolean(d), busy: state.loading || state.searching > 0, lastTryMs, now,
+      fetchedAtMs: Date.parse(d?.metadata.fetchedAt), firstDay: d?.daily[0]?.date, today: d ? localDateISO(new Date(now), d.location.timezone) : null,
+    });
+    if (!due) { if ($("status").className !== "err") updateFreshness(); return; } // une erreur affichée reste lisible
+    lastAutoTry.page = now;
+    if (select.value === GEO_ID) ok = await showPosition({ quiet: Boolean(d) });
+    else {
+      const place = selectedPlace() ?? state.place; // le lieu de la liste, même si son premier chargement avait échoué
+      if (place) ok = await load(place, { quiet: Boolean(d) && place.id === state.place?.id });
+    }
+  }
+  if (ok === false && retry) setTimeout(() => autoRefresh({ retry: false }), RETRY_MS);
+}
+document.addEventListener("visibilitychange", () => autoRefresh());
+window.addEventListener("pageshow", (e) => { if (e.persisted) autoRefresh(); }); // page ressortie de la mémoire du navigateur
 
 // Vue détaillée (par défaut) ou compacte (7 jours dans un pavé, jours 8 à 15 repliés). Le choix est retenu sur l'appareil.
 const VIEW_KEY = "meteo.view";
