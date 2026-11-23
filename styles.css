@@ -437,7 +437,7 @@ dialog.baro-modal { width: min(440px, calc(100vw - 24px)); }
 .mini-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
 .mini-top h2 { margin: 0; min-width: 0; font-family: var(--font-title); font-size: 24px; font-weight: 700; line-height: 1.25; text-wrap: balance; }
 .mini-side { display: flex; gap: 8px; flex: none; }
-.mini-place { margin: 10px 0 0; font-size: 16px; font-weight: 600; line-height: 1.35; color: var(--ink); overflow-wrap: anywhere; }
+.mini-place { margin: 10px 0 0; font-size: 18px; font-weight: 700; line-height: 1.35; color: var(--primary); overflow-wrap: anywhere; } /* nom du lieu : bleu de la charte (clair/sombre), seule touche de couleur de l'en-tête */
 .mini-place:empty, .mini-gps:empty { display: none; }
 .mini-gps { margin: 2px 0 0; font-size: 13px; line-height: 1.4; color: var(--muted); font-variant-numeric: tabular-nums; }
 .mini-tools { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 2px; }
@@ -499,7 +499,7 @@ button.mini-hour:focus-visible { outline: 2px solid var(--ink); outline-offset: 
 @media (max-width: 760px) {
   .mini { --mini-pad: 16px; padding: 20px 16px 18px; }
   .mini-top h2 { font-size: 19px; }
-  .mini-place { margin-top: 8px; font-size: 15px; }
+  .mini-place { margin-top: 8px; font-size: 16px; }
   .mini-ico { min-width: 36px; padding-inline: 2px; font-size: 24px; }
   .mini-hour { min-width: 2.7em; padding: 2px 5px; font-size: 15px; }
   .mini-table tbody th { padding-inline: 4px; }
