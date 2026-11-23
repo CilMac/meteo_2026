@@ -6,9 +6,9 @@ import { fetchEnsemble } from "./ensemble.js?v=88c38ccc";
 import { initInfo } from "./info.js?v=89ebfb1f";
 import { initBarometer, preloadDial } from "./barometer.js?v=c1fd2d41";
 import { createSkyLayer } from "./skymap.js?v=490696b3";
-import { initWalk } from "./walkui.js?v=7088253a";
-import { localToMs } from "./walk.js?v=0dac4a6e";
-import { fetchObservedPressure, pressureDisplay } from "./observation.js?v=823a9402";
+import { initWalk } from "./walkui.js?v=594612e4";
+import { localToMs } from "./walk.js?v=68874bb7";
+import { fetchObservedPressure, fetchObservedStorms, stormText, pressureDisplay } from "./observation.js?v=689a320a";
 import { getPosition, reverseGeocode, placeFromPosition, storedGeoPlace, formatCoords, deniedHelp, GEO_ID, GEO_MAX_AGE_MS } from "./geo.js?v=b6df63a8";
 import { createLoader } from "./loading.js?v=956b591b";
 import { makeRecord, saveRecord, loadJournal, exportText, exportName } from "./journal.js?v=71665057";
@@ -119,7 +119,7 @@ function renderAll() {
 
 // Vue minimale : les prochaines heures à la position réelle de l'appareil ; remplace la page tant qu'elle est ouverte.
 // La position n'est jamais stockée (mémoire seulement) ; la prévision est celle de la position, pas du lieu choisi dans la liste.
-const geo = { at: 0, data: null, coords: null, named: true, pressure: null, loadId: 0 };
+const geo = { at: 0, data: null, coords: null, named: true, pressure: null, storms: null, loadId: 0 };
 function miniMessage(text, kind = "") { const m = $("mini-msg"); m.hidden = !text; m.textContent = text; m.className = `mini-msg${kind ? ` is-${kind}` : ""}`; }
 // Carte : Leaflet est chargé au premier clic seulement (aucun appel réseau tant qu'on ne l'ouvre pas).
 const LEAFLET = {
@@ -193,13 +193,16 @@ function showMiniPlace(data, coords, named, pressure, at) {
   $("mini-gps").replaceChildren(`GPS : ${formatCoords(coords.latitude, coords.longitude)}${coords.accuracy !== null ? ` · précision ± ${Math.round(coords.accuracy)} m` : ""}${named ? "" : " · nom du lieu indisponible"} `, when);
   $("mini-body").replaceChildren(buildMini(data, undefined, { walk: true })); // position réelle : chaque heure ouvre « Balade ? »
   $("mini-lead").textContent = "Touchez une heure pour savoir si vous pouvez partir marcher à ce moment-là.";
+  // Orage OBSERVÉ par une station d'aéroport à moins de 50 km (message de moins d'une heure) : bandeau ; sinon rien.
+  const st = stormText(geo.storms, (ms) => formatLocal(new Date(ms), data.location.timezone, { hour: "2-digit", minute: "2-digit" }));
+  $("mini-storm").hidden = !st; $("mini-storm").textContent = st ?? "";
 }
 async function locate(force = false) {
   if (!force && geo.data && Date.now() - geo.at < GEO_MAX_AGE_MS) { showMiniPlace(geo.data, geo.coords, geo.named, geo.pressure, geo.at); miniMessage(""); $("mini-map-btn").disabled = false; return; }
   const id = ++geo.loadId;
   $("mini-refresh").disabled = true;
   $("mini-map-btn").disabled = true;
-  $("mini-title").textContent = MINI_TITLE; $("mini-tools").hidden = true; $("mini-place").textContent = ""; $("mini-gps").textContent = ""; $("mini-pressure").textContent = ""; $("mini-baro-btn").disabled = true; $("mini-lead").textContent = ""; $("mini-body").replaceChildren();
+  $("mini-title").textContent = MINI_TITLE; $("mini-tools").hidden = true; $("mini-place").textContent = ""; $("mini-gps").textContent = ""; $("mini-pressure").textContent = ""; $("mini-baro-btn").disabled = true; $("mini-lead").textContent = ""; $("mini-storm").hidden = true; $("mini-body").replaceChildren();
   miniMessage("Recherche de votre position…");
   try {
     const coords = await getPosition();
@@ -211,13 +214,14 @@ async function locate(force = false) {
     const place = placeFromPosition(coords, named);
     if (!place) throw new Error("coordonnées ou fuseau horaire invalides");
     // Prévision et pression mesurée (station la plus proche) en parallèle ; sans mesure, la valeur du modèle reste, marquée « ≈ ».
-    const [data, observed] = await Promise.all([
-      fetchForecast(place),
-      fetchObservedPressure({ latitude: coords.latitude, longitude: coords.longitude, countryCode: place.countryCode }).catch(() => null),
-    ]);
+    // Orages observés : même lecture du réseau de stations, faite après la pression (gardée 10 min, donc sans second appel).
+    const where = { latitude: coords.latitude, longitude: coords.longitude, countryCode: place.countryCode };
+    const observedP = fetchObservedPressure(where).catch(() => null);
+    const stormsP = observedP.then(() => fetchObservedStorms(where)).catch(() => null); // null = inconnu (rien affiché)
+    const [data, observed, storms] = await Promise.all([fetchForecast(place), observedP, stormsP]);
     if (id !== geo.loadId) return;
     const pressure = pressureDisplay(data.current.pressure, observed, (ms) => formatLocal(new Date(ms), data.location.timezone, { hour: "2-digit", minute: "2-digit" }));
-    Object.assign(geo, { at: Date.now(), data, coords, named: Boolean(named), pressure });
+    Object.assign(geo, { at: Date.now(), data, coords, named: Boolean(named), pressure, storms });
     showMiniPlace(data, coords, Boolean(named), pressure, geo.at);
     miniMessage("");
     // Carnet de relevés : la prévision affichée est gardée sur l'appareil, pour la comparer plus tard aux observations.
@@ -276,6 +280,7 @@ const walk = initWalk({
   fallbackFocus: () => $("mini-close"), // si l'heure touchée n'existe plus (tableau redessiné), le curseur revient sur Retour
   // mêmes modèles que le tableau « Lieu actuel » (selon le pays de la position)
   getHere: () => (geo.coords ? { lat: geo.coords.latitude, lon: geo.coords.longitude, models: geo.data?.metadata?.modelsRequested ?? [] } : null),
+  getStorms: () => geo.storms, // orages observés par les stations (repris en tête de « Balade ? »)
   fmtTime: (ms) => formatLocal(new Date(ms), geo.data?.location.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone, { hour: "2-digit", minute: "2-digit" }),
 });
 // Toucher une heure du tableau : « Balade ? » pour un départ à cette heure (heure locale du lieu → instant).

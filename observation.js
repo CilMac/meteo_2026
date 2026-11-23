@@ -43,8 +43,9 @@ export function pickStation(rows, lat, lon, { now = Date.now(), maxKm = OBS_MAX_
 }
 
 const cache = new Map();
-// Dernières observations d'un pays (réseau « FR__ASOS » pour la France). Les pays à réseaux par région (Canada, États-Unis…) ne sont pas couverts.
-export async function fetchObservedPressure({ latitude, longitude, countryCode }, { fetchImpl = fetch, now = Date.now(), timeoutMs = TIMEOUTS.pressure } = {}) {
+// Dernières observations d'un pays (réseau « FR__ASOS » pour la France), gardées 10 minutes : une seule lecture sert à la pression
+// et aux orages observés. Les pays à réseaux par région (Canada, États-Unis…) ne sont pas couverts.
+async function networkRows(countryCode, { fetchImpl, now, timeoutMs }) {
   if (!/^[A-Z]{2}$/.test(countryCode ?? "")) throw new ObsError("country", "Pays inconnu : pas de réseau de stations à interroger.");
   const network = `${countryCode}__ASOS`;
   let rows = cache.get(network);
@@ -60,7 +61,11 @@ export async function fetchObservedPressure({ latitude, longitude, countryCode }
     rows = { at: now, data: body.data };
     cache.set(network, rows);
   }
-  const best = pickStation(rows.data, latitude, longitude, { now });
+  return rows.data;
+}
+export async function fetchObservedPressure({ latitude, longitude, countryCode }, { fetchImpl = fetch, now = Date.now(), timeoutMs = TIMEOUTS.pressure } = {}) {
+  const data = await networkRows(countryCode, { fetchImpl, now, timeoutMs });
+  const best = pickStation(data, latitude, longitude, { now });
   if (!best) throw new ObsError("none", `Aucune station avec une mesure récente à moins de ${OBS_MAX_KM} km.`);
   return best;
 }
@@ -85,4 +90,49 @@ export function pressureDisplay(model, observed, fmtTime = (ms) => new Date(ms).
     };
   }
   return { hpa: null, text: "— hPa", measured: false, title: "Pression indisponible", note: "Pression indisponible." };
+}
+
+// ── Orages OBSERVÉS (23/11/2026) ─────────────────────────────────────────────────────────────────────────────────────────────
+// Code « temps présent » du METAR : TS = orage sur l'aéroport (TSRA, +TSRA, TSGR…), VCTS = à proximité (environ 8 à 16 km),
+// RETS… = orage récent (dans l'heure passée). Seule la partie OBSERVÉE du message est lue : tout ce qui suit TEMPO, BECMG, NOSIG,
+// RMK… est une prévision ou une remarque (vu à Toulouse et Orly : « TEMPO … TSRA » sans orage observé). Les stations automatiques
+// françaises (AUTO) signalent bien l'orage (vérifié : 67 messages à Dijon à l'été 2025, tous en AUTO).
+export const STORM_OBS_KM = 50;
+export const STORM_OBS_MAX_AGE_MS = 60 * 60 * 1000;
+const STORM_RANK = { ts: 3, vc: 2, recent: 1 };
+export function metarStorm(raw) {
+  if (typeof raw !== "string") return null;
+  const observed = raw.split(/\s(?:TEMPO|BECMG|NOSIG|RMK|INTER|PROB\d{2}|FM\d{4,6})\b/)[0];
+  let best = null;
+  for (const tok of observed.split(/\s+/)) {
+    const kind = /^[+-]?TS[A-Z]*$/.test(tok) ? "ts" : /^VCTS[A-Z]*$/.test(tok) ? "vc" : /^RETS[A-Z]*$/.test(tok) ? "recent" : null;
+    if (kind && (!best || STORM_RANK[kind] > STORM_RANK[best.kind])) best = { kind, code: tok };
+  }
+  return best;
+}
+// Stations à moins de maxKm dont le dernier message (de moins d'une heure) signale un orage, de la plus proche à la plus lointaine.
+export function stormsNear(rows, lat, lon, { now = Date.now(), maxKm = STORM_OBS_KM, maxAgeMs = STORM_OBS_MAX_AGE_MS } = {}) {
+  const out = [];
+  for (const r of Array.isArray(rows) ? rows : []) {
+    if (!isNum(r?.lat) || !isNum(r?.lon) || typeof r.station !== "string") continue;
+    const at = Date.parse(r.utc_valid);
+    if (!Number.isFinite(at) || now - at > maxAgeMs || at - now > 10 * 60 * 1000) continue;
+    const storm = metarStorm(r.raw);
+    if (!storm) continue;
+    const km = distanceKm(lat, lon, r.lat, r.lon);
+    if (km <= maxKm) out.push({ station: r.station, name: typeof r.name === "string" ? r.name : r.station, km, at, ...storm });
+  }
+  return out.sort((a, b) => a.km - b.km);
+}
+// Liste (vide si aucun orage signalé) ; lève ObsError si le réseau est illisible : l'appelant n'affiche alors rien.
+export async function fetchObservedStorms({ latitude, longitude, countryCode }, { fetchImpl = fetch, now = Date.now(), timeoutMs = TIMEOUTS.pressure } = {}) {
+  return stormsNear(await networkRows(countryCode, { fetchImpl, now, timeoutMs }), latitude, longitude, { now });
+}
+// « ⚡ Orage observé à l'aéroport de Nancy (23 km), relevé de 14:30. » (+ « et 1 autre station »)
+export function stormText(storms, fmtTime) {
+  if (!Array.isArray(storms) || !storms.length) return null;
+  const s = storms[0];
+  const what = s.kind === "ts" ? "Orage observé à l'aéroport de" : s.kind === "vc" ? "Orage signalé près de l'aéroport de" : "Orage récent (dans l'heure passée) à l'aéroport de";
+  const more = storms.length > 1 ? ` (et ${storms.length - 1} autre${storms.length > 2 ? "s" : ""} station${storms.length > 2 ? "s" : ""} à moins de ${STORM_OBS_KM} km)` : "";
+  return `⚡ ${what} ${s.name} (${Math.round(s.km)} km), relevé de ${fmtTime(s.at)}${more}.`;
 }

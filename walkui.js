@@ -1,6 +1,8 @@
 // Fenêtre « Balade dans l'heure ? » : lit la pluie, la neige et le contexte à 15 minutes à la position de l'appareil (walk.js) et affiche
 // le verdict, avec un sélecteur pour avancer le départ d'heure en heure. Tout le texte est écrit par textContent.
-import { fetchNextHour, walkAdvice, walkSources, hourlyAt, mmPerHour, MAX_OFFSET_H, STEP_MS, SNOW_CM_PER_MM, WalkError } from "./walk.js?v=0dac4a6e";
+import { fetchNextHour, walkAdvice, walkSources, hourlyAt, mmPerHour, MAX_OFFSET_H, STEP_MS, SNOW_CM_PER_MM, WalkError } from "./walk.js?v=68874bb7";
+import { stormText } from "./observation.js?v=689a320a";
+import { modelShort } from "./weather-provider.js?v=631084d1";
 import { MINI_MM_FULL } from "./weather-render.js?v=67e7aee1";
 
 // Échelle de la frise : la même que la barre de pluie du tableau « Lieu actuel » (pleine à 3 mm dans l'heure),
@@ -48,7 +50,7 @@ function timeline(steps, fmtTime) {
 }
 
 // Ouverture : seulement par openAt (toucher une heure du tableau de la vue 🥾) ; le bouton parapluie a été retiré le 23/11/2026.
-export function initWalk({ getHere, fmtTime, fallbackFocus = () => null }) {
+export function initWalk({ getHere, fmtTime, getStorms = () => null, fallbackFocus = () => null }) {
   const $ = (id) => {
     const e = document.getElementById(id);
     if (!e) throw new Error(`élément « #${id} » introuvable : les fichiers du site ne sont pas tous de la même version (republiez-les tous, puis rechargez avec Cmd+Maj+R)`);
@@ -56,7 +58,7 @@ export function initWalk({ getHere, fmtTime, fallbackFocus = () => null }) {
   };
   const dlg = $("walk"), body = $("walk-body"), prev = $("walk-prev"), next = $("walk-next"), when = $("walk-when");
   // Départ : « maintenant + offset heures », ou une heure fixe (anchor, ms) choisie en touchant une heure de « Lieu actuel ».
-  let cache = null, seq = 0, offset = 0, anchor = null, tlHelpOpen = false, moreOpen = false; // l'explication de la frise reste ouverte d'un départ à l'autre
+  let cache = null, seq = 0, offset = 0, anchor = null, tlHelpOpen = false, moreOpen = false, stormHelpOpen = false; // l'explication de la frise reste ouverte d'un départ à l'autre
   const startMs = () => anchor ?? Date.now() + offset * HOUR_MS;
   const latestMs = () => Date.now() + MAX_OFFSET_H * HOUR_MS;
 
@@ -67,14 +69,43 @@ export function initWalk({ getHere, fmtTime, fallbackFocus = () => null }) {
     when.title = isNow ? "Départ maintenant" : `Départ à ${fmtTime(start)}`;
   }
 
+  // Alerte orage : « i » à côté du titre, qui ouvre une explication sur sa fiabilité. Aucun taux inventé : il n'a pas été mesuré.
+  function stormHelp(storm, title) {
+    const info = el("button", "mini-info-btn walk-info-btn walk-storm-btn", "i");
+    Object.assign(info, { type: "button", title: "Fiabilité de l'alerte orage" });
+    info.setAttribute("aria-label", "Fiabilité de l'alerte orage");
+    info.setAttribute("aria-controls", "walk-storm-help");
+    info.setAttribute("aria-expanded", String(stormHelpOpen));
+    title.append(" ", info);
+    const help = el("ul", "compact-help walk-storm-help");
+    help.id = "walk-storm-help";
+    help.hidden = !stormHelpOpen;
+    // « vient du choix automatique… », « vient d'ECMWF », « vient de Météo-France » (contraction et élision)
+    const fromWho = (x) => (x === "best_match" ? "du choix automatique d'Open-Meteo" : /^[aeiouyéèêAEIOUYÉ]/.test(modelShort(x)) ? `d'${modelShort(x)}` : `de ${modelShort(x)}`);
+    const who = storm.by.length ? storm.by.map(fromWho).join(" et ") : "des modèles";
+    [
+      "Les orages se prévoient mal à l'heure près et au kilomètre près : un modèle peut en annoncer un qui éclate à 20 km, ou en manquer un.",
+      `Ici, l'alerte vient ${who}.${storm.onlyOther ? ` Le modèle principal (${modelShort(storm.main)}) n'en prévoit pas : l'alerte est plus incertaine, mais elle est donnée par prudence.` : ""}`,
+      "JMA (Japon) et GEM (Canada) ne prévoient jamais d'orage, ECMWF presque jamais : l'appli consulte donc aussi le choix automatique d'Open-Meteo, au prix de quelques fausses alertes.",
+      "Taux de fiabilité : non mesuré. Pas de chiffre plutôt qu'un chiffre inventé.",
+      "En pratique : ciel qui noircit, tonnerre au loin → mettez-vous à l'abri, quelle que soit la prévision.",
+    ].forEach((t) => help.append(el("li", "", t)));
+    info.addEventListener("click", () => { stormHelpOpen = help.hidden; help.hidden = !stormHelpOpen; info.setAttribute("aria-expanded", String(stormHelpOpen)); });
+    return help;
+  }
+
   function render(advice, at, sources) {
     const snowy = advice.kind === "snow";
     const verdict = el("div", `walk-verdict is-${advice.level}`);
     verdict.append(el("div", "walk-ico", ICON[advice.level] ?? "❓"));
     const txt = el("div", "walk-txt");
-    txt.append(el("h3", "walk-title", advice.title), el("p", "walk-text", advice.text));
+    const title = el("h3", "walk-title", advice.title);
+    txt.append(title, el("p", "walk-text", advice.text));
     verdict.append(txt);
     const kids = [verdict];
+    if (advice.storm) kids.push(stormHelp(advice.storm, title)); // « i » du titre : fiabilité de l'alerte orage
+    const observed = stormText(getStorms(), fmtTime); // orage OBSERVÉ par une station d'aéroport proche, en ce moment
+    if (observed) kids.push(el("p", "walk-obs-storm", `${observed} C'est une observation, pas une prévision.`));
     if (advice.steps.length >= 3 && advice.level !== "unknown") {
       // légende + « i » à droite : explication courte de la frise, ouverte ou fermée d'un toucher
       const head = el("div", "walk-sub-row");

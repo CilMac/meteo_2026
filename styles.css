@@ -445,6 +445,9 @@ dialog.baro-modal { width: min(440px, calc(100vw - 24px)); }
 .mini-pressure { font-variant-numeric: tabular-nums; }
 .mini-lead { margin: 6px 0 12px; font-size: 14px; line-height: 1.45; color: var(--muted); }
 .mini-lead:empty { display: none; }
+/* Orage observé par une station d'aéroport proche : bandeau d'alerte, couleurs « attention » de la charte */
+.mini-storm { margin: 8px 0 10px; padding: 10px 14px; border-left: 4px solid var(--alert-red); border-radius: var(--radius-control); background: var(--attention); color: var(--attention-ink); font-weight: 600; line-height: 1.45; }
+.walk-obs-storm { margin: 10px 0 0; padding: 8px 12px; border-left: 4px solid var(--alert-red); border-radius: var(--radius-control); background: var(--attention); color: var(--attention-ink); font-weight: 600; font-size: 14px; }
 .mini-when { white-space: nowrap; } /* « actualisé sam. 21/11 17:42 » passe à la ligne d'un seul bloc */
 .mini-msg { margin: 10px 0 14px; padding: 10px 14px; border: 1px solid var(--information-border); border-left-width: 4px; border-radius: var(--radius-control); background: var(--information); }
 .mini-msg.is-err { border-color: var(--error-border); background: var(--error); }
@@ -540,6 +543,8 @@ dialog.walk-modal { width: min(480px, calc(100vw - 24px)); }
 .walk-sub-row .walk-sub { margin: 0; }
 .walk-info-btn { flex: none; margin-left: 0; }
 .walk-tl-help { margin: 6px 0 8px; padding-left: 30px; }
+.walk-storm-help { margin: 8px 0 4px; padding-left: 30px; }
+.walk-title .walk-storm-btn { vertical-align: middle; margin-left: 4px; }
 .walk-tl { padding: 6px 22px 0; } /* marges : place pour la première et la dernière heure de l'axe, centrées sur les bords */
 .walk-cols { display: grid; grid-template-columns: repeat(var(--n, 4), minmax(0, 1fr)); align-items: end; }
 .walk-col { display: flex; flex-direction: column; align-items: center; min-width: 0; }

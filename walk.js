@@ -25,6 +25,7 @@ export const COLD_INFO = 5, COLD_WARN = 0, COLD_DANGER = -10;
 export const FOG_WARN_M = 1000, FOG_DANGER_M = 200;
 const FREEZING_CODES = [56, 57, 66, 67], SNOW_CODES = [71, 73, 75, 77, 85, 86], FOG_CODES = [45, 48];
 const isNum = (v) => typeof v === "number" && Number.isFinite(v);
+const capFirst = (t) => (t ? t[0].toUpperCase() + t.slice(1) : t);
 const r2 = (v) => Math.round(v * 100) / 100;
 const fr1 = (v) => (Math.round(v * 10) / 10).toString().replace(".", ",");
 
@@ -60,6 +61,16 @@ function pickAt(block, variable, i, models, ok = isNum) {
   for (const m of models) { const v = column(block, variable, m, models)?.[i]; if (ok(v)) return { v, m }; }
   return { v: null, m: null };
 }
+// Orage (23/11/2026) : le modèle principal (celui qui donne le code météo du pas) OU le choix automatique d'Open-Meteo.
+// Mesuré sur 9 lieux et 7 modèles : JMA et GEM ne codent jamais d'orage, ECMWF presque jamais ; GFS, ICON et le choix
+// automatique, si. → { by: [modèles qui annoncent l'orage], hail: grêle annoncée } ou null.
+export const STORM_CODES = [95, 96, 99], HAIL_CODES = [96, 99];
+export function stormAt(block, i, mainModel, models) {
+  const voices = [...new Set([mainModel, FALLBACK_MODEL].filter((x) => x && models.includes(x)))];
+  const by = [], codes = [];
+  for (const mod of voices) { const c = column(block, "weather_code", mod, models)?.[i]; if (STORM_CODES.includes(c)) { by.push(mod); codes.push(c); } }
+  return by.length ? { by, hail: codes.some((c) => HAIL_CODES.includes(c)) } : null;
+}
 const MINUTELY = { mm: "precipitation", snow: "snowfall", code: "weather_code", gust: "wind_gusts_10m", feels: "apparent_temperature", temp: "temperature_2m", day: "is_day", vis: "visibility" };
 const HOURLY = { prob: "precipitation_probability", depth: "snow_depth", uv: "uv_index" };
 
@@ -87,6 +98,7 @@ export async function fetchNextHour({ lat, lon, models: plan = [] }, { fetchImpl
   const rows = m.time.map((s, i) => {
     const r = { t: Date.parse(`${s}Z`), src: {} }; // fuseau GMT demandé
     for (const [k, variable] of Object.entries(MINUTELY)) { const { v, m: mod } = pickAt(m, variable, i, models, OK[k]); r[k] = v; r.src[k] = mod; }
+    r.storm = stormAt(m, i, r.src.code, models);
     return r;
   }).filter((r) => Number.isFinite(r.t));
   // valeurs horaires : une entrée par heure ; on prend celle de l'heure qui contient l'instant voulu (hourlyAt)
@@ -220,8 +232,11 @@ export function walkAdvice(rows, ctx = {}, now = Date.now()) {
   const kind = info.some((i) => i.kind === "freezing") ? "freezing" : info.some((i) => i.kind === "snow") ? "snow" : "rain";
   const W = WORDS[kind === "snow" ? "snow" : "rain"];
   const maxLvl = Math.max(...lvl);
-  const thunder = steps.some((s) => isNum(s.code) && s.code >= 95);
-  const hail = steps.some((s) => s.code === 96 || s.code === 99);
+  // orage : modèle principal (code du pas) ou choix automatique (s.storm, voir stormAt)
+  const stormBy = [...new Set(steps.flatMap((s) => s.storm?.by ?? (STORM_CODES.includes(s.code) ? [s.src?.code ?? null] : [])))];
+  const thunder = stormBy.length > 0;
+  const hail = steps.some((s) => s.storm?.hail || HAIL_CODES.includes(s.code));
+  const mainModel = steps.find((s) => s.src?.code)?.src.code ?? null;
   const mmSum = steps.reduce((a, s) => a + s.mm, 0), snowSum = steps.reduce((a, s) => a + (isNum(s.snow) ? s.snow : 0), 0);
   const peak = kind === "snow" ? Math.max(...steps.map((s) => (isNum(s.snow) ? s.snow : s.mm * SNOW_CM_PER_MM))) * 4 : mmPerHour(Math.max(...steps.map((s) => s.mm)));
   const remarks = walkRemarks(steps, { depth, uv, wet: anyWet, now });
@@ -235,7 +250,15 @@ export function walkAdvice(rows, ctx = {}, now = Date.now()) {
   const out = (level, title, text) => ({ level, title, text: later ? `Départ à ${depart} : ${text}` : text, steps, facts, remarks, kind });
 
   if (kind === "freezing") return out("ice", "Pluie verglaçante : ne sortez pas", "Les modèles annoncent de la pluie ou de la bruine verglaçante dans l'heure qui suit : chaussées et trottoirs deviennent une patinoire. La sortie est déconseillée.");
-  if (thunder) return out("storm", "Orage possible : restez à l'abri", `Les modèles annoncent de l'orage${hail ? ", avec risque de grêle," : ""} dans l'heure qui suit. Ne partez pas vous promener, surtout en terrain découvert ou sous les arbres.`);
+  if (thunder) {
+    // qui l'annonce : dit honnêtement quand seul le choix automatique voit l'orage et pas le modèle principal
+    const named = stormBy.filter(Boolean);
+    const onlyOther = mainModel && !named.includes(mainModel);
+    const nm = (x) => (x === FALLBACK_MODEL ? "le choix automatique d'Open-Meteo" : modelShort(x)); // avec l'article, dans une phrase
+    const who = !named.length ? "Les modèles annoncent" : named.length > 1 ? `${capFirst(named.map(nm).join(" et "))} annoncent` : `${capFirst(nm(named[0]))} annonce`;
+    const res = out("storm", "Orage possible : restez à l'abri", `${who} de l'orage${hail ? ", avec risque de grêle," : ""} dans l'heure qui suit${onlyOther ? ` (${modelShort(mainModel)} n'en prévoit pas)` : ""}. Ne partez pas vous promener, surtout en terrain découvert ou sous les arbres.`);
+    return { ...res, storm: { by: named, main: mainModel, onlyOther: Boolean(onlyOther) } };
+  }
   if (!anyWet) {
     return danger
       ? out("caution", "Pas de pluie, mais des conditions difficiles", "Aucune précipitation prévue dans l'heure qui suit, mais lisez attentivement les remarques ci-dessous avant de partir.")
