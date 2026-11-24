@@ -358,6 +358,18 @@ function renderPressure() {
   btn.disabled = typeof p?.hpa !== "number";
   btn.title = p?.title ?? "Lecture de la pression…";
   showPressure($("place-pressure"), p);
+  // Rappel discret, non cliquable, à droite du lever et du coucher du soleil : même valeur que le bouton.
+  const sun = $("current").querySelector(".cur-sun");
+  if (sun) {
+    let el = sun.querySelector(".cur-pressure");
+    if (!el) {
+      el = document.createElement("span");
+      el.className = "cur-pressure"; el.innerHTML = '<span class="sr-only">Pression : </span><span></span>';
+      sun.append(el);
+    }
+    el.title = btn.title;
+    showPressure(el.lastElementChild, p);
+  }
   if (!btn.disabled) preloadDial();
 }
 

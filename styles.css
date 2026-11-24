@@ -138,8 +138,8 @@ summary { min-height: 44px; display: flex; align-items: center; cursor: pointer;
 .cur-temp { font: 400 3.6rem/1 var(--font-title); }
 .cur-desc { font-size: 1.15rem; font-weight: 600; }
 /* lever et coucher du soleil : icônes dessinées par masque, donc à la couleur du thème */
-.cur-note { margin-bottom: 0; } .cur-sun { margin: 0; }
-.sun { display: inline-block; position: relative; white-space: nowrap; margin-right: 12px; }
+.cur-note { margin-bottom: 0; } .cur-sun { margin: 0; display: flex; flex-wrap: wrap; column-gap: 16px; }
+.sun, .cur-pressure { position: relative; white-space: nowrap; font-variant-numeric: tabular-nums; } /* passe à la ligne d'un bloc, jamais coupé */
 .sun::before { content: ""; display: inline-block; width: 18px; height: 14px; margin-right: 5px; vertical-align: -2px; background: var(--attention-border); -webkit-mask: var(--sun-icon) center / contain no-repeat; mask: var(--sun-icon) center / contain no-repeat; }
 .sun-rise { --sun-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 18 14' fill='none' stroke='%23000' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M1 13h16M5 13a4 4 0 0 1 8 0M9 6V1M7 3l2-2 2 2'/%3E%3C/svg%3E"); }
 .sun-set { --sun-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 18 14' fill='none' stroke='%23000' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M1 13h16M5 13a4 4 0 0 1 8 0M9 1v5M7 4l2 2 2-2'/%3E%3C/svg%3E"); }
@@ -352,10 +352,10 @@ body:has(dialog.modal[open]) { overflow: hidden; }
 .compact-sep { height: auto; min-height: 44px; margin: 10px 0; padding: 10px 14px; border: 0; border-left: 4px solid var(--information-border); border-radius: var(--radius-control); background: var(--information); font-size: 14px; font-weight: 600; line-height: 1.45; }
 
 
-/* vue compacte : situation actuelle et 24 heures condensées (la température et le ciel sont déjà dans la barre du haut) */
-.is-compact .current .cur-icon, .is-compact .current .cur-temp, .is-compact .current .cur-note, .is-compact #hourly .h-note { display: none; }
+/* vue compacte : situation actuelle et 24 heures condensées (la température est déjà dans la barre du haut) */
+.is-compact .current .cur-temp, .is-compact .current .cur-note, .is-compact #hourly .h-note { display: none; }
 .is-compact .current { padding: 12px 14px; }
-.is-compact .current .cur-main { margin-bottom: 2px; }
+.is-compact .current .cur-main { margin-bottom: 2px; gap: 8px; } .is-compact .current .cur-icon { font-size: 1.3rem; }
 .is-compact .current .cur-desc { display: inline; font-size: 1rem; }
 .is-compact .current .cur-main > div > .muted { display: inline; }
 .is-compact .current .cur-main > div > .muted::before { content: " · "; }
