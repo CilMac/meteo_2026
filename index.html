@@ -73,8 +73,8 @@
           <svg class="vb-svg vb-compact" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><path d="M4.5 6h15M4.5 10h15M4.5 14h15M4.5 18h15"/></svg>
           <svg class="vb-svg vb-chevron" viewBox="0 0 12 12" width="10" height="10" aria-hidden="true" focusable="false"><path d="M2 4l4 4 4-4"/></svg>
           <select id="view-select" aria-label="Type d'affichage" title="Type d'affichage">
+            <option value="compact" selected>Vue compacte</option>
             <option value="detail">Vue détaillée</option>
-            <option value="compact">Vue compacte</option>
           </select>
         </div>
         <div id="top-now" class="top-cell top-cell-now" aria-live="polite"></div>
@@ -269,7 +269,7 @@
         <li><strong>Les onglets</strong> pilotent en même temps les prochaines 24 heures, les 7 jours et les jours 8 à 15. Changer d'onglet est instantané : rien n'est rechargé.</li>
         <li><strong>« Prochaines 24 heures »</strong> défile horizontalement. Changer d'onglet garde les mêmes heures à l'écran ; un autre lieu ou « Actualiser » repart de l'heure en cours. Onglet Précipitations : la barre verticale donne les mm (pleine à 3 mm), la petite barre horizontale le pourcentage.</li>
         <li><strong>« Situation actuelle »</strong> : valeurs calculées par un modèle pour l'heure en cours (pas un relevé de station).</li>
-        <li><strong>Vue compacte</strong> : choisie dans le petit déroulant au centre de la ligne du lieu (son icône est celle de la vue en cours : deux cartes empilées pour la vue détaillée, des lignes serrées pour la vue compacte), elle condense la situation actuelle et les 24 heures, et remplace le détail des 7 jours par un pavé d'une ligne par jour, en deux blocs (4 jours, puis 3) séparés par une phrase qui dit ce qui change à partir de là, et terminé par le même résumé que dans la vue détaillée (maximales, pluie notable, rappel de tendance). Les jours 8 à 15 sont repliés en dessous, sous le même bouton « Déplier » que dans la vue détaillée, avec la même phrase d'avertissement. Les longueurs de barres se comparent d'un bout à l'autre des 15 jours (même échelle). Le petit « i » du pavé rappelle ce que signifient les chiffres. Le même déroulant ramène à la vue détaillée. Par défaut, la vue compacte s'ouvre sur iPhone et iPad, la vue détaillée sur ordinateur ; votre choix est ensuite retenu.</li>
+        <li><strong>Vue compacte</strong> : choisie dans le petit déroulant au centre de la ligne du lieu (son icône est celle de la vue en cours : deux cartes empilées pour la vue détaillée, des lignes serrées pour la vue compacte), elle condense la situation actuelle et les 24 heures, et remplace le détail des 7 jours par un pavé d'une ligne par jour, en deux blocs (4 jours, puis 3) séparés par une phrase qui dit ce qui change à partir de là, et terminé par le même résumé que dans la vue détaillée (maximales, pluie notable, rappel de tendance). Les jours 8 à 15 sont repliés en dessous, sous le même bouton « Déplier » que dans la vue détaillée, avec la même phrase d'avertissement. Les longueurs de barres se comparent d'un bout à l'autre des 15 jours (même échelle). Le petit « i » du pavé rappelle ce que signifient les chiffres. Le même déroulant ramène à la vue détaillée. C'est la vue affichée par défaut, sur tous les appareils ; si vous en choisissez une autre, votre choix est ensuite retenu sur l'appareil.</li>
         <li><strong>Jour ou nuit</strong> : l'interface suit le réglage de votre appareil (apparence claire ou sombre) ; il n'y a rien à régler dans la page.</li>
         <li><strong>« — »</strong> veut dire « donnée absente ». Ce n'est jamais un zéro déguisé : un vrai « 0 mm » est affiché « 0 mm ».</li>
       </ul>
@@ -388,7 +388,7 @@
 
       <h3>Stockage et sécurité</h3>
       <ul>
-        <li>Le dernier lieu est retenu dans <code>localStorage</code> (<code>meteo.lastPlace</code> et, pour un lieu libre, <code>meteo.customPlace</code>), relu et revalidé à chaque fois ; un stockage absent ou corrompu retombe sur Bar-le-Duc. La vue détaillée ou compacte (<code>meteo.view</code>) y est aussi retenue ; sans choix, la vue compacte est le défaut sur iOS et la vue détaillée ailleurs. Le mode sombre suit le système : rien n'est stocké pour lui. Ni cookie, ni suivi.</li>
+        <li>Le dernier lieu est retenu dans <code>localStorage</code> (<code>meteo.lastPlace</code> et, pour un lieu libre, <code>meteo.customPlace</code>), relu et revalidé à chaque fois ; un stockage absent ou corrompu retombe sur Bar-le-Duc. La vue détaillée ou compacte (<code>meteo.view</code>) y est aussi retenue ; sans choix, la vue compacte est affichée. Le mode sombre suit le système : rien n'est stocké pour lui. Ni cookie, ni suivi.</li>
         <li>La position de l'appareil n'est jamais stockée : elle reste en mémoire le temps de la session.</li>
         <li>Tout texte venant du réseau ou de la saisie est inséré avec <code>textContent</code>, jamais en HTML. La saisie d'un lieu est nettoyée et un lieu sans coordonnées ni fuseau valides est refusé.</li>
         <li>Les erreurs réseau ne sont jamais avalées : elles s'affichent, et les anciennes données restent signalées comme telles.</li>
@@ -427,6 +427,6 @@
   window.addEventListener("unhandledrejection", function (e) { show(String((e.reason && e.reason.message) || e.reason)); });
 })();
 </script>
-<script type="module" src="app.js?v=0ff08073"></script>
+<script type="module" src="app.js?v=a1d6b1ce"></script>
 </body>
 </html>

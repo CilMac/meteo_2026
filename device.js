@@ -1,4 +1,4 @@
-// Détection de l'appareil pour la vue par défaut : compacte sur iOS (iPhone, iPod, iPad), détaillée ailleurs (Mac, etc.).
+// Vue par défaut (compacte, sur tous les appareils) et détection d'iOS (pour l'aide sur l'autorisation de position).
 // Le choix de l'utilisateur, une fois fait, passe toujours avant ce défaut.
 
 export function isIOS(nav = globalThis.navigator) {
@@ -8,7 +8,7 @@ export function isIOS(nav = globalThis.navigator) {
   return nav?.platform === "MacIntel" && (nav.maxTouchPoints ?? 0) > 1;
 }
 
-export const defaultView = (nav = globalThis.navigator) => (isIOS(nav) ? "compact" : "detail");
+export const DEFAULT_VIEW = "compact";
 
-// Vue à utiliser : le choix mémorisé s'il est valide, sinon le défaut de l'appareil.
-export const chooseView = (stored, nav = globalThis.navigator) => (stored === "compact" || stored === "detail" ? stored : defaultView(nav));
+// Vue à utiliser : le choix mémorisé s'il est valide, sinon le défaut.
+export const chooseView = (stored) => (stored === "compact" || stored === "detail" ? stored : DEFAULT_VIEW);

@@ -13,7 +13,7 @@ import { getPosition, reverseGeocode, placeFromPosition, storedGeoPlace, formatC
 import { shouldRefresh, STALE_MS, TRY_GAP_MS, RETRY_MS, QUIET_WAIT_MS } from "./refresh.js?v=beadd3fe";
 import { createLoader } from "./loading.js?v=956b591b";
 import { makeRecord, saveRecord, loadJournal, exportText, exportName } from "./journal.js?v=a630f8b8";
-import { chooseView, isIOS } from "./device.js?v=78893f99";
+import { chooseView, DEFAULT_VIEW, isIOS } from "./device.js?v=fddeae53";
 import { TABS, buildTopPlace, buildTopNow, buildCurrent, buildHourly, buildWeek, buildTrend, buildCompact, buildMini, COMPACT_HELP_ITEMS, buildSources, buildWarnings, buildAttribution, warningsStatus, formatLocal } from "./weather-render.js?v=9322936a";
 
 const $ = (id) => {
@@ -25,7 +25,7 @@ const $ = (id) => {
 const PLACE_KEY = "meteo.lastPlace", CUSTOM_KEY = "meteo.customPlace", POSITION_KEY = "meteo.position", TAB_DEFAULT = "precip";
 
 const loader = createLoader($("loader"));
-const state = { place: null, data: null, warnings: null, ensemble: undefined, pressure: null, view: "detail", tab: TAB_DEFAULT, loading: false, searching: 0, loadId: 0 };
+const state = { place: null, data: null, warnings: null, ensemble: undefined, pressure: null, view: DEFAULT_VIEW, tab: TAB_DEFAULT, loading: false, searching: 0, loadId: 0 };
 
 // Dernier lieu validé : favori, ou lieu libre relu et revalidé (jamais pris tel quel dans le stockage).
 function readLastPlace() {
@@ -558,7 +558,7 @@ async function autoRefresh({ retry = true } = {}) {
 document.addEventListener("visibilitychange", () => autoRefresh());
 window.addEventListener("pageshow", (e) => { if (e.persisted) autoRefresh(); }); // page ressortie de la mémoire du navigateur
 
-// Vue détaillée (par défaut) ou compacte (7 jours dans un pavé, jours 8 à 15 repliés). Le choix est retenu sur l'appareil.
+// Vue compacte (par défaut : 7 jours dans un pavé, jours 8 à 15 repliés) ou détaillée. Le choix est retenu sur l'appareil.
 const VIEW_KEY = "meteo.view";
 function applyView() {
   const compact = state.view === "compact";
@@ -577,9 +577,9 @@ function setView(view) {
   window.scrollTo({ top: 0 });
 }
 {
-  // Choix mémorisé s'il existe ; sinon compacte sur iOS, détaillée ailleurs.
+  // Choix mémorisé s'il existe ; sinon vue compacte.
   let stored = null;
-  try { stored = localStorage.getItem(VIEW_KEY); } catch { /* stockage indisponible : défaut de l'appareil */ }
+  try { stored = localStorage.getItem(VIEW_KEY); } catch { /* stockage indisponible : vue par défaut */ }
   state.view = chooseView(stored);
 }
 {
