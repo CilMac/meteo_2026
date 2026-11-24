@@ -13,7 +13,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#f6f3eb" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#1b201d" media="(prefers-color-scheme: dark)">
-<link rel="stylesheet" href="styles.css?v=ca09f2b3">
+<link rel="stylesheet" href="styles.css?v=efab9796">
 </head>
 <body>
 <!-- Bandeau affiché si la page ne se charge pas correctement (fichiers manquants ou de versions différentes) -->
@@ -234,16 +234,16 @@
   <p class="loader-time muted small"></p>
 </div>
 
-<!-- Fenêtre d'information : deux onglets (fonctionnement, sous le capot) -->
+<!-- Fenêtre d'information : deux onglets (fonctionnement, sous le capot), puis « Relevés », plus petit, à droite : il ne sert qu'aux tests de fiabilité -->
 <dialog id="info" class="modal" aria-labelledby="info-title">
   <div class="modal-head">
     <h2 id="info-title">À propos de cette application</h2>
     <button type="button" id="info-close" class="btn">Fermer</button>
   </div>
   <div class="m-tabs" role="tablist" aria-label="Rubriques d'information">
-    <button type="button" class="m-tab" role="tab" id="m-tab-how" aria-controls="m-panel-how" aria-selected="true">Fonctionnement</button>
-    <button type="button" class="m-tab" role="tab" id="m-tab-log" aria-controls="m-panel-log" aria-selected="false" tabindex="-1">Relevés</button>
-    <button type="button" class="m-tab" role="tab" id="m-tab-tech" aria-controls="m-panel-tech" aria-selected="false" tabindex="-1">Sous le capot</button>
+    <button type="button" class="m-tab" role="tab" id="m-tab-how" aria-controls="m-panel-how" aria-selected="true" title="Mode d'emploi : choisir un lieu, lire l'écran, d'où viennent les valeurs">Fonctionnement</button>
+    <button type="button" class="m-tab" role="tab" id="m-tab-tech" aria-controls="m-panel-tech" aria-selected="false" tabindex="-1" title="Côté technique : fichiers, appels réseau, choix des modèles, stockage">Sous le capot</button>
+    <button type="button" class="m-tab m-tab-quiet" role="tab" id="m-tab-log" aria-controls="m-panel-log" aria-selected="false" tabindex="-1" title="Pour les tests : relevés gardés pour mesurer la fiabilité de la vue 🥾">Relevés</button>
   </div>
 
   <div class="modal-body">
