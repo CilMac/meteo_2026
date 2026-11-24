@@ -27,11 +27,15 @@ const PLACE_KEY = "meteo.lastPlace", CUSTOM_KEY = "meteo.customPlace", POSITION_
 const loader = createLoader($("loader"));
 const state = { place: null, data: null, warnings: null, ensemble: undefined, pressure: null, view: DEFAULT_VIEW, tab: TAB_DEFAULT, loading: false, searching: 0, loadId: 0 };
 
-// Dernier lieu validé : favori, ou lieu libre relu et revalidé (jamais pris tel quel dans le stockage).
+// Dernier « autre lieu » choisi, relu et revalidé (jamais pris tel quel dans le stockage) ; absent ou illisible : null.
+function readCustomPlace() {
+  try { return validatePlace(JSON.parse(localStorage.getItem(CUSTOM_KEY))); } catch { return null; }
+}
+// Dernier lieu validé : favori, ou lieu libre.
 function readLastPlace() {
   try {
     const id = localStorage.getItem(PLACE_KEY);
-    if (id === CUSTOM_ID) { const p = validatePlace(JSON.parse(localStorage.getItem(CUSTOM_KEY))); if (p) return p; }
+    if (id === CUSTOM_ID) return readCustomPlace() ?? DEFAULT_PLACE;
     return FAVORITES.find((p) => p.id === id) ?? DEFAULT_PLACE;
   } catch { return DEFAULT_PLACE; } // stockage indisponible ou corrompu
 }
@@ -434,7 +438,8 @@ function setCustomPlace(place) {
   select.value = CUSTOM_ID;
 }
 const initial = readLastPlace();
-if (initial.id === CUSTOM_ID) setCustomPlace(initial);
+const storedCustom = readCustomPlace(); // toujours remis en bas de liste, même s'il n'était pas le dernier lieu affiché
+if (storedCustom) setCustomPlace(storedCustom);
 select.value = initial.id;
 
 // Choisir un lieu dans la liste suffit à le valider : la météo se charge aussitôt (choix de l'utilisateur, 22/11/2026, écart avec le
