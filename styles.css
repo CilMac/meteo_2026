@@ -137,6 +137,12 @@ summary { min-height: 44px; display: flex; align-items: center; cursor: pointer;
 .cur-icon { font-size: 3.2rem; line-height: 1; }
 .cur-temp { font: 400 3.6rem/1 var(--font-title); }
 .cur-desc { font-size: 1.15rem; font-weight: 600; }
+/* lever et coucher du soleil : icônes dessinées par masque, donc à la couleur du thème */
+.cur-note { margin-bottom: 0; } .cur-sun { margin: 0; }
+.sun { display: inline-block; position: relative; white-space: nowrap; margin-right: 12px; }
+.sun::before { content: ""; display: inline-block; width: 18px; height: 14px; margin-right: 5px; vertical-align: -2px; background: var(--attention-border); -webkit-mask: var(--sun-icon) center / contain no-repeat; mask: var(--sun-icon) center / contain no-repeat; }
+.sun-rise { --sun-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 18 14' fill='none' stroke='%23000' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M1 13h16M5 13a4 4 0 0 1 8 0M9 6V1M7 3l2-2 2 2'/%3E%3C/svg%3E"); }
+.sun-set { --sun-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 18 14' fill='none' stroke='%23000' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M1 13h16M5 13a4 4 0 0 1 8 0M9 1v5M7 4l2 2 2-2'/%3E%3C/svg%3E"); }
 .cur-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(135px, 1fr)); gap: 12px; margin-top: 12px; }
 .stat { padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--radius-card); }
 .stat.fam-precip { background: var(--precip-bg); } .stat.fam-temp { background: var(--temp-bg); } .stat.fam-wind { background: var(--wind-bg); }
@@ -353,7 +359,7 @@ body:has(dialog.modal[open]) { overflow: hidden; }
 .is-compact .current .cur-desc { display: inline; font-size: 1rem; }
 .is-compact .current .cur-main > div > .muted { display: inline; }
 .is-compact .current .cur-main > div > .muted::before { content: " · "; }
-.is-compact .current .cur-note-short { margin: 0 0 8px; }
+.is-compact .current .cur-note-short { margin: 0; } .is-compact .current .cur-sun { margin: 0 0 8px; }
 .is-compact .cur-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 6px; }
 .is-compact .stat { padding: 8px 10px; }
 .is-compact .stat .l-long, .is-compact .stat .tag { display: none; }

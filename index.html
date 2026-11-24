@@ -13,7 +13,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#f6f3eb" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#1b201d" media="(prefers-color-scheme: dark)">
-<link rel="stylesheet" href="styles.css?v=375bb465">
+<link rel="stylesheet" href="styles.css?v=7badcc52">
 </head>
 <body>
 <!-- Bandeau affiché si la page ne se charge pas correctement (fichiers manquants ou de versions différentes) -->
@@ -268,7 +268,7 @@
         <li><strong>Barre du haut</strong> : le lieu et la situation du moment, toujours visible, avec les trois onglets Précipitations, Température et Vent.</li>
         <li><strong>Les onglets</strong> pilotent en même temps les prochaines 24 heures, les 7 jours et les jours 8 à 15. Changer d'onglet est instantané : rien n'est rechargé.</li>
         <li><strong>« Prochaines 24 heures »</strong> défile horizontalement. Changer d'onglet garde les mêmes heures à l'écran ; un autre lieu ou « Actualiser » repart de l'heure en cours. Onglet Précipitations : la barre verticale donne les mm (pleine à 3 mm), la petite barre horizontale le pourcentage.</li>
-        <li><strong>« Situation actuelle »</strong> : valeurs calculées par un modèle pour l'heure en cours (pas un relevé de station).</li>
+        <li><strong>« Situation actuelle »</strong> : valeurs calculées par un modèle pour l'heure en cours (pas un relevé de station). Dessous, deux petites icônes donnent le <strong>lever</strong> (flèche vers le haut) et le <strong>coucher</strong> (flèche vers le bas) du soleil du jour, à l'heure du lieu ; près des pôles, la ligne dit si le soleil reste levé ou couché toute la journée.</li>
         <li><strong>Infobulles</strong> : sur ordinateur, laissez la souris un instant sur un bouton pour savoir ce qu'il fait (elles ne s'affichent pas au toucher).</li>
         <li><strong>Vue compacte</strong> : choisie dans le petit déroulant de la ligne du lieu (au centre ; sur téléphone, plus à droite, pour laisser la place aux noms longs ; son icône est celle de la vue en cours : deux cartes empilées pour la vue détaillée, des lignes serrées pour la vue compacte), elle condense la situation actuelle et les 24 heures, et remplace le détail des 7 jours par un pavé d'une ligne par jour, en deux blocs (4 jours, puis 3) séparés par une phrase qui dit ce qui change à partir de là, et terminé par le même résumé que dans la vue détaillée (maximales, pluie notable, rappel de tendance). Les jours 8 à 15 sont repliés en dessous, sous le même bouton à flèche (bas : déplier ; haut : replier) que dans la vue détaillée, avec la même phrase d'avertissement. Les longueurs de barres se comparent d'un bout à l'autre des 15 jours (même échelle). Le petit « i » du pavé rappelle ce que signifient les chiffres. Le même déroulant ramène à la vue détaillée. C'est la vue affichée par défaut, sur tous les appareils ; si vous en choisissez une autre, votre choix est ensuite retenu sur l'appareil.</li>
         <li><strong>Jour ou nuit</strong> : l'interface suit le réglage de votre appareil (apparence claire ou sombre) ; il n'y a rien à régler dans la page.</li>
@@ -385,7 +385,7 @@
       <p>Chaque modèle d'ensemble compte autant, quel que soit son nombre de scénarios (51, 31, 21…) : le poids d'un modèle se partage entre ses scénarios. Les valeurs sont combinées par quantiles pondérés : médiane, 10 % et 90 %. La probabilité de pluie est la part pondérée des scénarios donnant au moins 1 mm sur le jour. Un modèle qui a moins de 5 scénarios pour un jour est ignoré. La dispersion compare l'écart des températures maximales entre le 10<sup>e</sup> et le 90<sup>e</sup> centile : moins de 4 °C faible, jusqu'à 8 °C moyenne, au-delà forte.</p>
 
       <h3>Dates et fuseaux</h3>
-      <p>Les jours sont ceux du fuseau du lieu, tels que renvoyés par l'API ; la date locale d'aujourd'hui est calculée avec <code>Intl</code> et sert à détecter des données qui ne commencent plus aujourd'hui. Pour la position réelle, le fuseau est celui de l'appareil ; le jour et la nuit des étiquettes d'heure viennent du lever et du coucher du soleil renvoyés par l'API. Les 24 heures glissantes se calculent sur les heures locales ISO, ce qui évite les erreurs de changement d'heure et de frontière de date (Tokyo vu de France).</p>
+      <p>Les jours sont ceux du fuseau du lieu, tels que renvoyés par l'API ; la date locale d'aujourd'hui est calculée avec <code>Intl</code> et sert à détecter des données qui ne commencent plus aujourd'hui. Pour la position réelle, le fuseau est celui de l'appareil ; le jour et la nuit des étiquettes d'heure, comme la ligne lever/coucher de la situation actuelle, viennent du lever et du coucher du soleil renvoyés par l'API. Les 24 heures glissantes se calculent sur les heures locales ISO, ce qui évite les erreurs de changement d'heure et de frontière de date (Tokyo vu de France).</p>
 
       <h3>Stockage et sécurité</h3>
       <ul>
@@ -405,7 +405,7 @@
   </div>
 
   <div class="modal-foot">
-    <p>Par CilMac et Claude Opus 5.5 · <span id="info-updated" title="Heure de Paris, notée à la dernière modification des fichiers du site">dernière modification : <time id="info-date" datetime="2026-11-24T14:29Z" data-v="e2d06db0">24 novembre 2026 à 15:29</time></span></p>
+    <p>Par CilMac et Claude Opus 5.5 · <span id="info-updated" title="Heure de Paris, notée à la dernière modification des fichiers du site">dernière modification : <time id="info-date" datetime="2026-11-24T15:06Z" data-v="990845dd">24 novembre 2026 à 16:06</time></span></p>
   </div>
 </dialog>
 
@@ -428,6 +428,6 @@
   window.addEventListener("unhandledrejection", function (e) { show(String((e.reason && e.reason.message) || e.reason)); });
 })();
 </script>
-<script type="module" src="app.js?v=c6022d7c"></script>
+<script type="module" src="app.js?v=e98a0275"></script>
 </body>
 </html>

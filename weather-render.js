@@ -51,6 +51,17 @@ export function sunState(timeISO, daily) {
   return isNight(timeISO, daily) ? "night" : "day";
 }
 
+// Lever et coucher du soleil d'un jour (YYYY-MM-DD), en heures locales du lieu ; « — » si non fourni.
+// Open-Meteo code la nuit polaire par lever = coucher, et le soleil de minuit par minuit → minuit le lendemain.
+export function sunTimes(date, daily) {
+  const day = daily.find((d) => d.date === date);
+  const rise = day?.sunrise.value ?? null, set = day?.sunset.value ?? null;
+  if (rise && rise === set) return { polar: "Soleil couché toute la journée" };
+  if (rise && set && rise.endsWith("T00:00") && set.endsWith("T00:00") && set > rise) return { polar: "Soleil levé toute la journée" };
+  const hm = (iso) => (iso ? iso.slice(11, 16) : "—");
+  return { polar: null, rise: hm(rise), set: hm(set) };
+}
+
 export const hourLabel = (timeISO) => `${parseInt(timeISO.slice(11, 13), 10)} h`;
 // Début de l'heure sur laquelle porte une valeur « heure précédente » (pluie, probabilité) : la ligne « 18:00 » couvre 17 h → 18 h.
 export const hourStartLabel = (timeISO) => `${(parseInt(timeISO.slice(11, 13), 10) + 23) % 24} h`;
@@ -169,14 +180,20 @@ export function buildCurrent(data, now = new Date()) {
       h("span", { class: "cur-temp", text: deg(c.temp) }),
       h("div", {}, h("div", { class: "cur-desc", text: info.label }),
         h("div", { class: "muted", text: `Ressenti ${deg(c.apparent)}` }))),
-    h("p", { class: "muted small cur-note", text: c.time ? `Valeurs calculées pour ${hourLabel(c.time)} (modèle). Heure locale : ${formatLocal(now, tz, { hour: "2-digit", minute: "2-digit" })}.` : "Heure de la situation indisponible." }),
+    h("p", { class: "muted small cur-note", text: c.time ? `Valeurs calculées pour ${hourLabel(c.time)} (modèle). Heure\u00a0locale\u00a0:\u00a0${formatLocal(now, tz, { hour: "2-digit", minute: "2-digit" })}.` : "Heure de la situation indisponible." }),
     // Version courte (vue compacte) : l'origine « modèle » reste signalée.
     h("p", { class: "muted small cur-note-short", text: c.time ? `Valeurs calculées pour ${hourLabel(c.time)} (modèle).` : "Heure de la situation indisponible." }),
+    buildSun(sunTimes(c.time ? c.time.slice(0, 10) : d0.date, data.daily)),
     h("div", { class: "cur-grid" },
       stat("precip", "Risque de pluie (max horaire du jour)", "Risque de pluie", isNum(d0.precipProbMax.value) ? `${num0(d0.precipProbMax.value)} %` : "—", modelsLine(d0, [["", "precipProbMax"]])),
       stat("temp", "Min / max du jour", "Min / max", `${deg(d0.tempMin.value)}\u00a0/ ${deg(d0.tempMax.value)}`, modelsLine(d0, [["min", "tempMin"], ["max", "tempMax"]])),
       stat("wind", "Vent actuel · rafales", "Vent · raf.", `${num0(c.wind)}\u00a0· ${num0(c.gust)}\u00a0km/h`, "")),
     outlook ? h("p", { class: "outlook", text: outlook }) : null);
+}
+function buildSun(sun) {
+  const one = (kind, name, time) => h("span", { class: `sun sun-${kind}` }, h("span", { class: "sr-only", text: `${name} du soleil : ` }), time);
+  return h("p", { class: "muted small cur-sun", title: "Lever et coucher du soleil aujourd'hui, à l'heure du lieu" },
+    sun.polar ?? [one("rise", "Lever", sun.rise), " ", one("set", "Coucher", sun.set)]);
 }
 function stat(family, label, shortLabel, value, model) {
   return h("div", { class: `stat fam-${family}` },
