@@ -362,7 +362,7 @@
         <li><code>journal.js</code> : relevés de la vue 🥾 (prévision affichée gardée sur l'appareil) et fichier d'export.</li>
         <li><code>geo.js</code> : position de l'appareil (arrondie avant tout envoi à un service tiers) et nom du lieu.</li>
         <li><code>manifest.webmanifest</code> et <code>icone-180.png</code>, <code>icone-192.png</code>, <code>icone-512.png</code> : nom, icône et affichage en appli sur l'écran d'accueil (iPhone et Android) ; l'icône, un phare à l'aquarelle, a été créée avec ChatGPT à la demande de l'auteur. Les adresses des icônes et du manifeste portent aussi un numéro de version, qui change avec l'image. Sur iPhone, faire l'ajout à l'écran d'accueil depuis Safari : Firefox met une lettre à la place de l'icône (défaut connu de Firefox).</li>
-        <li><code>warnings.js</code> : vigilances. <code>places.js</code> : favoris et géocodage. <code>info.js</code> : cette fenêtre (et date de dernière modification, lue dans les en-têtes des fichiers du site).</li>
+        <li><code>warnings.js</code> : vigilances. <code>places.js</code> : favoris et géocodage. <code>info.js</code> : cette fenêtre. La date de dernière modification, en bas, est écrite dans la page elle-même au moment de la modification : c'est la même partout, quelle que soit l'heure de publication.</li>
       </ul>
 
       <h3>Appels réseau (tous depuis le navigateur)</h3>
@@ -405,7 +405,7 @@
   </div>
 
   <div class="modal-foot">
-    <p>Par CilMac et Claude Opus 5.5 · <span id="info-updated" title="Date de la dernière publication des fichiers du site">dernière modification : <time id="info-date">—</time></span></p>
+    <p>Par CilMac et Claude Opus 5.5 · <span id="info-updated" title="Heure de Paris, notée à la dernière modification des fichiers du site">dernière modification : <time id="info-date" datetime="2026-11-24T14:29Z" data-v="e2d06db0">24 novembre 2026 à 15:29</time></span></p>
   </div>
 </dialog>
 
@@ -428,6 +428,6 @@
   window.addEventListener("unhandledrejection", function (e) { show(String((e.reason && e.reason.message) || e.reason)); });
 })();
 </script>
-<script type="module" src="app.js?v=2582b7df"></script>
+<script type="module" src="app.js?v=c6022d7c"></script>
 </body>
 </html>

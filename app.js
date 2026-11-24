@@ -3,7 +3,7 @@ import { FAVORITES, DEFAULT_PLACE, CUSTOM_ID, searchPlaces, validatePlace, place
 import { fetchForecast, localDateISO } from "./weather-provider.js?v=631084d1";
 import { loadWarnings } from "./warnings.js?v=79a17bd6";
 import { fetchEnsemble } from "./ensemble.js?v=88c38ccc";
-import { initInfo } from "./info.js?v=89ebfb1f";
+import { initInfo } from "./info.js?v=0231d5ac";
 import { initBarometer, preloadDial } from "./barometer.js?v=c389d0e2";
 import { createSkyLayer } from "./skymap.js?v=490696b3";
 import { initWalk } from "./walkui.js?v=d8eb7ca7";
