@@ -232,7 +232,7 @@ h2 .h2-main { display: block; }
 .top-now strong { font-size: 18px; }
 .top-icon { font-size: 22px; line-height: 1; }
 .top-desc { min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--muted); font-size: 14px; }
-@media (max-width: 420px) { .top-name { font-size: 16.5px; text-decoration-thickness: 2px; text-underline-offset: 5px; } .pin { font-size: 12px; } .top-place { gap: 4px; } .top-row { gap: 6px; padding: 0; } }
+@media (max-width: 480px) { .top-name { font-size: 16.5px; text-decoration-thickness: 2px; text-underline-offset: 5px; } .pin { font-size: 12px; } .top-place { gap: 4px; } .top-row { gap: 6px; padding: 0; } }
 
 /* « Autre lieu » : même langage que replier/déplier (pastille lavande + flèche), avec un libellé qui dit quoi faire */
 .other { border-top: 0; padding-top: 0; margin-top: 14px; }
@@ -324,11 +324,16 @@ body:has(dialog.modal[open]) { overflow: hidden; }
 .c-val { font-size: 15px; font-weight: 600; text-align: right; white-space: nowrap; }
 @media (max-width: 420px) { .compact-day { grid-template-columns: 74px 24px minmax(24px, 1fr) minmax(0, auto); column-gap: 8px; } .c-name { font-size: 14px; } .c-val { font-size: 14px; } }
 
-/* ligne du haut : lieu à gauche, bouton de vue centré, situation à droite */
+/* ligne du haut : lieu à gauche, déroulant de vue (centré ; sur téléphone, aux deux tiers), situation à droite */
 .top-row { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 8px; min-height: 44px; margin: 0 0 8px; padding: 0 4px; }
 .top-cell-place { justify-self: start; min-width: 0; max-width: 100%; }
 .top-cell-now { justify-self: end; min-width: 0; max-width: 100%; }
-@media (max-width: 640px) { .top-desc { display: none; } }
+@media (max-width: 640px) {
+  .top-desc { display: none; }
+  /* Téléphone : déroulant au-dessus de l'espace entre Température et Vent, pour laisser la place aux noms longs.
+     28 px = moitié du déroulant (23) + écart de grille (8) - décalage dû à la marge de la ligne et à l'écart des onglets (3). */
+  .top-row { grid-template-columns: minmax(0, calc(66.667% - 28px)) auto minmax(max-content, 1fr); }
+}
 /* séparateur de la vue compacte : plus haut, avec une courte explication */
 .compact-sep { height: auto; min-height: 44px; margin: 10px 0; padding: 10px 14px; border: 0; border-left: 4px solid var(--information-border); border-radius: var(--radius-control); background: var(--information); font-size: 14px; font-weight: 600; line-height: 1.45; }
 
