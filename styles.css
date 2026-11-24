@@ -29,6 +29,9 @@
   --rain: #5b8fb0; --wind: #4a9387; --wind-2: #b3d8d1; --alert-yellow: #d9a400; --alert-orange: #d9822b; --alert-red: #c0392b;
   --trend-up: #2f7d4f; --trend-down: #a8412c; --trend-steady: #6f7d73; /* tendance de la pression ; rouge brique, pas celui des alertes */
 
+  --fold-down: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23343c38' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 8.5l7 7 7-7'/%3E%3C/svg%3E");
+  --fold-up: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23343c38' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 15.5l7-7 7 7'/%3E%3C/svg%3E"); /* flèches des sections repliables, à la couleur de --ink */
+
   --font-body: system-ui, -apple-system, sans-serif; --font-title: Georgia, serif;
   --radius-control: 10px; --radius-panel: 16px; --radius-card: 12px;
   --shadow-card: 0 3px 10px #39433104;
@@ -38,6 +41,8 @@
 @media (prefers-color-scheme: dark) {
   :root {
     color-scheme: dark;
+    --fold-down: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23eceee8' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 8.5l7 7 7-7'/%3E%3C/svg%3E");
+    --fold-up: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23eceee8' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 15.5l7-7 7 7'/%3E%3C/svg%3E");
     --btn-edge: #8e9a90;
     --paper: #1b201d; --surface: #252b27; --ink: #eceee8; --muted: #a9b0a6; --line: #3a423d;
     --link: #a5c9d2; --focus: #8fb3c1; --summary: #b4cfc2;
@@ -206,15 +211,13 @@ a.official { display: inline-block; min-height: 44px; line-height: 44px; }
 .fold > summary::-webkit-details-marker { display: none; }
 .fold > summary h2 { margin: 0; }
 .fold > summary::after {
-  content: "Déplier ▾"; grid-column: 2; grid-row: 1; align-self: start; white-space: nowrap;
-  min-height: 44px; display: inline-flex; align-items: center; padding: 0 16px; border: 1px solid var(--help-border); border-radius: var(--radius-control);
-  background: var(--help); color: var(--ink); font-size: 15px; font-weight: 600;
+  content: ""; grid-column: 2; grid-row: 1; align-self: start; width: 52px; height: 44px; border: 1px solid var(--help-border); border-radius: var(--radius-control);
+  background: var(--help) var(--fold-down) center / 24px 24px no-repeat;
 }
 .fold > summary:hover::after { filter: brightness(.96); }
-.fold[open] > summary::after { content: "Replier ▴"; background: var(--help-active); border-color: var(--help-active-border); }
+.fold[open] > summary::after { background: var(--help-active) var(--fold-up) center / 24px 24px no-repeat; border-color: var(--help-active-border); }
 .fold > summary .trend-warning { grid-column: 1 / -1; margin: 0; }
 .fold[open] > summary { margin-bottom: 12px; }
-@media (max-width: 420px) { .fold > summary::after { padding: 0 12px; } }
 
 /* titres : la rubrique active est nommée dans une pastille à sa couleur */
 h2 .h2-main { display: block; }
@@ -462,6 +465,7 @@ dialog.baro-modal { width: min(440px, calc(100vw - 24px)); }
 .mini-top h2 { margin: 0; min-width: 0; font-family: var(--font-title); font-size: 24px; font-weight: 700; line-height: 1.25; text-wrap: balance; }
 .mini-side { display: flex; gap: 8px; flex: none; }
 .mini-place { margin: 10px 0 0; font-size: 18px; font-weight: 700; line-height: 1.35; color: var(--primary); overflow-wrap: anywhere; } /* nom du lieu : bleu de la charte (clair/sombre), seule touche de couleur de l'en-tête */
+.mini-place .pin { margin-right: 6px; font-size: .9em; }
 .mini-place:empty, .mini-gps:empty { display: none; }
 .mini-gps { margin: 2px 0 0; font-size: 13px; line-height: 1.4; color: var(--muted); font-variant-numeric: tabular-nums; }
 .mini-tools { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 2px; }

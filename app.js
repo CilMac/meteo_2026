@@ -6,15 +6,15 @@ import { fetchEnsemble } from "./ensemble.js?v=88c38ccc";
 import { initInfo } from "./info.js?v=89ebfb1f";
 import { initBarometer, preloadDial } from "./barometer.js?v=c389d0e2";
 import { createSkyLayer } from "./skymap.js?v=490696b3";
-import { initWalk } from "./walkui.js?v=c0efab6a";
+import { initWalk } from "./walkui.js?v=d8eb7ca7";
 import { localToMs } from "./walk.js?v=68874bb7";
 import { fetchObservedPressure, fetchPressureTrend, fetchObservedStorms, stormText, pressureDisplay, TREND_WORD } from "./observation.js?v=25a46dff";
 import { getPosition, reverseGeocode, placeFromPosition, storedGeoPlace, formatCoords, deniedHelp, GEO_ID, GEO_MAX_AGE_MS } from "./geo.js?v=b6df63a8";
 import { shouldRefresh, STALE_MS, TRY_GAP_MS, RETRY_MS, QUIET_WAIT_MS } from "./refresh.js?v=beadd3fe";
 import { createLoader } from "./loading.js?v=956b591b";
-import { makeRecord, saveRecord, loadJournal, exportText, exportName } from "./journal.js?v=a630f8b8";
+import { makeRecord, saveRecord, loadJournal, exportText, exportName } from "./journal.js?v=e6deb432";
 import { chooseView, DEFAULT_VIEW, isIOS } from "./device.js?v=fddeae53";
-import { TABS, buildTopPlace, buildTopNow, buildCurrent, buildHourly, buildWeek, buildTrend, buildCompact, buildMini, COMPACT_HELP_ITEMS, buildSources, buildWarnings, buildAttribution, warningsStatus, formatLocal } from "./weather-render.js?v=9322936a";
+import { TABS, foldTip, buildPin, buildTopPlace, buildTopNow, buildCurrent, buildHourly, buildWeek, buildTrend, buildCompact, buildMini, COMPACT_HELP_ITEMS, buildSources, buildWarnings, buildAttribution, warningsStatus, formatLocal } from "./weather-render.js?v=52342bc8";
 
 const $ = (id) => {
   const el = document.getElementById(id);
@@ -56,7 +56,7 @@ function renderTabs() {
   box.replaceChildren();
   for (const t of TABS) {
     const b = document.createElement("button");
-    b.type = "button"; b.className = `tab fam-${t.id}`; b.id = `tab-${t.id}`; b.textContent = t.label;
+    b.type = "button"; b.className = `tab fam-${t.id}`; b.id = `tab-${t.id}`; b.textContent = t.label; b.title = t.tip;
     b.setAttribute("role", "tab"); b.setAttribute("aria-selected", String(t.id === state.tab));
     b.setAttribute("aria-controls", "hourly"); b.tabIndex = t.id === state.tab ? 0 : -1;
     b.addEventListener("click", () => selectTab(t.id));
@@ -112,7 +112,8 @@ function renderAll() {
   $("where").textContent = `${d.location.name}${d.location.country ? ` (${d.location.country})` : ""} · fuseau ${d.location.timezone} · ` +
     formatLocal(new Date(), d.location.timezone, { dateStyle: "full", timeStyle: "short" });
   $("current").replaceChildren(buildCurrent(d));
-  $("top-place").replaceChildren(buildTopPlace(d));
+  // Épingle : seulement à la position actuelle (pas un lieu de la liste, ni une « dernière position connue »).
+  $("top-place").replaceChildren(buildTopPlace(d, { here: state.place?.id === GEO_ID && !state.note }));
   $("top-now").replaceChildren(buildTopNow(d));
   renderTabs();
   renderTabbed();
@@ -204,7 +205,7 @@ function showMiniPlace(data, coords, named, pressure, at) {
   const pb = $("mini-pressure");
   showPressure(pb, pressure); pb.title = pressure.title;
   $("mini-baro-btn").disabled = pressure.hpa === null; // sans valeur, rien à montrer sur le cadran
-  $("mini-place").textContent = `${data.location.name}${data.location.country ? ` (${data.location.country})` : ""}`;
+  $("mini-place").replaceChildren(buildPin(), `${data.location.name}${data.location.country ? ` (${data.location.country})` : ""}`);
   // L'heure d'actualisation suit la ligne GPS ; sur téléphone, elle passe à la ligne d'un seul bloc (jamais coupée).
   const when = document.createElement("span");
   when.className = "mini-when"; when.title = "Dernière actualisation de la position et de la météo";
@@ -494,6 +495,7 @@ select.addEventListener("change", () => { clearTimeout(changeTimer); changeTimer
 $("form").addEventListener("submit", (ev) => { ev.preventDefault(); showSelected(); }); // Entrée dans le formulaire : tout de suite
 
 // À l'ouverture de « Autre lieu », le curseur va directement dans le champ de saisie.
+foldTip($("other"), "la recherche d'une ville");
 $("other").addEventListener("toggle", () => { if ($("other").open) $("q").focus(); });
 
 // Recherche d'un autre lieu : géocodage, liste complète des homonymes, choix explicite.
@@ -586,6 +588,10 @@ function setView(view) {
   const ul = document.createElement("ul");
   for (const t of COMPACT_HELP_ITEMS) { const li = document.createElement("li"); li.textContent = t; ul.append(li); }
   $("compact-help").replaceChildren(ul);
+}
+// Sections repliables (bouton à flèche seule) : l'infobulle dit ce que fera le clic, selon l'état.
+for (const d of document.querySelectorAll("details.fold")) {
+  foldTip(d, `« ${(d.querySelector("h2 .h2-main") ?? d.querySelector("h2")).textContent.trim()} »`);
 }
 $("view-select").addEventListener("change", () => setView($("view-select").value));
 $("compact-info-btn").addEventListener("click", () => {

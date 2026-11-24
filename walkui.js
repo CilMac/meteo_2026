@@ -3,7 +3,7 @@
 import { fetchNextHour, walkAdvice, walkSources, hourlyAt, mmPerHour, MAX_OFFSET_H, STEP_MS, SNOW_CM_PER_MM, WalkError } from "./walk.js?v=68874bb7";
 import { stormText } from "./observation.js?v=25a46dff";
 import { modelShort } from "./weather-provider.js?v=631084d1";
-import { MINI_MM_FULL } from "./weather-render.js?v=9322936a";
+import { MINI_MM_FULL, foldTip } from "./weather-render.js?v=52342bc8";
 
 // Échelle de la frise : la même que la barre de pluie du tableau « Lieu actuel » (pleine à 3 mm dans l'heure),
 // soit 0,75 mm par quart d'heure ; au-delà, bâton plein et rouge (choix de l'utilisateur, 22/11/2026).
@@ -139,6 +139,7 @@ export function initWalk({ getHere, fmtTime, getStorms = () => null, fallbackFoc
     more.open = moreOpen;
     more.addEventListener("toggle", () => { moreOpen = more.open; });
     more.append(el("summary", "", "Modèles et précautions"));
+    foldTip(more, "les modèles utilisés et les précautions");
     if (sources) more.append(el("p", "small walk-sources", sources));
     more.append(el("p", "muted small walk-note", `Calculé à ${fmtTime(at)} avec les valeurs des modèles d'Open-Meteo (pas un radar), choisies valeur par valeur dans le même ordre que pour le tableau (modèles ci-dessus), pour votre position arrondie à 1 km. Selon la région, les valeurs à 15 minutes sont interpolées à partir de valeurs horaires. Un aperçu à prendre avec prudence : une averse locale peut échapper aux modèles, et plus le départ est lointain, moins la prévision est sûre.`));
     kids.push(more);

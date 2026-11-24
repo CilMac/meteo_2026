@@ -4,9 +4,9 @@ import { ENSEMBLE_FIRST_DAY, ENSEMBLE_MEDIAN_FROM, WET_MM } from "./ensemble.js?
 import { modelShort, modelLabel, next24h, firstWeek, secondWeek } from "./weather-provider.js?v=631084d1";
 
 export const TABS = [
-  { id: "precip", label: "Précipitations" },
-  { id: "temp", label: "Température" },
-  { id: "wind", label: "Vent" },
+  { id: "precip", label: "Précipitations", tip: "Afficher la pluie : quantité et probabilité" },
+  { id: "temp", label: "Température", tip: "Afficher les températures" },
+  { id: "wind", label: "Vent", tip: "Afficher le vent et les rafales" },
 ];
 
 // ---------- helpers purs ----------
@@ -183,10 +183,12 @@ function stat(family, label, shortLabel, value, model) {
     h("div", { class: "muted small stat-label" }, h("span", { class: "l-long", text: label }), h("span", { class: "l-short", text: shortLabel })), h("div", { class: "stat-val", text: value }), model ? h("div", { class: "tag", text: model }) : null);
 }
 
+// Épingle rouge = position actuelle de l'appareil, et rien d'autre (page principale et vue 🥾).
+export const buildPin = () => h("span", { class: "pin", "aria-hidden": "true", text: "📍" });
 // Ligne fixe du haut : lieu (à gauche) et situation calculée (à droite) ; le bouton de vue est entre les deux.
-export function buildTopPlace(data) {
+export function buildTopPlace(data, { here = false } = {}) {
   return h("span", { class: "top-place", title: `${data.location.name} (${data.location.country})` },
-    h("span", { class: "pin", "aria-hidden": "true", text: "📍" }),
+    here ? buildPin() : null,
     h("span", { class: "top-name", text: data.location.name }));
 }
 export function buildTopNow(data) {
@@ -519,6 +521,14 @@ export function howToItems(tab, { sectionLabel = "cette liste", hasMedian = fals
   return items;
 }
 
+// Infobulle d'un bloc repliable : dit ce que fera le clic, selon l'état (« Déplier les explications », « Replier les explications »).
+export function foldTip(details, what) {
+  const summary = details.querySelector("summary");
+  const tip = () => { summary.title = `${details.open ? "Replier" : "Déplier"} ${what}`; };
+  tip();
+  details.addEventListener("toggle", tip);
+  return details;
+}
 // Explications repliées par défaut ; l'état choisi est conservé quand la section est reconstruite (onglet, scénarios chargés).
 const howToOpen = {};
 function howTo(key, items) {
@@ -526,7 +536,7 @@ function howTo(key, items) {
     h("ul", { class: "howto-list muted small" }, items.map((t) => h("li", { text: t }))));
   d.open = Boolean(howToOpen[key]);
   d.addEventListener("toggle", () => { howToOpen[key] = d.open; });
-  return d;
+  return foldTip(d, "les explications");
 }
 
 const tmaxRange = (ens) => (ens?.tmax ? `T max ${num0(ens.tmax.p10)} à ${num0(ens.tmax.p90)} °C` : null); // 80 % des scénarios (dit dans l'aide)
@@ -735,7 +745,7 @@ export function buildWarnings(data, warnings) {
           a.status ? h("span", { class: "tag", text: a.status }) : null),
         a.area ? h("div", { class: "muted small", text: a.area }) : null,
         until ? h("div", { class: "muted small", text: `Valable jusqu'au ${until} (heure locale)` }) : null,
-        a.text ? h("details", {}, h("summary", { text: "Texte officiel" }), h("p", { class: "alert-text", text: a.text })) : null));
+        a.text ? foldTip(h("details", {}, h("summary", { text: "Texte officiel" }), h("p", { class: "alert-text", text: a.text })), "le texte officiel de l'alerte") : null));
     }
     card.append(list, h("p", { class: "muted small", text: "Alertes reproduites sans modification, telles que publiées par Environnement et Changement climatique Canada." }));
   }
