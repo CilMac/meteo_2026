@@ -26,7 +26,7 @@
   --wind-bg: #f0f4ec; --wind-sel: #e2ebdc; --wind-border: #708868;
 
   /* données météo : teintes douces, petites surfaces uniquement */
-  --rain: #5b8fb0; --wind: #4a9387; --wind-2: #b3d8d1; --alert-yellow: #d9a400; --alert-orange: #d9822b; --alert-red: #c0392b;
+  --rain: #5b8fb0; --wind: #4a9387; --wind-2: #b3d8d1; --alert-yellow: #d9a400; --alert-orange: #d9822b; --alert-red: #c0392b; --extreme: #b5352a;
   --trend-up: #2f7d4f; --trend-down: #a8412c; --trend-steady: #6f7d73; /* tendance de la pression ; rouge brique, pas celui des alertes */
 
   --fold-down: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23343c38' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 8.5l7 7 7-7'/%3E%3C/svg%3E");
@@ -333,6 +333,13 @@ body:has(dialog.modal[open]) { overflow: hidden; }
 .dmm { flex: none; width: 10px; height: 22px; display: flex; align-items: flex-end; background: color-mix(in srgb, var(--line) 70%, transparent); border-radius: 3px; overflow: hidden; }
 .dmm .vbar { width: 100%; background: var(--rain); border-radius: 3px; }
 .dmm .vbar.is-over { display: flex; justify-content: center; align-items: flex-start; background: var(--alert-red); color: #fff; font: 700 9px/10px var(--font-body); }
+/* jour hors du commun : pastille-bouton qui déborde dans la marge (la colonne ne change pas de largeur) ; zone de toucher agrandie */
+.day-alert { position: relative; margin: 0 -6px; padding: 1px 6px; border: 0; border-radius: 8px; background: var(--extreme); color: #fff; font: inherit; line-height: inherit; text-transform: inherit; text-align: left; cursor: pointer; box-shadow: inset 0 0 0 1px #0003, 0 1px 2px #0003; }
+.day-alert::after { content: ""; position: absolute; inset: -8px -6px; }
+.day-alert:hover { filter: brightness(1.08); } .day-alert:active { transform: translateY(1px); box-shadow: inset 0 0 0 1px #0003; }
+@media (max-width: 699px) { .dname .day-alert { width: min-content; } } /* vue détaillée sur téléphone : jour et date sur deux lignes, pastille au plus juste */
+dialog.extreme-modal { width: min(440px, calc(100vw - 24px)); }
+#extreme-links a { display: inline-block; padding: 6px 0; margin-right: 18px; }
 .c-name { font-weight: 600; text-transform: capitalize; font-size: 15px; white-space: nowrap; }
 .c-icon { font-size: 1.2rem; line-height: 1; text-align: center; }
 .c-val { font-size: 15px; font-weight: 600; text-align: right; white-space: nowrap; }

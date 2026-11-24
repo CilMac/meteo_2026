@@ -131,6 +131,53 @@ export function weekSummary(days) {
   return parts.join(" ");
 }
 
+// Jours marqués d'une pastille rouge : seuils propres à l'application (pas une vigilance officielle), un sujet par onglet.
+// Pluie : jusqu'à J+3 seulement (quantité non fiable au-delà, mesuré) ; température et vent : jusqu'à J+7, avant les médianes de scénarios.
+// La valeur comparée est la valeur AFFICHÉE (arrondie), pour qu'un « 90 km/h » lu soit toujours marqué.
+export const EXTREME = { rain: 50, gust: 90, hot: 35, cold: -10 };
+export const EXTREME_UNTIL = 7;
+export function extremeOf(d, tab) {
+  const out = [];
+  if (tab === "precip") {
+    const v = d.precipSum.value;
+    if (d.dayIndex <= RAIN_MM_UNTIL && isNum(v) && Math.round(v * 10) / 10 >= EXTREME.rain) {
+      out.push({ name: "fortes précipitations", value: `${num1(v)} mm prévus`, rule: `Jour marqué à partir de ${EXTREME.rain} mm dans la journée.`, model: d.precipSum.model });
+    }
+  } else if (d.dayIndex <= EXTREME_UNTIL && tab === "wind") {
+    const v = d.gustMax.value;
+    if (isNum(v) && Math.round(v) >= EXTREME.gust) out.push({ name: "rafales très fortes", value: `Rafales jusqu'à ${num0(v)} km/h`, rule: `Jour marqué à partir de ${EXTREME.gust} km/h.`, model: d.gustMax.model });
+  } else if (d.dayIndex <= EXTREME_UNTIL && tab === "temp") {
+    const hot = d.tempMax.value, cold = d.tempMin.value;
+    if (isNum(hot) && Math.round(hot) >= EXTREME.hot) out.push({ name: "forte chaleur", value: `Maximale de ${num0(hot)} °C`, rule: `Jour marqué à partir de ${EXTREME.hot} °C.`, model: d.tempMax.model });
+    if (isNum(cold) && Math.round(cold) <= EXTREME.cold) out.push({ name: "grand froid", value: `Minimale de ${num0(cold)} °C`, rule: `Jour marqué à ${num0(EXTREME.cold)} °C ou moins.`, model: d.tempMin.model });
+  }
+  return out;
+}
+const EXTREME_LIMIT = {
+  precip: "La quantité exacte à un endroit précis reste incertaine.",
+  wind: "Valeur calculée par un modèle : le relief et l'exposition du lieu peuvent changer les rafales.",
+  temp: "Température de l'air calculée par un modèle, pas le ressenti.",
+};
+// Contenu de la fenêtre d'explication (textes simples, testés sans page).
+export function extremeText(d, tab) {
+  const found = extremeOf(d, tab);
+  if (!found.length) return null;
+  const date = new Intl.DateTimeFormat("fr-FR", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" }).format(new Date(`${d.date}T12:00:00Z`));
+  return {
+    title: `${date[0].toUpperCase()}${date.slice(1)}\u00a0: ${found.map((x) => x.name).join(", ")}`,
+    lines: found.map((x) => ({ value: `${x.value}${x.model ? ` (${modelShort(x.model)})` : ""}.`, rule: x.rule })),
+    note: `Seuil propre à l'application\u00a0: ce n'est pas une vigilance officielle. ${EXTREME_LIMIT[tab]}`,
+  };
+}
+// Nom du jour : simple texte, ou pastille-bouton qui ouvre l'explication.
+function dayName(d, tab) {
+  const label = d.dayIndex === 0 ? "Auj." : dayLabel(d.date), found = extremeOf(d, tab);
+  if (!found.length) return label;
+  const what = found.map((x) => x.name).join(", ");
+  return h("button", { type: "button", class: "day-alert", "data-date": d.date, "aria-haspopup": "dialog", title: `${what[0].toUpperCase()}${what.slice(1)} : voir l'explication` },
+    label, h("span", { class: "sr-only", text: `, ${what}` }));
+}
+
 export function dayLabel(dateISO) {
   return new Intl.DateTimeFormat("fr-FR", { weekday: "short", day: "numeric", month: "numeric", timeZone: "UTC" })
     .format(new Date(`${dateISO}T12:00:00Z`)).replace(".", "");
@@ -488,7 +535,7 @@ function buildPeriod(days, tab, { sectionLabel, summary, ensemble }) {
       tag.push(ensemble === undefined ? "scénarios en chargement…" : "un seul scénario");
     }
     list.append(h("li", { class: "day" },
-      h("div", { class: "dname", text: d.dayIndex === 0 ? "Auj." : dayLabel(d.date) }),
+      h("div", { class: "dname" }, dayName(d, tab)),
       h("div", { class: "dicon", "aria-hidden": "true", title: info.label, text: info.icon }),
       bar, h("div", { class: "dval", text: value }), h("div", { class: "tag dmodel", text: tag.filter(Boolean).join(" · ") })));
   }
@@ -581,7 +628,7 @@ export function buildCompact(data, tab, ensemble) {
           isNum(d.gustMax.value) ? h("div", { class: "hbar", style: { width: `${minVisible(barPct(d.gustMax.value, wMax))}%`, background: "var(--wind-2)" } }) : null,
           isNum(d.windMax.value) ? h("div", { class: "hbar over", style: { width: `${minVisible(barPct(d.windMax.value, wMax))}%`, background: "var(--wind)" } }) : null);
         list.append(h("li", { class: "compact-day" },
-          h("span", { class: "c-name", text: d.dayIndex === 0 ? "Auj." : dayLabel(d.date) }),
+          h("span", { class: "c-name" }, dayName(d, tab)),
           h("span", { class: "c-icon", "aria-hidden": "true", title: info.label, text: info.icon }),
           bar, h("span", { class: "c-val", text: compactValue(v, tab) })));
       }

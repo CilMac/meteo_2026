@@ -1,20 +1,20 @@
 // Orchestration : lieu, un appel réseau par validation, onglets qui re-rendent sans appel réseau.
 import { FAVORITES, DEFAULT_PLACE, CUSTOM_ID, searchPlaces, validatePlace, placeLabel } from "./places.js?v=521daa6a";
 import { fetchForecast, localDateISO } from "./weather-provider.js?v=631084d1";
-import { loadWarnings } from "./warnings.js?v=79a17bd6";
+import { loadWarnings, officialSource } from "./warnings.js?v=79a17bd6";
 import { fetchEnsemble } from "./ensemble.js?v=88c38ccc";
 import { initInfo } from "./info.js?v=0231d5ac";
 import { initBarometer, preloadDial } from "./barometer.js?v=c389d0e2";
 import { createSkyLayer } from "./skymap.js?v=490696b3";
-import { initWalk } from "./walkui.js?v=2b16ce77";
+import { initWalk } from "./walkui.js?v=d897c777";
 import { localToMs } from "./walk.js?v=68874bb7";
 import { fetchObservedPressure, fetchPressureTrend, fetchObservedStorms, stormText, pressureDisplay, TREND_WORD } from "./observation.js?v=25a46dff";
 import { getPosition, reverseGeocode, placeFromPosition, storedGeoPlace, formatCoords, deniedHelp, GEO_ID, GEO_MAX_AGE_MS } from "./geo.js?v=b6df63a8";
 import { shouldRefresh, STALE_MS, TRY_GAP_MS, RETRY_MS, QUIET_WAIT_MS } from "./refresh.js?v=beadd3fe";
 import { createLoader } from "./loading.js?v=956b591b";
-import { makeRecord, saveRecord, loadJournal, exportText, exportName } from "./journal.js?v=5a6c3eb3";
+import { makeRecord, saveRecord, loadJournal, exportText, exportName } from "./journal.js?v=74bf18a5";
 import { chooseView, DEFAULT_VIEW, isIOS } from "./device.js?v=fddeae53";
-import { TABS, foldTip, buildPin, buildTopPlace, buildTopNow, buildCurrent, buildHourly, buildWeek, buildTrend, buildCompact, buildMini, COMPACT_HELP_ITEMS, buildSources, buildWarnings, buildAttribution, warningsStatus, formatLocal } from "./weather-render.js?v=bec4d6dd";
+import { TABS, foldTip, buildPin, buildTopPlace, buildTopNow, buildCurrent, buildHourly, buildWeek, buildTrend, buildCompact, buildMini, extremeText, COMPACT_HELP_ITEMS, buildSources, buildWarnings, buildAttribution, warningsStatus, formatLocal } from "./weather-render.js?v=383a7c5a";
 
 const $ = (id) => {
   const el = document.getElementById(id);
@@ -339,6 +339,35 @@ $("mini-refresh").addEventListener("click", () => locate(true));
 $("mini-map-btn").addEventListener("click", toggleMap);
 $("journal-export").addEventListener("click", exportJournal);
 document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("mini").hidden) setMini(false); });
+
+// Pastille rouge d'un jour : fenêtre d'explication (un seul écouteur, les lignes étant redessinées à chaque changement d'onglet).
+const extremeDlg = $("extreme");
+$("content").addEventListener("click", (e) => {
+  const btn = e.target.closest(".day-alert");
+  const day = btn && state.data?.daily.find((d) => d.date === btn.dataset.date);
+  const info = day && extremeText(day, state.tab);
+  if (!info) return;
+  $("extreme-title").textContent = info.title;
+  $("extreme-lines").replaceChildren(...info.lines.map((l) => {
+    const p = document.createElement("p"), b = document.createElement("strong");
+    b.textContent = l.value; p.append(b, ` ${l.rule}`);
+    return p;
+  }));
+  $("extreme-note").textContent = info.note;
+  const src = officialSource(state.place);
+  $("extreme-links").replaceChildren(...[src, src.extra].filter(Boolean).map((s) => {
+    const a = document.createElement("a");
+    a.href = s.url; a.rel = "noopener"; a.textContent = s.name;
+    return a;
+  }));
+  extremeDlg.showModal();
+});
+$("extreme-close").addEventListener("click", () => extremeDlg.close());
+extremeDlg.addEventListener("click", (e) => { // clic sur le voile seulement (même règle que les autres fenêtres)
+  if (e.target !== extremeDlg) return;
+  const r = extremeDlg.getBoundingClientRect();
+  if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) extremeDlg.close();
+});
 
 // Vigilances et sources : redessinés ensemble, car les sources citent ECCC si ses alertes sont affichées.
 function renderWarnings() {
