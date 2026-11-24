@@ -13,7 +13,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#f6f3eb" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#1b201d" media="(prefers-color-scheme: dark)">
-<link rel="stylesheet" href="styles.css?v=0adc1795">
+<link rel="stylesheet" href="styles.css?v=61063a22">
 </head>
 <body>
 <!-- Bandeau affiché si la page ne se charge pas correctement (fichiers manquants ou de versions différentes) -->
@@ -67,14 +67,15 @@
     <div class="topbar">
       <div class="top-row">
         <div id="top-place" class="top-cell top-cell-place" aria-live="polite"></div>
-        <div class="view-switch" role="group" aria-label="Type d'affichage">
-          <!-- deux états côte à côte : la vue en cours est enfoncée (fond, bordure et icône pleine) -->
-          <button type="button" id="view-detail" class="view-seg" aria-pressed="true" aria-label="Vue détaillée" title="Vue détaillée">
-            <svg class="vb-svg" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false"><rect x="4" y="3.5" width="16" height="7.5" rx="2"/><rect x="4" y="13" width="16" height="7.5" rx="2"/></svg>
-          </button>
-          <button type="button" id="view-compact" class="view-seg" aria-pressed="false" aria-label="Vue compacte (15 jours)" title="Vue compacte (15 jours)">
-            <svg class="vb-svg" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false"><path d="M4.5 6h15M4.5 10h15M4.5 14h15M4.5 18h15"/></svg>
-          </button>
+        <!-- petit déroulant : l'icône de la vue en cours et un chevron ; la vraie liste (native) est posée dessus, invisible -->
+        <div id="view-pick" class="view-pick">
+          <svg class="vb-svg vb-detail" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><rect x="4" y="3.5" width="16" height="7.5" rx="2"/><rect x="4" y="13" width="16" height="7.5" rx="2"/></svg>
+          <svg class="vb-svg vb-compact" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><path d="M4.5 6h15M4.5 10h15M4.5 14h15M4.5 18h15"/></svg>
+          <svg class="vb-svg vb-chevron" viewBox="0 0 12 12" width="10" height="10" aria-hidden="true" focusable="false"><path d="M2 4l4 4 4-4"/></svg>
+          <select id="view-select" aria-label="Type d'affichage" title="Type d'affichage">
+            <option value="detail">Vue détaillée</option>
+            <option value="compact">Vue compacte</option>
+          </select>
         </div>
         <div id="top-now" class="top-cell top-cell-now" aria-live="polite"></div>
       </div>
@@ -268,7 +269,7 @@
         <li><strong>Les onglets</strong> pilotent en même temps les prochaines 24 heures, les 7 jours et les jours 8 à 15. Changer d'onglet est instantané : rien n'est rechargé.</li>
         <li><strong>« Prochaines 24 heures »</strong> défile horizontalement. Changer d'onglet garde les mêmes heures à l'écran ; un autre lieu ou « Actualiser » repart de l'heure en cours. Onglet Précipitations : la barre verticale donne les mm (pleine à 3 mm), la petite barre horizontale le pourcentage.</li>
         <li><strong>« Situation actuelle »</strong> : valeurs calculées par un modèle pour l'heure en cours (pas un relevé de station).</li>
-        <li><strong>Vue compacte</strong> : le sélecteur à deux icônes au centre de la ligne du lieu (deux cartes empilées pour la vue détaillée, des lignes serrées pour la vue compacte ; la vue en cours est enfoncée) condense la situation actuelle et les 24 heures, et remplace le détail des 7 jours par un pavé d'une ligne par jour, en deux blocs (4 jours, puis 3) séparés par une phrase qui dit ce qui change à partir de là, et terminé par le même résumé que dans la vue détaillée (maximales, pluie notable, rappel de tendance). Les jours 8 à 15 sont repliés en dessous, sous le même bouton « Déplier » que dans la vue détaillée, avec la même phrase d'avertissement. Les longueurs de barres se comparent d'un bout à l'autre des 15 jours (même échelle). Le petit « i » du pavé rappelle ce que signifient les chiffres. Un clic sur l'icône de la vue détaillée y revient. Par défaut, la vue compacte s'ouvre sur iPhone et iPad, la vue détaillée sur ordinateur ; votre choix est ensuite retenu.</li>
+        <li><strong>Vue compacte</strong> : choisie dans le petit déroulant au centre de la ligne du lieu (son icône est celle de la vue en cours : deux cartes empilées pour la vue détaillée, des lignes serrées pour la vue compacte), elle condense la situation actuelle et les 24 heures, et remplace le détail des 7 jours par un pavé d'une ligne par jour, en deux blocs (4 jours, puis 3) séparés par une phrase qui dit ce qui change à partir de là, et terminé par le même résumé que dans la vue détaillée (maximales, pluie notable, rappel de tendance). Les jours 8 à 15 sont repliés en dessous, sous le même bouton « Déplier » que dans la vue détaillée, avec la même phrase d'avertissement. Les longueurs de barres se comparent d'un bout à l'autre des 15 jours (même échelle). Le petit « i » du pavé rappelle ce que signifient les chiffres. Le même déroulant ramène à la vue détaillée. Par défaut, la vue compacte s'ouvre sur iPhone et iPad, la vue détaillée sur ordinateur ; votre choix est ensuite retenu.</li>
         <li><strong>Jour ou nuit</strong> : l'interface suit le réglage de votre appareil (apparence claire ou sombre) ; il n'y a rien à régler dans la page.</li>
         <li><strong>« — »</strong> veut dire « donnée absente ». Ce n'est jamais un zéro déguisé : un vrai « 0 mm » est affiché « 0 mm ».</li>
       </ul>
@@ -426,6 +427,6 @@
   window.addEventListener("unhandledrejection", function (e) { show(String((e.reason && e.reason.message) || e.reason)); });
 })();
 </script>
-<script type="module" src="app.js?v=1dfda5a8"></script>
+<script type="module" src="app.js?v=0ff08073"></script>
 </body>
 </html>

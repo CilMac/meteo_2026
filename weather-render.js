@@ -174,8 +174,8 @@ export function buildCurrent(data, now = new Date()) {
     h("p", { class: "muted small cur-note-short", text: c.time ? `Valeurs calculées pour ${hourLabel(c.time)} (modèle).` : "Heure de la situation indisponible." }),
     h("div", { class: "cur-grid" },
       stat("precip", "Risque de pluie (max horaire du jour)", "Risque de pluie", isNum(d0.precipProbMax.value) ? `${num0(d0.precipProbMax.value)} %` : "—", modelsLine(d0, [["", "precipProbMax"]])),
-      stat("temp", "Min / max du jour", "Min / max", `${deg(d0.tempMin.value)} / ${deg(d0.tempMax.value)}`, modelsLine(d0, [["min", "tempMin"], ["max", "tempMax"]])),
-      stat("wind", "Vent actuel · rafales", "Vent · raf.", `${num0(c.wind)} · ${num0(c.gust)} km/h`, "")),
+      stat("temp", "Min / max du jour", "Min / max", `${deg(d0.tempMin.value)}\u00a0/ ${deg(d0.tempMax.value)}`, modelsLine(d0, [["min", "tempMin"], ["max", "tempMax"]])),
+      stat("wind", "Vent actuel · rafales", "Vent · raf.", `${num0(c.wind)}\u00a0· ${num0(c.gust)}\u00a0km/h`, "")),
     outlook ? h("p", { class: "outlook", text: outlook }) : null);
 }
 function stat(family, label, shortLabel, value, model) {

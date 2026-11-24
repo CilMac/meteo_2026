@@ -6,15 +6,15 @@ import { fetchEnsemble } from "./ensemble.js?v=88c38ccc";
 import { initInfo } from "./info.js?v=89ebfb1f";
 import { initBarometer, preloadDial } from "./barometer.js?v=c389d0e2";
 import { createSkyLayer } from "./skymap.js?v=490696b3";
-import { initWalk } from "./walkui.js?v=c59bfd96";
+import { initWalk } from "./walkui.js?v=c0efab6a";
 import { localToMs } from "./walk.js?v=68874bb7";
 import { fetchObservedPressure, fetchPressureTrend, fetchObservedStorms, stormText, pressureDisplay, TREND_WORD } from "./observation.js?v=25a46dff";
 import { getPosition, reverseGeocode, placeFromPosition, storedGeoPlace, formatCoords, deniedHelp, GEO_ID, GEO_MAX_AGE_MS } from "./geo.js?v=b6df63a8";
 import { shouldRefresh, STALE_MS, TRY_GAP_MS, RETRY_MS, QUIET_WAIT_MS } from "./refresh.js?v=beadd3fe";
 import { createLoader } from "./loading.js?v=956b591b";
-import { makeRecord, saveRecord, loadJournal, exportText, exportName } from "./journal.js?v=f033a713";
+import { makeRecord, saveRecord, loadJournal, exportText, exportName } from "./journal.js?v=a630f8b8";
 import { chooseView, isIOS } from "./device.js?v=78893f99";
-import { TABS, buildTopPlace, buildTopNow, buildCurrent, buildHourly, buildWeek, buildTrend, buildCompact, buildMini, COMPACT_HELP_ITEMS, buildSources, buildWarnings, buildAttribution, warningsStatus, formatLocal } from "./weather-render.js?v=6d68c32f";
+import { TABS, buildTopPlace, buildTopNow, buildCurrent, buildHourly, buildWeek, buildTrend, buildCompact, buildMini, COMPACT_HELP_ITEMS, buildSources, buildWarnings, buildAttribution, warningsStatus, formatLocal } from "./weather-render.js?v=9322936a";
 
 const $ = (id) => {
   const el = document.getElementById(id);
@@ -565,9 +565,9 @@ function applyView() {
   $("detail-only").hidden = compact; // situation et 24 h restent visibles dans les deux vues (condensées en compact)
   $("compact-only").hidden = !compact;
   $("content").classList.toggle("is-compact", compact);
-  // La vue en cours est signalée sur le sélecteur lui-même (aria-pressed, rendu enfoncé).
-  $("view-detail").setAttribute("aria-pressed", String(!compact));
-  $("view-compact").setAttribute("aria-pressed", String(compact));
+  // Le petit déroulant montre l'icône de la vue en cours.
+  $("view-select").value = state.view;
+  $("view-pick").dataset.view = state.view;
 }
 function setView(view) {
   if (state.view === view) return;
@@ -587,8 +587,7 @@ function setView(view) {
   for (const t of COMPACT_HELP_ITEMS) { const li = document.createElement("li"); li.textContent = t; ul.append(li); }
   $("compact-help").replaceChildren(ul);
 }
-$("view-detail").addEventListener("click", () => setView("detail"));
-$("view-compact").addEventListener("click", () => setView("compact"));
+$("view-select").addEventListener("change", () => setView($("view-select").value));
 $("compact-info-btn").addEventListener("click", () => {
   const open = $("compact-help").hidden; // hidden = fermé : un clic l'ouvre
   $("compact-help").hidden = !open;

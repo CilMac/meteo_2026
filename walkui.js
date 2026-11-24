@@ -3,7 +3,7 @@
 import { fetchNextHour, walkAdvice, walkSources, hourlyAt, mmPerHour, MAX_OFFSET_H, STEP_MS, SNOW_CM_PER_MM, WalkError } from "./walk.js?v=68874bb7";
 import { stormText } from "./observation.js?v=25a46dff";
 import { modelShort } from "./weather-provider.js?v=631084d1";
-import { MINI_MM_FULL } from "./weather-render.js?v=6d68c32f";
+import { MINI_MM_FULL } from "./weather-render.js?v=9322936a";
 
 // Échelle de la frise : la même que la barre de pluie du tableau « Lieu actuel » (pleine à 3 mm dans l'heure),
 // soit 0,75 mm par quart d'heure ; au-delà, bâton plein et rouge (choix de l'utilisateur, 22/11/2026).
