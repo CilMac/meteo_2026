@@ -434,8 +434,11 @@ dialog.baro-modal { width: min(440px, calc(100vw - 24px)); }
 .baro-needle { animation: baro-sweep 1.8s cubic-bezier(.2, .9, .25, 1.12) backwards; }
 @keyframes baro-sweep { from { transform: rotate(-135deg); } }
 @media (prefers-reduced-motion: reduce) { .baro-needle { animation: none; } }
-.baro-value { margin: 10px 0 0; font: 700 26px/1.2 var(--font-title); }
-.baro-trend { margin: 4px 0 0; font-weight: 600; text-wrap: balance; }
+.baro-trend { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 12px 0 0; font-size: 19px; font-weight: 600; line-height: 1.3; } .baro-trend .trend-arrow { width: 20px; height: 20px; margin: 0; }
+.baro-body .baro-rows { margin: 12px 0 0; padding: 0; list-style: none; text-align: left; } .baro-rows li { display: grid; grid-template-columns: 24px minmax(0, 1fr) auto; align-items: center; gap: 10px; min-height: 46px; padding: 8px 2px; border-top: 1px solid var(--line); line-height: 1.35; }
+.baro-what { overflow-wrap: anywhere; } .baro-time { color: var(--muted); font-size: 14px; font-variant-numeric: tabular-nums; } .baro-val { white-space: nowrap; font-variant-numeric: tabular-nums; } .is-now .baro-val, .is-past .baro-val { font-weight: 700; }
+.baro-mark { justify-self: center; width: 22px; height: 4px; border-radius: 2px; } .is-now .baro-mark { background: #241b12; } @media (prefers-color-scheme: dark) { .is-now .baro-mark { box-shadow: 0 0 0 1.5px #ece0bd; } } /* noire comme l'aiguille, cernée pour se voir sur fond sombre */ .is-past .baro-mark { background: #d9a53a; } .is-place .baro-mark { width: 10px; height: 10px; border: 2.5px solid var(--muted); border-radius: 50%; }
+.baro-body .howto { margin-top: 0; padding-top: 12px; border-top: 1px solid var(--line); text-align: left; } .baro-body .howto-list li { margin: 8px 0; }
 .baro-note { margin: 8px 0 0; }
 .mini-act { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; font-weight: 600; }
 .mini-svg { flex: none; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }

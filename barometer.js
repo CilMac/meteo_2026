@@ -79,6 +79,25 @@ export function baroSvg(pressure, past = null) {
 </svg>`;
 }
 
+// Signe de la tendance : flèche verte (hausse) ou rouge (baisse), simple trait si stable (dessinés : le caractère ↗ devient un pictogramme bleu sur iPhone).
+const SVG_NS = "http://www.w3.org/2000/svg";
+export function trendSign(dir) {
+  const svg = document.createElementNS(SVG_NS, "svg"), path = document.createElementNS(SVG_NS, "path");
+  for (const [k, v] of Object.entries({ class: `trend-arrow is-${dir}`, viewBox: "0 0 16 16", "aria-hidden": "true", focusable: "false" })) svg.setAttribute(k, v);
+  path.setAttribute("d", dir === "steady" ? "M3 8h10" : "M2 8h12M9 3l5 5-5 5");
+  svg.append(path);
+  return svg;
+}
+// Une ligne sous le cadran (repère, libellé, valeur) ; texte venu du réseau (nom de station) : toujours textContent.
+function panelRow({ key, label, time, value }) {
+  const make = (tag, cls, text = "") => Object.assign(document.createElement(tag), { className: cls, textContent: text });
+  const li = make("li", `is-${key}`), mark = make("span", "baro-mark"), what = make("span", "baro-what", label);
+  mark.setAttribute("aria-hidden", "true");
+  if (time) what.append(" ", make("span", "baro-time", time));
+  li.append(mark, what, make("span", "baro-val", value));
+  return li;
+}
+
 // Fenêtre du baromètre : ouverte depuis une pression affichée (page principale ou vue 🥾 : liste de { openBtn, getPressure }) ; l'aiguille balaie l'échelle depuis 950 hPa jusqu'à la valeur (animation CSS ; position finale correcte même sans animation).
 export function initBarometer(entries) {
   const $ = (id) => {
@@ -92,10 +111,16 @@ export function initBarometer(entries) {
     opener = openBtn;
     const info = getPressure(), p = typeof info?.hpa === "number" ? info.hpa : null;
     $("baro-dial").innerHTML = baroSvg(p, info?.trend?.hpa ?? null);
-    $("baro-trend").textContent = info?.trendText ?? "";
-    $("baro-trend").hidden = $("baro-trend-note").hidden = !info?.trendText;
-    $("baro-value").textContent = info?.text ?? baroLabel(p);
-    $("baro-src").textContent = info?.note ?? ""; // texte venu du réseau (nom de station) : toujours textContent
+    const panel = info?.panel ?? { trend: null, rows: [], notes: [] };
+    $("baro-trend").replaceChildren(...(panel.trend ? [trendSign(info.trend.dir), panel.trend] : []));
+    $("baro-trend").hidden = !panel.trend;
+    $("baro-rows").replaceChildren(...panel.rows.map(panelRow));
+    $("baro-notes").replaceChildren(...panel.notes.map(([what, text]) => {
+      const li = document.createElement("li");
+      li.append(Object.assign(document.createElement("strong"), { textContent: what }), ` : ${text}`);
+      return li;
+    }));
+    $("baro-more").open = false; // toujours replié à l'ouverture
     $("baro-range").hidden = !(typeof p === "number" && (p < BARO_MIN || p > BARO_MAX));
     dlg.showModal(); // l'aiguille est posée sur la valeur dès le dessin ; le balayage est une simple animation CSS qui y mène
   });

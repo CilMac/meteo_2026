@@ -4,12 +4,12 @@ import { fetchForecast, localDateISO } from "./weather-provider.js?v=631084d1";
 import { loadWarnings, officialSource } from "./warnings.js?v=79a17bd6";
 import { fetchEnsemble } from "./ensemble.js?v=88c38ccc";
 import { initInfo } from "./info.js?v=0231d5ac";
-import { initBarometer, preloadDial } from "./barometer.js?v=c389d0e2";
+import { initBarometer, preloadDial, trendSign } from "./barometer.js?v=f58dbfb8";
 import { createSkyLayer } from "./skymap.js?v=490696b3";
-import { initWalk } from "./walkui.js?v=3b50bf39";
+import { initWalk } from "./walkui.js?v=b13afaa3";
 import { buildHome, buildHomeNow, homeSteps, homeAlerts, homeHelp, homeMode, HOME_KEY, PHONE_QUERY } from "./home.js?v=b68edca5";
 import { localToMs, fetchNextHour } from "./walk.js?v=68874bb7";
-import { fetchObservedPressure, fetchPressureTrend, fetchObservedStorms, stormText, pressureDisplay, TREND_WORD } from "./observation.js?v=e2268b0b";
+import { fetchObservedPressure, fetchPressureTrend, fetchObservedStorms, stormText, pressureDisplay, TREND_WORD } from "./observation.js?v=6922543a";
 import { getPosition, reverseGeocode, placeFromPosition, storedGeoPlace, formatCoords, deniedHelp, GEO_ID, GEO_MAX_AGE_MS } from "./geo.js?v=b6df63a8";
 import { shouldRefresh, STALE_MS, TRY_GAP_MS, RETRY_MS, QUIET_WAIT_MS } from "./refresh.js?v=beadd3fe";
 import { createLoader } from "./loading.js?v=956b591b";
@@ -196,9 +196,7 @@ function showPressure(el, p) {
   const word = document.createElement("span");
   word.className = "sr-only"; word.textContent = `, ${TREND_WORD[p.trend.dir]}`;
   el.append(word);
-  el.insertAdjacentHTML("beforeend", '<svg class="trend-arrow" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path/></svg>');
-  el.lastElementChild.classList.add(`is-${p.trend.dir}`);
-  el.lastElementChild.firstElementChild.setAttribute("d", p.trend.dir === "steady" ? "M3 8h10" : "M2 8h12M9 3l5 5-5 5");
+  el.append(trendSign(p.trend.dir));
 }
 // Textes de la pression à l'heure du lieu ; la tendance arrive un peu après la mesure et complète l'affichage.
 const pressureOf = (data, observed, trend = null) => pressureDisplay(data.current.pressure, observed, (ms) => formatLocal(new Date(ms), data.location.timezone, { hour: "2-digit", minute: "2-digit" }), trend);
@@ -639,6 +637,7 @@ $("form").addEventListener("submit", (ev) => { ev.preventDefault(); showSelected
 
 // À l'ouverture de « Autre lieu », le curseur va directement dans le champ de saisie.
 foldTip($("other"), "la recherche d'une ville");
+foldTip($("baro-more"), "les explications");
 $("other").addEventListener("toggle", () => { if ($("other").open) $("q").focus(); });
 
 // Recherche d'un autre lieu : géocodage, liste complète des homonymes, choix explicite.

@@ -144,6 +144,28 @@ export function trendText(trend, fmtTime) {
   return `${trend.dir === "up" ? "En hausse : +" : "En baisse : −"}${Math.abs(trend.delta)}\u00a0hPa ${since}.`;
 }
 
+// Contenu de la fenêtre du baromètre : titre de tendance, lignes visibles (« now » et « past » légendent les aiguilles), explications repliées.
+const trendHead = (t) => (!t ? null : t.dir === "steady" ? "À peu près stable" : `En ${t.dir === "up" ? "hausse" : "baisse"} de ${Math.abs(t.delta)}\u00a0hPa`);
+const NOTE_WORDS = ["Mots du cadran", "indications traditionnelles, pour le décor. Une pression seule ne fait pas une prévision."];
+function measuredPanel(observed, trend, fmtTime) {
+  return {
+    trend: trendHead(trend),
+    rows: [
+      { key: "now", label: "Dernier relevé", time: fmtTime(observed.at), value: `${observed.hpa}\u00a0hPa` },
+      ...(trend ? [{ key: "past", label: "Environ 3\u00a0h avant", time: fmtTime(trend.at), value: `${trend.hpa}\u00a0hPa` }] : []),
+      { key: "place", label: `Station de ${observed.name}`, time: "", value: `à ${Math.round(observed.km)}\u00a0km` },
+    ],
+    notes: [
+      ...(trend ? [["Aiguilles", "noire, le dernier relevé ; dorée, environ 3 h plus tôt, à la même station."],
+        ["Tendance", "en général, une hausse accompagne une amélioration et une baisse une dégradation, sans que ce soit une prévision. La plupart des stations arrondissent au hPa : 1 hPa d'écart est dit « à peu près stable »."]] : []),
+      ["Mesure", `faite à la station météo d'aéroport la plus proche (${observed.station}), pas à l'emplacement exact.`],
+      ["Niveau de la mer", "la valeur y est ramenée selon l'atmosphère standard (QNH). Elle peut différer d'environ 1 à 2 hPa de celle calculée avec la température réelle, surtout pour une station en altitude par temps froid ou chaud."],
+      NOTE_WORDS,
+      ["Source", "messages METAR, via l'Iowa Environmental Mesonet."],
+    ],
+  };
+}
+
 // Textes de la pression affichée : mesure d'une station (valeur seule, avec le détail dans l'info-bulle) ou, à défaut, valeur du modèle (« ≈ »).
 // trend : tendance de cette mesure (jamais avec la valeur d'un modèle).
 export function pressureDisplay(model, observed, fmtTime = (ms) => new Date(ms).toISOString().slice(11, 16), trend = null) {
@@ -154,17 +176,21 @@ export function pressureDisplay(model, observed, fmtTime = (ms) => new Date(ms).
       // QNH : pression de la station ramenée au niveau de la mer avec l'atmosphère STANDARD (pas la température réelle, contrairement
       // à la pression au niveau de la mer des modèles) ; l'écart reste faible en plaine, plus marqué en altitude par temps froid ou chaud.
       title: `Pression MESURÉE à la station (QNH, ramenée au niveau de la mer selon l'atmosphère standard) : ${detail}.${trend ? ` ${trendText(trend, fmtTime)}` : ""}`,
-      note: `Pression mesurée par la station météo d'aéroport la plus proche, ramenée au niveau de la mer selon l'atmosphère standard (QNH) : ${detail}. Ce n'est pas la mesure de l'emplacement exact. Le QNH peut différer d'environ 1 à 2 hPa de la pression au niveau de la mer calculée avec la température réelle, surtout pour une station en altitude par temps froid ou chaud. Source : messages METAR, via l'Iowa Environmental Mesonet.`,
+      panel: measuredPanel(observed, trend, fmtTime),
     };
   }
   if (isNum(model)) {
     return {
       hpa: model, text: `≈ ${Math.round(model)} hPa`, measured: false,
       title: "Pression au niveau de la mer CALCULÉE par le modèle (aucune mesure de station récente à proximité).",
-      note: "Aucune station avec une mesure récente à proximité : la valeur est calculée par le modèle (pas une mesure).",
+      panel: {
+        trend: null,
+        rows: [{ key: "now", label: "Maintenant", time: "", value: `≈\u00a0${Math.round(model)}\u00a0hPa` }, { key: "place", label: "Calculée par un modèle, pas mesurée", time: "", value: "" }],
+        notes: [["Pourquoi « ≈ »", "aucune station avec une mesure récente à proximité : la valeur, au niveau de la mer, est calculée par le modèle. Sans mesure, pas de tendance."], NOTE_WORDS],
+      },
     };
   }
-  return { hpa: null, text: "— hPa", measured: false, title: "Pression indisponible", note: "Pression indisponible." };
+  return { hpa: null, text: "— hPa", measured: false, title: "Pression indisponible", panel: { trend: null, rows: [{ key: "place", label: "Pression indisponible", time: "", value: "" }], notes: [NOTE_WORDS] } };
 }
 
 // ── Orages OBSERVÉS (23/11/2026) ─────────────────────────────────────────────────────────────────────────────────────────────
