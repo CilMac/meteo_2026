@@ -7,7 +7,7 @@ import { initInfo } from "./info.js?v=0231d5ac";
 import { initBarometer, preloadDial } from "./barometer.js?v=c389d0e2";
 import { createSkyLayer } from "./skymap.js?v=490696b3";
 import { initWalk } from "./walkui.js?v=3b50bf39";
-import { buildHome, buildHomeNow, homeSteps, homeAlerts, homeHelp, homeMode, HOME_KEY, PHONE_QUERY } from "./home.js?v=d556b651";
+import { buildHome, buildHomeNow, homeSteps, homeAlerts, homeHelp, homeMode, HOME_KEY, PHONE_QUERY } from "./home.js?v=b68edca5";
 import { localToMs, fetchNextHour } from "./walk.js?v=68874bb7";
 import { fetchObservedPressure, fetchPressureTrend, fetchObservedStorms, stormText, pressureDisplay, TREND_WORD } from "./observation.js?v=e2268b0b";
 import { getPosition, reverseGeocode, placeFromPosition, storedGeoPlace, formatCoords, deniedHelp, GEO_ID, GEO_MAX_AGE_MS } from "./geo.js?v=b6df63a8";
@@ -346,7 +346,7 @@ $("mini-body").addEventListener("click", (e) => {
 // Pression de l'écran d'accueil : un seul bouton, replacé à chaque dessin de l'écran.
 const homeBaroBtn = Object.assign(document.createElement("button"), { type: "button", className: "home-baro", title: "Ouvrir le baromètre" });
 homeBaroBtn.setAttribute("aria-haspopup", "dialog");
-homeBaroBtn.append(...["Pression", ""].map((t) => Object.assign(document.createElement("span"), { textContent: t })));
+homeBaroBtn.innerHTML = '<svg class="mini-svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ico-baro"/></svg><span class="sr-only">Baromètre, pression : </span><span></span>';
 initBarometer([
   { openBtn: $("mini-baro-btn"), getPressure: () => geo.pressure },
   { openBtn: $("place-baro-btn"), getPressure: () => state.pressure },

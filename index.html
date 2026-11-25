@@ -13,7 +13,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#f6f3eb" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#1b201d" media="(prefers-color-scheme: dark)">
-<link rel="stylesheet" href="styles.css?v=08f8f45b">
+<link rel="stylesheet" href="styles.css?v=e75b687b">
 <script>
 // Téléphone, iPad : la page reste masquée le temps d'ouvrir l'écran d'accueil (app.js), 4 s au plus, pour ne pas apparaître une fraction de seconde avant lui.
 // Même règle que home.js et device.js (un test le vérifie).
@@ -22,7 +22,7 @@ try { if ((matchMedia("(max-width: 500px) and (pointer: coarse)").matches || /iP
 </head>
 <body>
 <!-- Icône du marcheur, dessinée une fois et reprise partout (icône « walk » de Tabler, licence MIT) -->
-<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><symbol id="ico-walk" viewBox="0 0 24 24"><path d="M12 4a1 1 0 1 0 2 0a1 1 0 1 0-2 0M7 21l3-4M16 21l-2-4l-3-3l1-6M6 12l2-3l4-1l3 3l3 1"/></symbol></svg>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><symbol id="ico-walk" viewBox="0 0 24 24"><path d="M12 4a1 1 0 1 0 2 0a1 1 0 1 0-2 0M7 21l3-4M16 21l-2-4l-3-3l1-6M6 12l2-3l4-1l3 3l3 1"/></symbol><symbol id="ico-baro" viewBox="0 0 24 24"><path d="M4.2 19a9 9 0 1 1 15.6 0M12 15l4-4.6M6.3 15h.8M8.1 10.4l.6.6M12 8.6v.9M17.7 15h-.8"/><circle cx="12" cy="15" r="1.3"/></symbol></svg>
 <!-- Bandeau affiché si la page ne se charge pas correctement (fichiers manquants ou de versions différentes) -->
 <div id="boot-error" role="alert" hidden style="position:sticky;top:0;z-index:100;padding:12px 16px;background:#fbede5;color:#343c38;border-bottom:3px solid #c88b6c;font:15px/1.45 system-ui,sans-serif">
   <strong>La page ne s'est pas chargée correctement.</strong> <span class="boot-msg"></span><br>
@@ -54,7 +54,7 @@ try { if ((matchMedia("(max-width: 500px) and (pointer: coarse)").matches || /iP
       <select id="place" title="Choisir un lieu : sa météo s'affiche aussitôt"></select>
       <button type="button" id="refresh" class="btn" title="Relire les prévisions du lieu affiché" hidden>Actualiser</button>
       <button type="button" id="place-baro-btn" class="btn mini-tool place-baro" aria-haspopup="dialog" hidden disabled>
-        <svg class="mini-svg" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9"/><path d="M12 12l3.5-4.5"/><path d="M7 16.2A6.4 6.4 0 0 1 5.6 12M8.4 7.4A6.4 6.4 0 0 1 12 5.6"/></svg><span class="sr-only">Baromètre, pression : </span><span id="place-pressure" class="mini-pressure"></span>
+        <svg class="mini-svg" viewBox="0 0 24 24" width="22" height="22" style="stroke-width:1.9" aria-hidden="true" focusable="false"><use href="#ico-baro"/></svg><span class="sr-only">Baromètre, pression : </span><span id="place-pressure" class="mini-pressure"></span>
       </button>
       <p id="where" class="muted"></p>
     </form>
@@ -182,7 +182,7 @@ try { if ((matchMedia("(max-width: 500px) and (pointer: coarse)").matches || /iP
       <p id="mini-gps" class="mini-gps"></p>
       <div id="mini-tools" class="mini-tools" hidden>
         <button type="button" id="mini-baro-btn" class="btn mini-tool mini-baro" aria-haspopup="dialog" title="Voir le baromètre" disabled>
-          <svg class="mini-svg" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9"/><path d="M12 12l3.5-4.5"/><path d="M7 16.2A6.4 6.4 0 0 1 5.6 12M8.4 7.4A6.4 6.4 0 0 1 12 5.6"/></svg><span class="sr-only">Baromètre, pression : </span><span id="mini-pressure" class="mini-pressure"></span>
+          <svg class="mini-svg" viewBox="0 0 24 24" width="22" height="22" style="stroke-width:1.9" aria-hidden="true" focusable="false"><use href="#ico-baro"/></svg><span class="sr-only">Baromètre, pression : </span><span id="mini-pressure" class="mini-pressure"></span>
         </button>
         <button type="button" id="mini-map-btn" class="btn mini-tool mini-map-btn" aria-expanded="false" aria-controls="mini-map-wrap" title="Afficher ou masquer la carte" disabled>
           <svg class="mini-svg" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path d="M9 4 3.5 6v14L9 18l6 2 5.5-2V4L15 6 9 4zM9 4v14M15 6v14"/></svg><span id="mini-map-label">Carte</span>
@@ -313,7 +313,7 @@ try { if ((matchMedia("(max-width: 500px) and (pointer: coarse)").matches || /iP
       <p>Un tableau de bord météo personnel, pensé pour iPhone et Mac : situation actuelle, prochaines 24 heures, 7 jours, puis une tendance jusqu'à 15 jours. Une vue à part, ouverte par le marcheur <svg class="ico-walk" viewBox="0 0 24 24" role="img" aria-label="marcheur" focusable="false"><use href="#ico-walk"/></svg>, donne les 12 prochaines heures à l'endroit où vous êtes. Usage personnel et non commercial, sans publicité ni compte, et sans collecte de données.</p>
 
       <h3>Écran d'accueil (téléphone et iPad)</h3>
-      <p>Au lancement sur téléphone ou iPad, un écran montre l'essentiel à votre <strong>position réelle</strong> : la situation du moment, la pluie des 4 prochaines heures par quart d'heure (titre, précision et bâtons : fond gris = maximum dessiné, 0,75 mm ; rouge = plus), les quatre heures suivantes (ciel, température, mm, probabilité en % avec sa barre horizontale, rafales), puis le lever et le coucher du soleil, la pression et le vent. Si 0 mm est prévu mais qu'une de ces heures atteint 30 % de probabilité, le titre devient « Sec, mais pluie possible ». Une température de 35 °C ou plus, ou de −10 °C ou moins, et des rafales de 90 km/h ou plus s'écrivent en rouge (mêmes seuils que la pastille rouge des jours ; ce n'est pas une vigilance officielle). Un encadré jaune n'apparaît que s'il y a lieu (orage, rafales de 50 km/h ou plus, jour hors du commun). En bas : « Toutes les prévisions » ouvre cette page, le marcheur ouvre les 12 prochaines heures, le « i » explique chaque zone ; la flèche circulaire, en haut à droite, actualise (l'heure de la dernière actualisation est sous le lieu). Toucher la pression ouvre le baromètre. La première fois, l'écran propose d'utiliser votre position ; si vous choisissez « Toutes les prévisions » ou refusez la position, il ne s'ouvre plus. La <strong>maison</strong>, entre le marcheur et le « i » de cette page, le rouvre à tout moment ; dès que la position est accordée, il revient aussi au lancement. Une position lue il y a moins de 10 minutes est reprise telle quelle. Il n'ajoute aucun relevé aux tests.</p>
+      <p>Au lancement sur téléphone ou iPad, un écran montre l'essentiel à votre <strong>position réelle</strong> : la situation du moment, la pluie des 4 prochaines heures par quart d'heure (titre, précision et bâtons : fond gris = maximum dessiné, 0,75 mm ; rouge = plus), les quatre heures suivantes (ciel, température, mm, probabilité en % avec sa barre horizontale, rafales), puis le lever et le coucher du soleil, la pression et le vent. Si 0 mm est prévu mais qu'une de ces heures atteint 30 % de probabilité, le titre devient « Sec, mais pluie possible ». Une température de 35 °C ou plus, ou de −10 °C ou moins, et des rafales de 90 km/h ou plus s'écrivent en rouge (mêmes seuils que la pastille rouge des jours ; ce n'est pas une vigilance officielle). Un encadré jaune n'apparaît que s'il y a lieu (orage, rafales de 50 km/h ou plus, jour hors du commun). En bas : « Toutes les prévisions » ouvre cette page, le marcheur ouvre les 12 prochaines heures, le « i » explique chaque zone ; la flèche circulaire, en haut à droite, actualise (l'heure de la dernière actualisation est sous le lieu). Toucher la pression (petit demi-cadran) ouvre le baromètre. La première fois, l'écran propose d'utiliser votre position ; si vous choisissez « Toutes les prévisions » ou refusez la position, il ne s'ouvre plus. La <strong>maison</strong>, entre le marcheur et le « i » de cette page, le rouvre à tout moment ; dès que la position est accordée, il revient aussi au lancement. Une position lue il y a moins de 10 minutes est reprise telle quelle. Il n'ajoute aucun relevé aux tests.</p>
 
       <h3>Choisir un lieu</h3>
       <p>Huit lieux sont proposés dans la liste (Bar-le-Duc par défaut), précédés de <strong>« 📍 Ma position »</strong> : toute la page (situation, 24 heures, 7 et 15 jours) pour la position réelle de l'appareil, recherchée à chaque choix, à chaque « Actualiser » et à l'ouverture si c'était le dernier lieu choisi. Si la position n'est pas disponible, le motif est affiché et la dernière position connue est montrée en le disant (ou, à défaut, le lieu affiché ne change pas). L'épingle rouge à gauche du nom, sous le cadre du choix, n'apparaît que pour votre position actuelle : ni pour un lieu de la liste, ni pour une dernière position connue. « Autre lieu » permet de chercher n'importe quelle ville : si plusieurs lieux portent le même nom, on choisit le bon dans la liste. Choisir un lieu dans la liste, ou toucher un résultat de la recherche, affiche aussitôt sa météo. Le dernier lieu validé est retenu sur cet appareil. Le dernier « Autre lieu » choisi reste en bas de la liste, même après avoir fermé l'application, jusqu'à la recherche suivante, qui le remplace. En <strong>revenant dans l'application</strong> (icône, onglet, appareil réveillé) avec des prévisions de plus de 30 minutes ou d'un autre jour, elles sont relues <strong>toutes seules</strong> : les anciennes restent affichées pendant ce temps, avec « Mise à jour des prévisions… ». En cas d'échec, une seconde tentative suit 5 secondes après, puis l'erreur reste affichée. Sous « Actualiser » (à côté sur téléphone), un bouton donne la <strong>pression</strong> au lieu affiché et ouvre le baromètre : relevé de la station d'aéroport la plus proche (moins de 100 km, moins de 3 h), sinon valeur du modèle précédée de « ≈ ». Un petit signe donne la <strong>tendance</strong> sur environ 3 heures, à la même station : flèche verte montante ou flèche rouge descendante à partir de 2 hPa d'écart, trait gris en dessous (à peu près stable) ; rien sans relevé à l'heure voulue, ni avec la valeur d'un modèle.</p>
@@ -471,7 +471,7 @@ try { if ((matchMedia("(max-width: 500px) and (pointer: coarse)").matches || /iP
   </div>
 
   <div class="modal-foot">
-    <p>Par CilMac et Claude Opus 5.5 · <span id="info-updated" title="Heure de Paris, notée à la dernière modification des fichiers du site">dernière modification : <time id="info-date" datetime="2026-11-25T14:29Z" data-v="e317f237">25 novembre 2026 à 15:29</time></span></p>
+    <p>Par CilMac et Claude Opus 5.5 · <span id="info-updated" title="Heure de Paris, notée à la dernière modification des fichiers du site">dernière modification : <time id="info-date" datetime="2026-11-25T14:41Z" data-v="d075b530">25 novembre 2026 à 15:41</time></span></p>
   </div>
 </dialog>
 
@@ -494,6 +494,6 @@ try { if ((matchMedia("(max-width: 500px) and (pointer: coarse)").matches || /iP
   window.addEventListener("unhandledrejection", function (e) { show(String((e.reason && e.reason.message) || e.reason)); });
 })();
 </script>
-<script type="module" src="app.js?v=3c9d2108"></script>
+<script type="module" src="app.js?v=0d013e2c"></script>
 </body>
 </html>

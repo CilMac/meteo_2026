@@ -202,7 +202,7 @@ export function buildHome({ data, steps, alerts, fmtTime, pressureEl }) {
   out.append(el("section", "home-zone home-facts",
     sun.polar ? fact("Soleil", sun.polar.replace("Soleil ", ""))
       : fact(el("span", "sun sun-rise", said("Lever du soleil : "), sun.rise), el("span", "sun sun-set", said("Coucher du soleil : "), sun.set)),
-    pressureEl, // bouton « Pression / valeur » : ouvre le baromètre
+    pressureEl, // bouton « icône, valeur, tendance » : ouvre le baromètre
     fact(el("span", "", said("Vent"), icon("wind")), isNum(data.current.wind) ? `${num0(data.current.wind)} km/h` : "— km/h")));
   return out;
 }
@@ -217,7 +217,7 @@ export function homeHelp(data, steps) {
     ["« Sec, mais pluie possible »", `0 mm prévu, mais une probabilité d'au moins ${RISK_PCT} % dans l'une des 4 heures. Probabilité et quantité sont deux informations distinctes, souvent de deux modèles.`],
     ["Les quatre heures", "« 11 h » = température et ciel à 11 h ; pluie (mm), probabilité de pluie (%, barre horizontale) et rafales (raf., en km/h) de 10 h à 11 h. La probabilité compte les pluies de plus de 0,1 mm, sur une maille d'environ 27 km : une bruine très fine peut lui échapper."],
     ["En rouge", `température ou rafales hors du commun : ${EXTREME.hot} °C ou plus, ${num0(EXTREME.cold)} °C ou moins, rafales de ${EXTREME.gust} km/h ou plus (seuils de la pastille rouge des jours). Ce n'est pas une vigilance officielle. Sur les bâtons de pluie, le rouge dit seulement que l'échelle est dépassée.`],
-    ["En bas", "lever et coucher du soleil, pression (mesurée à la station d'aéroport la plus proche ; « ≈ » = calculée par le modèle) avec sa tendance sur 3 heures (la toucher ouvre le baromètre), vent de maintenant."],
+    ["En bas", "lever et coucher du soleil, pression (petit demi-cadran ; mesurée à la station d'aéroport la plus proche ; « ≈ » = calculée par le modèle) avec sa tendance sur 3 heures (la toucher ouvre le baromètre), vent de maintenant."],
     ["Encadré jaune", "seulement s'il y a lieu : orage, rafales de 50 km/h ou plus, jour hors du commun. Ce n'est pas une vigilance officielle."],
     ...(data ? [["Modèles", homeSources(data, steps ?? [])]] : []),
   ];
