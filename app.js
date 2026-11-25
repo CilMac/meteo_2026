@@ -7,7 +7,7 @@ import { initInfo } from "./info.js?v=0231d5ac";
 import { initBarometer, preloadDial, trendSign } from "./barometer.js?v=f58dbfb8";
 import { createSkyLayer } from "./skymap.js?v=490696b3";
 import { initWalk } from "./walkui.js?v=b13afaa3";
-import { buildHome, buildHomeNow, homeSteps, homeAlerts, homeHelp, homeMode, HOME_KEY, PHONE_QUERY } from "./home.js?v=b68edca5";
+import { buildHome, buildHomeNow, homeSteps, homeAlerts, homeLegend, buildLegend, homeMode, HOME_KEY, PHONE_QUERY } from "./home.js?v=29de76f1";
 import { localToMs, fetchNextHour } from "./walk.js?v=68874bb7";
 import { fetchObservedPressure, fetchPressureTrend, fetchObservedStorms, stormText, pressureDisplay, TREND_WORD } from "./observation.js?v=6922543a";
 import { getPosition, reverseGeocode, placeFromPosition, storedGeoPlace, formatCoords, deniedHelp, GEO_ID, GEO_MAX_AGE_MS } from "./geo.js?v=b6df63a8";
@@ -421,12 +421,16 @@ $("home-refresh").addEventListener("click", () => fillHome());
 const homeHelpDlg = $("home-help");
 $("home-info").addEventListener("click", () => {
   const { data } = geo;
-  $("home-help-list").replaceChildren(...homeHelp(data, home.data === data ? home.steps : null).map(([what, text]) => {
+  const { sections, notes } = homeLegend(data, home.data === data ? home.steps : null);
+  $("home-legend").replaceChildren(buildLegend(sections));
+  $("home-notes").replaceChildren(...notes.map(([what, text]) => {
     const li = document.createElement("li"), b = document.createElement("strong");
     b.textContent = what; li.append(b, ` : ${text}`);
     return li;
   }));
+  $("home-more").open = false; // toujours replié à l'ouverture
   homeHelpDlg.showModal();
+  homeHelpDlg.querySelector(".modal-body").scrollTop = 0;
 });
 $("home-help-close").addEventListener("click", () => homeHelpDlg.close());
 homeHelpDlg.addEventListener("click", (e) => { // clic sur le voile seulement (même règle que les autres fenêtres)
@@ -638,6 +642,7 @@ $("form").addEventListener("submit", (ev) => { ev.preventDefault(); showSelected
 // À l'ouverture de « Autre lieu », le curseur va directement dans le champ de saisie.
 foldTip($("other"), "la recherche d'une ville");
 foldTip($("baro-more"), "les explications");
+foldTip($("home-more"), "les modèles et les sources");
 $("other").addEventListener("toggle", () => { if ($("other").open) $("q").focus(); });
 
 // Recherche d'un autre lieu : géocodage, liste complète des homonymes, choix explicite.
