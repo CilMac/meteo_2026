@@ -26,7 +26,7 @@
   --wind-bg: #f0f4ec; --wind-sel: #e2ebdc; --wind-border: #708868;
 
   /* données météo : teintes douces, petites surfaces uniquement */
-  --rain: #5b8fb0; --wind: #4a9387; --wind-2: #b3d8d1; --alert-yellow: #d9a400; --alert-orange: #d9822b; --alert-red: #c0392b; --extreme: #b5352a;
+  --rain: #5b8fb0; --wind: #4a9387; --wind-2: #b3d8d1; --alert-yellow: #d9a400; --alert-orange: #d9822b; --alert-red: #c0392b; --extreme: #b5352a; --extreme-text: #b5352a;
   --trend-up: #2f7d4f; --trend-down: #a8412c; --trend-steady: #6f7d73; /* tendance de la pression ; rouge brique, pas celui des alertes */
 
   --fold-down: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23343c38' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 8.5l7 7 7-7'/%3E%3C/svg%3E");
@@ -60,7 +60,7 @@
     --precip-bg: #27313a; --precip-sel: #33485a; --precip-border: #86a9c0;
     --temp-bg: #342e22; --temp-sel: #4a3f28; --temp-border: #cdab6e;
     --wind-bg: #2a322b; --wind-sel: #3a4b36; --wind-border: #93b08b;
-    --rain: #7fb3d6; --wind: #52c0b0; --wind-2: #2c6a62; --alert-yellow: #e6b800; --alert-orange: #e8923a; --alert-red: #e05a4b;
+    --rain: #7fb3d6; --wind: #52c0b0; --wind-2: #2c6a62; --alert-yellow: #e6b800; --alert-orange: #e8923a; --alert-red: #e05a4b; --extreme-text: #f58d80; /* texte rouge lisible sur fond sombre */
     --trend-up: #7cc79a; --trend-down: #f0957b; --trend-steady: #8e9a90;
   }
 }
@@ -647,8 +647,9 @@ dialog.home { --side: max(16px, calc((100% - 480px) / 2)); } /* marge : 16 px, o
 .home-top { padding: calc(18px + env(safe-area-inset-top)) calc(var(--side) + 6px) 18px; background: var(--home-top); border-bottom: 1px solid var(--home-edge); }
 .home-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
 .home-place { min-width: 0; color: var(--primary); font-weight: 700; font-size: 18px; line-height: 1.3; overflow-wrap: anywhere; } .home-place .pin { margin-right: 5px; font-size: 15px; }
-#home-refresh { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 44px; min-height: 44px; margin: -4px -6px -22px 0; padding: 0; border: 1px solid var(--home-edge); border-radius: 14px; background: color-mix(in srgb, var(--surface) 55%, transparent); color: var(--primary); }
-.home-when { margin: 2px 50px 0 0; font-variant-numeric: tabular-nums; color: var(--muted); font-size: 14px; line-height: 1.35; }
+#home-refresh { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 50px; min-height: 50px; margin: -4px -6px -28px 0; padding: 0; border: 1px solid var(--home-edge); border-radius: 14px; /* même taille que les boutons du bas */ background: color-mix(in srgb, var(--surface) 55%, transparent); color: var(--primary); }
+#home-refresh .mini-svg { width: 26px; height: 26px; }
+.home-when { margin: 2px 56px 0 0; font-variant-numeric: tabular-nums; color: var(--muted); font-size: 14px; line-height: 1.35; }
 .home-now { display: flex; align-items: center; gap: 14px; margin-top: 14px; }
 #home-now { display: flow-root; min-height: 82px; } .home-head { min-height: 27px; } .home-place:empty::before { content: "\00a0"; } /* place gardée pendant la recherche : le bandeau ne saute pas */
 .home-icon { font-size: 54px; line-height: 1; } .home-temp { font: 300 68px/1 var(--font-body); letter-spacing: -3px; }
@@ -658,15 +659,19 @@ dialog.home { --side: max(16px, calc((100% - 480px) / 2)); } /* marge : 16 px, o
 .home-zone { margin: 0; padding: 14px 16px; border: 1px solid var(--line); border-radius: var(--radius-panel); background: var(--surface); box-shadow: 0 2px 8px #39433112; }
 .home-alerts { border-color: var(--attention-border); background: var(--attention); color: var(--attention-ink); font-size: 14.5px; line-height: 1.4; } .home-alerts p { margin: 0; } .home-alerts p + p { margin-top: 4px; }
 .home-rain h2 { margin: 0; font-size: 18px; font-weight: 600; line-height: 1.3; } .home-rain h2.is-unknown { color: var(--muted); } .home-rain p { margin: 2px 0 0; color: var(--muted); font-size: 14.5px; line-height: 1.4; }
-.home-bars { --bars: 52px; margin-top: 12px; } .home-bars.is-wait { height: calc(var(--bars) + 22px); }
-.home-cols { display: flex; align-items: flex-end; gap: 4px; height: var(--bars); }
-.home-bar { flex: 1 1 0; min-width: 0; height: 3px; border-radius: 3px; background: var(--home-edge); } .home-bar.is-wet { background: var(--rain); } .home-bar.is-over { background: var(--alert-red); }
-.home-bar.is-missing { height: auto; background: none; color: var(--muted); font-size: 11px; line-height: 1; text-align: center; }
-.home-axis { display: flex; justify-content: space-between; margin-top: 5px; color: var(--muted); font-size: 12px; line-height: 17px; font-variant-numeric: tabular-nums; }
+.home-cap { display: flex; justify-content: space-between; gap: 8px; margin-top: 9px; color: var(--muted); font-size: 12.5px; line-height: 17px; white-space: nowrap; }
+.home-cap i { display: inline-block; width: 7px; height: 13px; margin-right: 5px; border-radius: 2px; background: var(--rain); vertical-align: -2px; } .home-cap i.is-over, .home-bar.is-over { background: var(--alert-red); }
+.home-bars { --bars: 52px; margin-top: 6px; } .home-bars.is-wait { height: calc(var(--bars) + 21px); }
+.home-cols { display: flex; gap: 3px; height: var(--bars); }
+.home-track { display: flex; flex: 1 1 0; align-items: flex-end; min-width: 0; border-radius: 3px; overflow: hidden; background: color-mix(in srgb, var(--line) 70%, transparent); } .home-bar { flex: 1; border-radius: 3px; background: var(--rain); }
+.home-track.is-missing { justify-content: center; background: none; color: var(--muted); font-size: 11px; line-height: 1; text-align: center; }
+.home-axis { display: flex; justify-content: space-between; margin-top: 4px; color: var(--muted); font-size: 12px; line-height: 17px; font-variant-numeric: tabular-nums; }
 .home-hours { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); padding: 12px 4px; }
 .home-hour { display: flex; flex-direction: column; align-items: center; min-width: 0; line-height: 1.35; font-variant-numeric: tabular-nums; } .home-hour + .home-hour { border-left: 1px solid var(--line); }
 .home-h-hour { color: var(--muted); font-size: 14px; } .home-h-icon { margin: 3px 0; font-size: 27px; line-height: 1.2; } .home-h-temp { font-size: 21px; font-weight: 500; line-height: 1.25; }
 .home-h-mm { margin-top: 2px; color: var(--muted); font-size: 14px; } .home-h-mm.is-wet { color: var(--ink); font-weight: 600; } .home-h-gust { color: var(--muted); font-size: 13px; white-space: nowrap; }
+.home-h-temp.is-extreme, .home-h-gust.is-extreme { color: var(--extreme-text); font-weight: 700; } .home-temp.is-extreme { color: var(--extreme-text); } @media (max-width: 699px) { .home-h-gust.is-extreme { font-size: 14px; } }
+.home-h-prob { margin-top: 5px; font-size: 15px; font-weight: 600; line-height: 1.25; } .hbar-box.home-h-bar { width: min(52px, 74%); height: 6px; margin: 3px 0 5px; } .home-h-bar .hbar { background: var(--rain); }
 .home-facts { display: grid; align-items: center; grid-template-columns: repeat(3, auto); justify-content: space-between; gap: 4px 12px; padding: 12px 22px; } .home-fact { font-size: 15px; line-height: 1.6; text-align: center; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .home-baro { display: flex; flex-direction: column; align-items: center; margin: -4px 0; padding: 4px 14px; border: 1.5px solid var(--btn-edge); border-radius: 14px; background: var(--paper); font-size: 15px; line-height: 1.6; white-space: nowrap; font-variant-numeric: tabular-nums; cursor: pointer; } .home-baro:active { filter: brightness(.94); }
 .home-baro:disabled { border-color: transparent; background: none; cursor: default; color: inherit; } /* sans valeur : plus un bouton */
@@ -680,10 +685,11 @@ dialog.home { --side: max(16px, calc((100% - 480px) / 2)); } /* marge : 16 px, o
 @keyframes home-turn { to { transform: rotate(1turn); } }
 @media (prefers-reduced-motion: reduce) { #home-refresh:disabled svg { animation: none; } }
 .home-help-list { margin: 0 0 14px; padding-left: 20px; } .home-help-list li + li { margin-top: 8px; }
-@media (min-height: 760px) { .home-bars { --bars: 78px; } .home-hours { padding-block: 16px; } .home-facts { padding-block: 15px; } }
-@media (max-width: 395px) { .home-foot .btn.primary { padding: 4px; font-size: 15px; } .home-foot .btn.go { margin-right: 4px; } .home-foot .btn:not(.primary) { width: 48px; } }
-@media (max-height: 700px) { #home-now { min-height: 62px; } .home-top { padding-block: calc(10px + env(safe-area-inset-top)) 10px; } .home-now { margin-top: 6px; } .home-temp { font-size: 56px; } .home-icon { font-size: 44px; } .home-bars { --bars: 40px; margin-top: 8px; } .home-body { gap: 8px; padding-block: 10px 6px; } .home-zone { padding: 10px 14px; } .home-hours { padding: 8px 4px; } .home-foot { padding-block: 6px calc(6px + env(safe-area-inset-bottom)); } }
-@media (max-width: 350px) { dialog.home { --side: 12px; } .home-zone { padding-inline: 10px; } .home-hours { padding-inline: 2px; } .home-facts { padding-inline: 12px; gap: 4px 8px; } .home-baro { padding-inline: 10px; } .home-axis { font-size: 11px; } .home-foot .btn { width: 46px; } .home-src { font-size: 10.5px; } }
+@media (min-height: 760px) { .home-bars { --bars: 58px; } .home-hours { padding-block: 13px; } }
+@media (max-width: 395px) { .home-foot .btn.primary { padding: 4px; font-size: 15px; } .home-foot .btn.go { margin-right: 4px; } .home-foot .btn:not(.primary), #home-refresh { width: 48px; } }
+@media (max-height: 700px) { #home-now { min-height: 62px; } .home-top { padding-block: calc(10px + env(safe-area-inset-top)) 10px; } .home-now { margin-top: 6px; } .home-temp { font-size: 56px; } .home-icon { font-size: 44px; } .home-cap { margin-top: 5px; } .home-bars { --bars: 36px; margin-top: 4px; } .home-body { gap: 8px; padding-block: 10px 6px; } .home-zone { padding: 8px 14px; } .home-hours { padding: 5px 4px; } .home-h-icon { margin: 1px 0; font-size: 24px; } .home-h-prob { margin-top: 2px; } .hbar-box.home-h-bar { margin: 2px 0 3px; } .home-foot { padding-block: 6px calc(6px + env(safe-area-inset-bottom)); } }
+@media (max-width: 350px) { dialog.home { --side: 12px; } .home-zone { padding-inline: 10px; } .home-hours { padding-inline: 2px; } .home-facts { padding-inline: 12px; gap: 4px 8px; } .home-baro { padding-inline: 10px; } .home-axis { font-size: 11px; } .home-cap { font-size: 11.5px; } .home-foot .btn { width: 46px; } .home-src { font-size: 10.5px; } }
+@media (max-width: 350px) and (max-height: 700px) { .home-bars { --bars: 22px; } }
 
 html.home-boot body > main { visibility: hidden; }
 .home-ask { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 12px; padding: 24px 28px; text-align: center; } .home-ask h2 { margin: 0; font: 400 28px/1.25 var(--font-title); } .home-ask p { margin: 0; color: var(--muted); }
@@ -699,12 +705,12 @@ html.home-boot body > main { visibility: hidden; }
   dialog.home { --side: max(24px, calc((100% - 640px) / 2)); }
   .home-place { font-size: 23px; } .home-place .pin { font-size: 19px; } .home-head { min-height: 33px; } .home-when { font-size: 16px; } #home-now { min-height: 108px; } .home-now { gap: 20px; margin-top: 18px; }
   .home-icon { font-size: 74px; } .home-temp { font-size: 90px; } .home-desc strong { font-size: 23px; } .home-desc span { font-size: 18px; }
-  .home-body { max-height: 900px; } .home-zone { padding: 20px 24px; } .home-rain h2 { font-size: 22px; } .home-rain p { font-size: 17px; } .home-bars { --bars: 110px; } .home-axis { font-size: 14px; }
-  .home-hours { padding: 20px 8px; } .home-h-hour { font-size: 17px; } .home-h-icon { font-size: 36px; } .home-h-temp { font-size: 27px; } .home-h-mm { font-size: 17px; } .home-h-gust { font-size: 15px; }
+  .home-body { max-height: 900px; } .home-zone { padding: 20px 24px; } .home-rain h2 { font-size: 22px; } .home-rain p { font-size: 17px; } .home-bars { --bars: 108px; } .home-cols { gap: 6px; } .home-cap { margin-top: 12px; font-size: 15px; line-height: 20px; } .home-axis { font-size: 14px; }
+  .home-hours { padding: 20px 8px; } .home-h-hour { font-size: 17px; } .home-h-icon { font-size: 36px; } .home-h-temp { font-size: 27px; } .home-h-mm { font-size: 17px; } .home-h-gust { font-size: 15px; } .home-h-prob { font-size: 18px; } .hbar-box.home-h-bar { width: 72px; height: 8px; }
   .home-facts { padding: 18px 40px; } .home-fact, .home-baro { font-size: 18px; } .home-alerts { font-size: 17px; } .home-src { font-size: 13px; }
 }
-@media (min-width: 700px) and (min-height: 700px) and (max-height: 900px) { .home-bars { --bars: 64px; } .home-zone { padding-block: 14px; } .home-hours { padding-block: 12px; } .home-facts { padding-block: 12px; } .home-temp { font-size: 76px; } .home-icon { font-size: 62px; } #home-now { min-height: 94px; } }
-@media (min-width: 700px) and (min-height: 1000px) { .home-top { padding-block: calc(30px + env(safe-area-inset-top)) 30px; } .home-temp { font-size: 108px; } .home-icon { font-size: 88px; } #home-now { min-height: 128px; } .home-bars { --bars: 150px; } .home-zone { padding: 28px; } .home-rain h2 { font-size: 25px; } .home-hours { padding: 32px 8px; } .home-h-hour, .home-h-mm { font-size: 19px; } .home-h-icon { font-size: 44px; } .home-h-temp { font-size: 33px; } .home-h-gust { font-size: 17px; } .home-facts { padding: 28px 40px; } .home-fact, .home-baro { font-size: 20px; } }
+@media (min-width: 700px) and (min-height: 700px) and (max-height: 900px) { .home-bars { --bars: 38px; } .home-zone { padding-block: 8px; } .home-hours { padding-block: 6px; } .home-facts { padding-block: 10px; } .home-cap { margin-top: 8px; } .home-h-icon { margin: 0; font-size: 30px; } .home-temp { font-size: 70px; } .home-icon { font-size: 62px; } #home-now { min-height: 72px; } .home-now { margin-top: 4px; } }
+@media (min-width: 700px) and (min-height: 1000px) { .home-top { padding-block: calc(30px + env(safe-area-inset-top)) 30px; } .home-temp { font-size: 108px; } .home-icon { font-size: 88px; } #home-now { min-height: 128px; } .home-bars { --bars: 134px; } .home-alerts ~ .home-rain .home-bars { --bars: 70px; } .home-zone { padding: 28px; } .home-rain h2 { font-size: 25px; } .home-hours { padding: 32px 8px; } .home-h-hour, .home-h-mm { font-size: 19px; } .home-h-icon { font-size: 44px; } .home-h-temp { font-size: 33px; } .home-h-gust { font-size: 17px; } .home-h-prob { font-size: 20px; } .hbar-box.home-h-bar { width: 84px; height: 9px; margin: 5px 0 7px; } .home-facts { padding: 28px 40px; } .home-fact, .home-baro { font-size: 20px; } }
 
 /* Icône du marcheur (bouton de la vue 12 heures, écran d'accueil, aide) */
 .ico-walk { display: inline-block; flex: none; width: 1.25em; height: 1.25em; vertical-align: -.25em; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }

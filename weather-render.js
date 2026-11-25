@@ -73,11 +73,12 @@ function outlookHour(timeISO, today, start = false) {
   return `${today && iso.slice(0, 10) > today ? "demain " : ""}${hourLabel(iso)}`;
 }
 // « entre 10 h et 16 h », « entre 22 h et demain 3 h », « entre demain 10 h et 16 h » (« demain » une seule fois).
-function outlookSpan(firstTime, lastTime, today) {
+export function outlookSpan(firstTime, lastTime, today) {
   const a = outlookHour(firstTime, today, true), b = outlookHour(lastTime, today);
   return `entre ${a} et ${a.startsWith("demain ") && b.startsWith("demain ") ? b.slice("demain ".length) : b}`;
 }
 
+export const RISK_PCT = 30; // 0 mm prévu mais risque signalé à partir de cette probabilité (page principale et écran d'accueil)
 // Phrase pratique sur les 24 h ; null si aucune donnée de pluie. Pas de conseil de sortie (hors V1).
 // `today` : date locale de la situation actuelle ; sans elle, aucun « demain » n'est ajouté.
 export function rainOutlook(hours, today = null) {
@@ -92,7 +93,7 @@ export function rainOutlook(hours, today = null) {
     return `Pluie attendue ${outlookSpan(wet[0].time, wet[wet.length - 1].time, today)} (environ ${num1(total)} mm au total).`;
   }
   const best = probs.reduce((m, h) => (!m || h.precipProb.value > m.precipProb.value ? h : m), null);
-  if (best && best.precipProb.value >= 30) return `Pas de pluie prévue en quantité, mais risque le plus marqué ${outlookSpan(best.time, best.time, today)} (${num0(best.precipProb.value)} %).`;
+  if (best && best.precipProb.value >= RISK_PCT) return `Pas de pluie prévue en quantité, mais risque le plus marqué ${outlookSpan(best.time, best.time, today)} (${num0(best.precipProb.value)} %).`;
   if (withPrecip.length < hours.length * 0.9) return "Données de pluie incomplètes sur cette période.";
   return "Pas de pluie attendue dans les 24 prochaines heures.";
 }

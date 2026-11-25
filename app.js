@@ -6,16 +6,16 @@ import { fetchEnsemble } from "./ensemble.js?v=88c38ccc";
 import { initInfo } from "./info.js?v=0231d5ac";
 import { initBarometer, preloadDial } from "./barometer.js?v=c389d0e2";
 import { createSkyLayer } from "./skymap.js?v=490696b3";
-import { initWalk } from "./walkui.js?v=7d6d846f";
-import { buildHome, buildHomeNow, homeSteps, homeAlerts, homeHelp, homeMode, HOME_KEY, PHONE_QUERY } from "./home.js?v=12da0987";
+import { initWalk } from "./walkui.js?v=3b50bf39";
+import { buildHome, buildHomeNow, homeSteps, homeAlerts, homeHelp, homeMode, HOME_KEY, PHONE_QUERY } from "./home.js?v=d556b651";
 import { localToMs, fetchNextHour } from "./walk.js?v=68874bb7";
 import { fetchObservedPressure, fetchPressureTrend, fetchObservedStorms, stormText, pressureDisplay, TREND_WORD } from "./observation.js?v=e2268b0b";
 import { getPosition, reverseGeocode, placeFromPosition, storedGeoPlace, formatCoords, deniedHelp, GEO_ID, GEO_MAX_AGE_MS } from "./geo.js?v=b6df63a8";
 import { shouldRefresh, STALE_MS, TRY_GAP_MS, RETRY_MS, QUIET_WAIT_MS } from "./refresh.js?v=beadd3fe";
 import { createLoader } from "./loading.js?v=956b591b";
-import { makeRecord, saveRecord, loadJournal, exportText, exportName } from "./journal.js?v=74bf18a5";
+import { makeRecord, saveRecord, loadJournal, exportText, exportName } from "./journal.js?v=e6b1a5fe";
 import { chooseView, DEFAULT_VIEW, isIOS } from "./device.js?v=fddeae53";
-import { TABS, foldTip, buildPin, buildTopPlace, buildTopNow, buildCurrent, buildHourly, buildWeek, buildTrend, buildCompact, buildMini, extremeText, COMPACT_HELP_ITEMS, buildSources, buildWarnings, buildAttribution, warningsStatus, formatLocal } from "./weather-render.js?v=383a7c5a";
+import { TABS, foldTip, buildPin, buildTopPlace, buildTopNow, buildCurrent, buildHourly, buildWeek, buildTrend, buildCompact, buildMini, extremeText, COMPACT_HELP_ITEMS, buildSources, buildWarnings, buildAttribution, warningsStatus, formatLocal } from "./weather-render.js?v=38232aca";
 
 const $ = (id) => {
   const el = document.getElementById(id);

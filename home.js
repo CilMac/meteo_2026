@@ -2,7 +2,7 @@
 // Tout le texte est écrit par textContent ; une donnée absente est « — », jamais 0.
 import { STEP_MS, stepKind, mmPerHour, GUST_WARN, LEVEL_WORD } from "./walk.js?v=68874bb7";
 import { next24h, modelShort } from "./weather-provider.js?v=631084d1";
-import { MINI_MM_FULL, isNum, num0, num1, deg, weatherInfo, isNight, sunTimes, hourLabel, extremeOf, modelsOf } from "./weather-render.js?v=383a7c5a";
+import { EXTREME, MINI_MM_FULL, RISK_PCT, minVisible, outlookSpan, isNum, num0, num1, deg, weatherInfo, isNight, sunTimes, hourLabel, extremeOf, modelsOf } from "./weather-render.js?v=38232aca";
 
 export const HOME_HOURS = 4;
 export const HOME_STEPS = HOME_HOURS * 4; // pas de 15 minutes
@@ -50,7 +50,8 @@ function wetWords(steps) {
 // La phrase de l'écran : un titre et une précision. Les heures sont celles d'un modèle par quart d'heure, pas d'un radar : « vers ».
 // Jamais « avant 15:45 » ni « jusqu'à 15:45 » pour la fin des 4 heures : on lirait que la pluie commence à ce moment-là.
 // nowCode : type de temps affiché en haut ; s'il annonce de la bruine, la phrase ne dit pas « sec » juste dessous.
-export function rainPhrase(steps, fmtTime, nowCode = null) {
+// risk : texte de homeRisk, ou null ; 0 mm mais une probabilité notable : la phrase ne dit plus « sec » sans réserve.
+export function rainPhrase(steps, fmtTime, nowCode = null, risk = null) {
   const total = rainTotal(steps);
   if (total === null) return { tone: "unknown", title: "Pluie des 4 prochaines heures inconnue", detail: "Données incomplètes." };
   const runs = wetRuns(steps), n = steps.length;
@@ -58,6 +59,7 @@ export function rainPhrase(steps, fmtTime, nowCode = null) {
   if (!runs.length) {
     return nowCode >= WET_CODE || steps.some((x) => x.mm > 0 || x.code >= WET_CODE)
       ? { tone: "dry", title: "Au plus quelques gouttes", detail: `${mm} prévu${s} en 4 heures.` }
+      : risk ? { tone: "dry", title: "Sec, mais pluie possible", detail: `0\u00a0mm prévu de ${at(0)} à ${end4}. ${risk}` }
       : { tone: "dry", title: "Sec pendant 4 heures", detail: `Aucune pluie prévue de ${at(0)} à ${end4}.` };
   }
   const what = wetWords(steps), start = runs[0][0], end = runs[runs.length - 1][1], until = end < n ? at(end) : null;
@@ -87,6 +89,17 @@ export function homeAlerts(data, steps, fmtTime) {
   return out;
 }
 
+// « Risque le plus marqué entre 14 h et 15 h (57 %). » si l'une des 4 heures atteint RISK_PCT (même seuil et mêmes mots que la page principale).
+export function homeRisk(data) {
+  const best = next24h(data).slice(0, HOME_HOURS).filter((x) => isNum(x.precipProb?.value)).reduce((m, x) => (!m || x.precipProb.value > m.precipProb.value ? x : m), null);
+  if (!best || best.precipProb.value < RISK_PCT) return null;
+  return `Risque le plus marqué ${outlookSpan(best.time, best.time, data.current.time ? data.current.time.slice(0, 10) : null)} (${num0(best.precipProb.value)}\u00a0%).`;
+}
+
+// Valeur hors du commun (en rouge) : mêmes seuils que la pastille rouge des jours, comparés à la valeur affichée (arrondie).
+export const isExtremeTemp = (v) => isNum(v) && (Math.round(v) >= EXTREME.hot || Math.round(v) <= EXTREME.cold);
+export const isExtremeGust = (v) => isNum(v) && Math.round(v) >= EXTREME.gust;
+
 // Les 4 prochaines heures (mêmes valeurs et même convention que la vue 🥾 : « 11 h » = pluie et rafales de 10 h à 11 h).
 export function homeHours(data) {
   return next24h(data).slice(0, HOME_HOURS).map((x) => {
@@ -94,15 +107,17 @@ export function homeHours(data) {
     return {
       hour: hourLabel(x.time), icon: w.icon, sky: w.label, temp: deg(x.temp.value),
       mm: isNum(x.precip.value) ? `${num1(x.precip.value)} mm` : "— mm", wet: isNum(x.precip.value) && x.precip.value > 0,
+      pct: isNum(x.precipProb?.value) ? x.precipProb.value : null, prob: isNum(x.precipProb?.value) ? `${num0(x.precipProb.value)}\u00a0%` : "—\u00a0%",
       gust: isNum(x.gust.value) ? num0(x.gust.value) : "—",
+      tempRed: isExtremeTemp(x.temp.value), gustRed: isExtremeGust(x.gust.value),
     };
   });
 }
 
-// « Heures : Météo-France. Quarts d'heure : Météo-France. »
+// « Heures : Météo-France. Probabilité : ECMWF. Quarts d'heure : Météo-France. »
 export function homeSources(data, steps) {
   const names = (ms) => [...new Set(ms.filter(Boolean).map(modelShort))].join(", ") || "modèle indisponible";
-  return `Heures : ${names(modelsOf(next24h(data).slice(0, HOME_HOURS), ["weatherCode", "temp", "precip", "gust"]))}. Quarts d'heure : ${names(steps.map((s) => s.src?.mm))}.`;
+  return `Heures : ${names(modelsOf(next24h(data).slice(0, HOME_HOURS), ["weatherCode", "temp", "precip", "gust"]))}. Probabilité : ${names(modelsOf(next24h(data).slice(0, HOME_HOURS), ["precipProb"]))}. Quarts d'heure : ${names(steps.map((s) => s.src?.mm))}.`;
 }
 
 // ── Construction ─────────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -126,15 +141,24 @@ function icon(name) {
   return hidden(svg);
 }
 
-// Bâtons : même échelle que « Balade ? » et le tableau 🥾 (plein à 3 mm dans l'heure, rouge au-delà) ; sec = simple trait.
+// Légende des bâtons : ce qu'ils mesurent, et ce que vaut un bâton plein (ou le rouge, dès qu'il y en a un).
+function barsCaption(steps) {
+  const full = `${(MINI_MM_FULL / 4).toLocaleString("fr-FR")}\u00a0mm`, over = steps?.some((s) => isNum(s.mm) && mmPerHour(s.mm) > MINI_MM_FULL);
+  return el("div", "home-cap", el("span", "", "Pluie en mm par quart d'heure"), el("span", "", hidden(el("i", over ? "is-over" : "")), over ? `plus de ${full}` : `plein\u00a0: ${full}`));
+}
+// Bâtons sur fond gris (le maximum dessiné) : même échelle que « Balade ? » et le tableau 🥾 (plein à 3 mm dans l'heure, rouge au-delà).
 function bars(steps, fmtTime) {
   const wrap = el("div", "home-bars"), cols = el("div", "home-cols"), axis = hidden(el("div", "home-axis"));
   wrap.setAttribute("role", "img");
   wrap.setAttribute("aria-label", `Pluie par quart d'heure : ${steps.map((s) => `${fmtTime(s.t - STEP_MS)}, ${isNum(s.mm) ? `${num1(s.mm)} mm` : "inconnu"}`).join(" ; ")}`);
   steps.forEach((s, i) => {
     const mmh = isNum(s.mm) ? mmPerHour(s.mm) : null;
-    const b = el("div", `home-bar${mmh === null ? " is-missing" : mmh > MINI_MM_FULL ? " is-over" : mmh > 0 ? " is-wet" : ""}`, mmh === null ? "—" : null);
-    if (mmh > 0) b.style.height = `${Math.max(10, Math.min(100, (mmh / MINI_MM_FULL) * 100))}%`;
+    const b = el("div", `home-track${mmh === null ? " is-missing" : ""}`, mmh === null ? "—" : null);
+    if (mmh > 0) {
+      const fill = el("div", `home-bar${mmh > MINI_MM_FULL ? " is-over" : ""}`);
+      fill.style.height = `${Math.max(8, Math.min(100, (mmh / MINI_MM_FULL) * 100))}%`;
+      b.append(fill);
+    }
     b.title = `De ${fmtTime(s.t - STEP_MS)} à ${fmtTime(s.t)} : ${isNum(s.mm) ? `${num1(s.mm)} mm` : "inconnu"}`;
     cols.append(b);
     if (i % 4 === 0) axis.append(el("span", "", fmtTime(s.t - STEP_MS)));
@@ -143,8 +167,15 @@ function bars(steps, fmtTime) {
   wrap.append(cols, axis);
   return wrap;
 }
+// Barre horizontale = probabilité (convention de toute l'appli : verticale = mm).
+function probBar(pct) {
+  const box = hidden(el("div", "hbar-box home-h-bar"));
+  if (isNum(pct)) { const b = el("div", "hbar"); b.style.width = `${minVisible(Math.max(0, Math.min(100, pct)))}%`; box.append(b); }
+  return box;
+}
 // Repère sur deux lignes : haut, bas.
 const fact = (top, bottom) => el("div", "home-fact", el("div", "", top), el("div", "", bottom));
+const RED = () => said("Hors du commun : "); // le rouge ne se voit pas à l'oreille
 const said = (text) => el("span", "sr-only", text); // lu par les lecteurs d'écran, à la place du dessin
 
 // Haut de l'écran : la situation à l'instant T, à la position de l'appareil.
@@ -152,21 +183,22 @@ export function buildHomeNow(data) {
   const c = data.current, info = weatherInfo(c.weatherCode, c.time ? isNight(c.time, data.daily) : false);
   return el("div", "home-now",
     hidden(el("span", "home-icon", info.icon)),
-    el("span", "home-temp", deg(c.temp)),
+    el("span", `home-temp${isExtremeTemp(c.temp) ? " is-extreme" : ""}`, isExtremeTemp(c.temp) ? RED() : null, deg(c.temp)),
     el("div", "home-desc", el("strong", "", info.label), el("span", "", `Ressenti ${deg(c.apparent)}`)));
 }
 
 // Zones : avertissements s'il y en a, pluie, quatre heures, repères. steps : undefined = en cours de lecture, null = illisibles.
 export function buildHome({ data, steps, alerts, fmtTime, pressureEl }) {
-  const phrase = steps ? rainPhrase(steps, fmtTime, data.current.weatherCode) : { tone: "unknown", title: steps === undefined ? "Lecture de la pluie…" : "Pluie par quart d'heure indisponible", detail: steps === undefined ? "Par quart d'heure, sur 4 heures." : "Les heures ci-dessous restent valables." };
+  const phrase = steps ? rainPhrase(steps, fmtTime, data.current.weatherCode, homeRisk(data)) : { tone: "unknown", title: steps === undefined ? "Lecture de la pluie…" : "Pluie par quart d'heure indisponible", detail: steps === undefined ? "Par quart d'heure, sur 4 heures." : "Les heures ci-dessous restent valables." };
   const sun = sunTimes(data.current.time ? data.current.time.slice(0, 10) : data.daily[0].date, data.daily), hours = homeHours(data), out = document.createDocumentFragment();
   if (alerts.length) out.append(el("section", "home-zone home-alerts", ...alerts.map((t) => el("p", "", t))));
   out.append(el("section", "home-zone home-rain",
     el("h2", `is-${phrase.tone}`, phrase.title), el("p", "", phrase.detail),
-    steps === null ? null : steps ? bars(steps, fmtTime) : el("div", "home-bars is-wait"))); // pendant la lecture, la place est gardée : rien ne saute
+    steps === null ? null : barsCaption(steps), steps === null ? null : steps ? bars(steps, fmtTime) : el("div", "home-bars is-wait"))); // pendant la lecture, la place est gardée : rien ne saute
   out.append(hours.length ? el("section", "home-zone home-hours", ...hours.map((x) => el("div", "home-hour",
-    el("span", "home-h-hour", x.hour), hidden(el("span", "home-h-icon", x.icon)), el("span", "sr-only", x.sky), el("span", "home-h-temp", x.temp),
-    el("span", `home-h-mm${x.wet ? " is-wet" : ""}`, x.mm), el("span", "home-h-gust", "raf. ", x.gust)))) : el("p", "home-zone muted", "Données horaires indisponibles."));
+    el("span", "home-h-hour", x.hour), hidden(el("span", "home-h-icon", x.icon)), el("span", "sr-only", x.sky), el("span", `home-h-temp${x.tempRed ? " is-extreme" : ""}`, x.tempRed ? RED() : null, x.temp),
+    el("span", `home-h-mm${x.wet ? " is-wet" : ""}`, x.mm),
+    el("span", "home-h-prob", said("Probabilité de pluie : "), x.prob), probBar(x.pct), el("span", `home-h-gust${x.gustRed ? " is-extreme" : ""}`, x.gustRed ? RED() : null, "raf. ", x.gust)))) : el("p", "home-zone muted", "Données horaires indisponibles."));
   out.append(el("section", "home-zone home-facts",
     sun.polar ? fact("Soleil", sun.polar.replace("Soleil ", ""))
       : fact(el("span", "sun sun-rise", said("Lever du soleil : "), sun.rise), el("span", "sun sun-set", said("Coucher du soleil : "), sun.set)),
@@ -180,9 +212,11 @@ export function homeHelp(data, steps) {
   const c = data?.current;
   return [ // [sujet en gras, explication]
     ["En haut", `la météo de maintenant, à votre position. C'est une estimation de modèle${c?.time ? ` pour ${c.time.slice(11, 16)}` : ""}, pas une mesure. La flèche, à droite, actualise.`],
-    ["Pluie", "un bâton par quart d'heure, sur 4 heures. Plein à 0,75 mm (soit 3 mm dans l'heure), rouge au-delà ; un simple trait : 0 mm. Les heures viennent d'un modèle, pas d'un radar : « vers »."],
+    ["Pluie", "un bâton par quart d'heure, sur 4 heures. Le fond gris est le maximum dessiné : un bâton plein vaut 0,75 mm (soit 3 mm dans l'heure) ; rouge, il y en a plus ; tout gris, 0 mm. Les heures viennent d'un modèle, pas d'un radar : « vers »."],
     ["« Au plus quelques gouttes »", "le modèle annonce de la bruine ou des gouttes, trop peu pour compter."],
-    ["Les quatre heures", "« 11 h » = température et ciel à 11 h, pluie et rafales (raf., en km/h) de 10 h à 11 h."],
+    ["« Sec, mais pluie possible »", `0 mm prévu, mais une probabilité d'au moins ${RISK_PCT} % dans l'une des 4 heures. Probabilité et quantité sont deux informations distinctes, souvent de deux modèles.`],
+    ["Les quatre heures", "« 11 h » = température et ciel à 11 h ; pluie (mm), probabilité de pluie (%, barre horizontale) et rafales (raf., en km/h) de 10 h à 11 h. La probabilité compte les pluies de plus de 0,1 mm, sur une maille d'environ 27 km : une bruine très fine peut lui échapper."],
+    ["En rouge", `température ou rafales hors du commun : ${EXTREME.hot} °C ou plus, ${num0(EXTREME.cold)} °C ou moins, rafales de ${EXTREME.gust} km/h ou plus (seuils de la pastille rouge des jours). Ce n'est pas une vigilance officielle. Sur les bâtons de pluie, le rouge dit seulement que l'échelle est dépassée.`],
     ["En bas", "lever et coucher du soleil, pression (mesurée à la station d'aéroport la plus proche ; « ≈ » = calculée par le modèle) avec sa tendance sur 3 heures (la toucher ouvre le baromètre), vent de maintenant."],
     ["Encadré jaune", "seulement s'il y a lieu : orage, rafales de 50 km/h ou plus, jour hors du commun. Ce n'est pas une vigilance officielle."],
     ...(data ? [["Modèles", homeSources(data, steps ?? [])]] : []),
