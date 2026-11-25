@@ -104,24 +104,36 @@ export function pressureTrend(observed, history) {
   return { hpa: past.hpa, at: past.at, delta, dir: delta >= TREND_MIN_HPA ? "up" : delta <= -TREND_MIN_HPA ? "down" : "steady" };
 }
 const historyCache = new Map();
+// L'IEM refuse (429) deux demandes d'historique dans la même seconde (vérifié le 25/11/2026) : à l'ouverture, l'écran d'accueil et la page
+// en font une chacun. Même station : lecture partagée, même en cours ; sinon une seule nouvelle tentative, un peu plus tard.
+export const TREND_RETRY_MS = 2000;
+async function readHistory(url, fetchImpl, timeoutMs) {
+  return timed(timeoutMs, async (signal) => {
+    let res;
+    try { res = await fetchImpl(url, { signal }); } catch (e) { throw new ObsError("network", `Historique de la station indisponible (réseau) : ${e.message}`); }
+    if (!res.ok) throw new ObsError("http", `Le service des stations a répondu HTTP ${res.status}`);
+    return res.text();
+  }, () => new ObsError("timeout", `Le service des stations ne répond pas (aucune réponse en ${seconds(timeoutMs)})`));
+}
 // Tendance de la station déjà choisie, ou null (relevé absent) ; lève ObsError si le service est illisible.
-export async function fetchPressureTrend(observed, { fetchImpl = fetch, now = Date.now(), timeoutMs = TIMEOUTS.pressure } = {}) {
+export async function fetchPressureTrend(observed, { fetchImpl = fetch, now = Date.now(), timeoutMs = TIMEOUTS.pressure, retryMs = TREND_RETRY_MS } = {}) {
   if (!observed || !/^[A-Z0-9]{3,8}$/.test(observed.station)) return null;
   const key = `${observed.station}|${observed.at}`;
   let hit = historyCache.get(key);
   if (!hit || now - hit.at > OBS_CACHE_MS) {
     const hours = Math.min(12, Math.ceil((now - observed.at + TREND_MS + TREND_TOLERANCE_MS) / 3600000) + 1);
     const q = `station=${observed.station}&data=alti&data=metar&hours=${hours}&tz=Etc/UTC&format=onlycomma&latlon=no&missing=null&trace=null&direct=no&report_type=3&report_type=4`;
-    const csv = await timed(timeoutMs, async (signal) => {
-      let res;
-      try { res = await fetchImpl(`${IEM_HISTORY_URL}?${q}`, { signal }); } catch (e) { throw new ObsError("network", `Historique de la station indisponible (réseau) : ${e.message}`); }
-      if (!res.ok) throw new ObsError("http", `Le service des stations a répondu HTTP ${res.status}`);
-      return res.text();
-    }, () => new ObsError("timeout", `Le service des stations ne répond pas (aucune réponse en ${seconds(timeoutMs)})`));
-    hit = { at: now, history: parseHistory(csv, observed.station) };
+    const url = `${IEM_HISTORY_URL}?${q}`;
+    const read = readHistory(url, fetchImpl, timeoutMs).catch(async (e) => {
+      if (e.kind === "timeout") throw e;
+      await new Promise((r) => setTimeout(r, retryMs)); // un 429 sans en-tête CORS se présente comme une panne de réseau
+      return readHistory(url, fetchImpl, timeoutMs);
+    });
+    hit = { at: now, history: read.then((csv) => parseHistory(csv, observed.station)) };
     historyCache.set(key, hit);
+    hit.history.catch(() => { if (historyCache.get(key) === hit) historyCache.delete(key); }); // échec : rien n'est gardé
   }
-  return pressureTrend(observed, hit.history);
+  return pressureTrend(observed, await hit.history);
 }
 export const TREND_WORD = { up: "en hausse", down: "en baisse", steady: "à peu près stable" };
 // « En hausse : +2 hPa depuis 16:00 (1023 hPa). » ; « À peu près stable depuis 16:00 (1024 hPa). »

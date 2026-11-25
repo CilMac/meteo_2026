@@ -18,7 +18,7 @@
   --attention: #fff4df; --attention-border: #a97930; --attention-ink: #5e4010;
   --night: #e4e8f3; --night-edge: #a3aec8; --night-ink: #2f3a52; /* pastilles d'heure après le coucher du soleil : bleu nuit pâle */
 
-  --note: #f1f3ed;
+  --note: #f1f3ed; --home-top: #ece4d1; --home-edge: #d9d0ba; /* écran d'accueil : crème plus soutenu */
   --btn-edge: #6f7d73; /* contour commun des boutons de « Lieu actuel » : assez foncé pour se voir sur le papier clair */
   /* une famille de couleur par rubrique : tuile, onglet, pastille de titre */
   --precip-bg: #eef4f8; --precip-sel: #ddebf4; --precip-border: #648599;
@@ -56,7 +56,7 @@
     --information: #263039; --information-border: #86a0b3;
     --attention: #3a3120; --attention-border: #d0a65c; --attention-ink: #f0d7a0;
     --night: #2b3246; --night-edge: #5f6b8e; --night-ink: #dde3f3;
-    --note: #2b312c;
+    --note: #2b312c; --home-top: #2b2f28; --home-edge: #454b41;
     --precip-bg: #27313a; --precip-sel: #33485a; --precip-border: #86a9c0;
     --temp-bg: #342e22; --temp-sel: #4a3f28; --temp-border: #cdab6e;
     --wind-bg: #2a322b; --wind-sel: #3a4b36; --wind-border: #93b08b;
@@ -415,8 +415,7 @@ dialog.extreme-modal { width: min(440px, calc(100vw - 24px)); }
 /* Vue minimale : les prochaines heures, un tableau et rien d'autre */
 .head-actions { display: flex; align-items: center; gap: 8px; flex: none; margin-top: 4px; }
 .head-actions .info-btn { margin-top: 0; }
-.mini-btn { display: inline-flex; align-items: center; justify-content: center; width: 44px; padding: 0; background: var(--precip-bg); border-color: var(--precip-border); } /* chaussure seule : « Rando ici ? » (le texte est lu par les lecteurs d'écran) */
-.mini-ico-boot { flex: none; font-size: 24px; line-height: 1; }
+.mini-btn { display: inline-flex; align-items: center; justify-content: center; width: 44px; padding: 0; background: var(--precip-bg); border-color: var(--precip-border); } /* marcheur seul : « Rando ici ? » (le texte est lu par les lecteurs d'écran) */
 @media (max-width: 520px) {
   /* Petit écran : Actualiser et Retour réduits à leur icône (le texte reste lu par les lecteurs d'écran) */
   .mini-act { width: 40px; padding: 0; justify-content: center; }
@@ -571,8 +570,8 @@ button.mini-hour:focus-visible { outline: 2px solid var(--ink); outline-offset: 
 
 /* Boutons de « Lieu actuel » : même contour, bien visible (la couleur de fond garde la distinction entre familles) */
 .mini .btn, .mini .btn.nav, .mini .mini-map-btn, .mini-btn { border: 1.5px solid var(--btn-edge); }
-#refresh, #place-baro-btn { border: 1.5px solid var(--btn-edge); } /* même trait que la chaussure (choix de l'utilisateur) ; le « i » garde le sien */
-#info-open { position: relative; width: 38px; height: 38px; font-size: 20px; } /* un peu plus petit que la chaussure (choix de l'utilisateur) */
+#refresh, #place-baro-btn { border: 1.5px solid var(--btn-edge); } /* même trait que le marcheur (choix de l'utilisateur) ; le « i » garde le sien */
+#info-open { position: relative; width: 38px; height: 38px; font-size: 20px; } /* un peu plus petit que le marcheur (choix de l'utilisateur) */
 #info-open::after { content: ""; position: absolute; inset: -4px; border-radius: 50%; } /* zone à toucher : 44 px comme avant */
 .mini .mini-map-btn[aria-expanded="true"] { border-width: 2px; }
 
@@ -639,3 +638,49 @@ dialog.walk-modal { width: min(480px, calc(100vw - 24px)); }
   .walk-x-label { display: none; }
   .walk-x { display: inline; font-size: 16px; }
 }
+
+/* Écran d'accueil (25/11/2026) : plein écran, une zone par sujet, tons crème */
+dialog.home { width: 100vw; max-width: none; height: 100dvh; max-height: none; margin: 0; padding: 0; border: 0; background: var(--paper); color: var(--ink); overflow-y: auto; overscroll-behavior: contain; }
+body:has(dialog.home[open]) { overflow: hidden; }
+.home-in { display: flex; flex-direction: column; min-height: 100%; max-width: 480px; margin-inline: auto; }
+.home-top { padding: calc(18px + env(safe-area-inset-top)) 22px 18px; background: var(--home-top); border-bottom: 1px solid var(--home-edge); }
+.home-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.home-place { min-width: 0; color: var(--primary); font-weight: 700; font-size: 18px; line-height: 1.3; overflow-wrap: anywhere; } .home-place .pin { margin-right: 5px; font-size: 15px; }
+.home-time { color: var(--muted); font-size: 16px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.home-when { margin: 2px 0 0; color: var(--muted); font-size: 14px; line-height: 1.35; }
+.home-now { display: flex; align-items: center; gap: 14px; margin-top: 14px; }
+.home-icon { font-size: 54px; line-height: 1; } .home-temp { font: 300 68px/1 var(--font-body); letter-spacing: -3px; }
+.home-desc { display: flex; flex-direction: column; min-width: 0; line-height: 1.4; } .home-desc strong { font-size: 18px; font-weight: 600; line-height: 1.25; } .home-desc span { color: var(--muted); font-size: 15px; }
+.home-msg { margin: 10px 22px 0; color: var(--muted); font-size: 15px; } .home-msg:empty { display: none; }
+.home-body { flex: 1; display: flex; flex-direction: column; justify-content: space-evenly; gap: 10px; padding: 14px 16px 8px; }
+.home-zone { margin: 0; padding: 14px 16px; border: 1px solid var(--line); border-radius: var(--radius-panel); background: var(--surface); box-shadow: 0 2px 8px #39433112; }
+.home-alerts { border-color: var(--attention-border); background: var(--attention); color: var(--attention-ink); font-size: 14.5px; line-height: 1.4; } .home-alerts p { margin: 0; } .home-alerts p + p { margin-top: 4px; }
+.home-rain h2 { margin: 0; font-size: 18px; font-weight: 600; line-height: 1.3; } .home-rain h2.is-unknown { color: var(--muted); } .home-rain p { margin: 2px 0 0; color: var(--muted); font-size: 14.5px; line-height: 1.4; }
+.home-bars { --bars: 52px; margin-top: 12px; } .home-bars.is-wait { height: calc(var(--bars) + 22px); }
+.home-cols { display: flex; align-items: flex-end; gap: 4px; height: var(--bars); }
+.home-bar { flex: 1 1 0; min-width: 0; height: 3px; border-radius: 3px; background: var(--home-edge); } .home-bar.is-wet { background: var(--rain); } .home-bar.is-over { background: var(--alert-red); }
+.home-bar.is-missing { height: auto; background: none; color: var(--muted); font-size: 11px; line-height: 1; text-align: center; }
+.home-axis { display: flex; justify-content: space-between; margin-top: 5px; color: var(--muted); font-size: 12px; line-height: 17px; font-variant-numeric: tabular-nums; }
+.home-hours { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); padding: 12px 4px; }
+.home-hour { display: flex; flex-direction: column; align-items: center; min-width: 0; line-height: 1.35; font-variant-numeric: tabular-nums; } .home-hour + .home-hour { border-left: 1px solid var(--line); }
+.home-h-hour { color: var(--muted); font-size: 14px; } .home-h-icon { margin: 3px 0; font-size: 27px; line-height: 1.2; } .home-h-temp { font-size: 21px; font-weight: 500; line-height: 1.25; }
+.home-h-mm { margin-top: 2px; color: var(--muted); font-size: 14px; } .home-h-mm.is-wet { color: var(--ink); font-weight: 600; } .home-h-gust { color: var(--muted); font-size: 13px; white-space: nowrap; }
+.home-facts { display: grid; grid-template-columns: repeat(3, auto); justify-content: space-between; gap: 4px 12px; padding: 12px 22px; } .home-fact { font-size: 15px; line-height: 1.6; text-align: center; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.home-ico { width: 22px; height: 22px; stroke-width: 1.9; color: var(--wind); vertical-align: -5px; } .home-fact .sun::before { width: 20px; height: 16px; }
+.home-src { flex: 1 0 100%; margin: 0; color: var(--muted); font-size: 11.5px; line-height: 1.5; text-align: center; } .home-src a { color: inherit; text-underline-offset: 2px; }
+.home-foot { position: sticky; bottom: 0; display: flex; flex-wrap: wrap; gap: 8px; padding: 8px 16px calc(8px + env(safe-area-inset-bottom)); background: var(--paper); }
+.home-foot .btn { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 50px; min-height: 50px; padding: 0; border-radius: 14px; background: var(--surface); border: 1.5px solid var(--btn-edge); color: var(--primary); }
+.home-foot .btn.go { margin-right: 10px; } .home-foot .btn.primary, .home-foot .btn.go { border-color: var(--precip-border); background: var(--precip-sel); color: var(--primary); } /* ces deux-là mènent ailleurs : bleu pâle (le bleu foncé plein était trop agressif) */
+.home-foot .btn.primary { flex: 1; width: auto; min-width: 0; padding: 4px 8px; line-height: 1.2; }
+.home-foot .ico-walk { width: 28px; height: 28px; } .home-foot .home-i { font: italic 700 22px/1 var(--font-title); } #home-refresh:disabled svg { animation: home-turn 1s linear infinite; }
+@keyframes home-turn { to { transform: rotate(1turn); } }
+@media (prefers-reduced-motion: reduce) { #home-refresh:disabled svg { animation: none; } }
+.home-help-list { margin: 0 0 14px; padding-left: 20px; } .home-help-list li + li { margin-top: 8px; }
+@media (min-height: 760px) { .home-bars { --bars: 78px; } .home-hours { padding-block: 16px; } .home-facts { padding-block: 15px; } }
+@media (max-width: 395px) { .home-foot .btn.primary { padding: 4px; font-size: 15px; } .home-foot .btn.go { margin-right: 4px; } .home-foot .btn:not(.primary) { width: 48px; } }
+@media (max-height: 700px) { .home-top { padding-block: calc(10px + env(safe-area-inset-top)) 10px; } .home-now { margin-top: 6px; } .home-temp { font-size: 56px; } .home-icon { font-size: 44px; } .home-bars { --bars: 40px; margin-top: 8px; } .home-body { gap: 8px; padding: 10px 16px 6px; } .home-zone { padding: 10px 14px; } .home-hours { padding: 8px 4px; } .home-foot { padding: 6px 16px calc(6px + env(safe-area-inset-bottom)); } }
+@media (max-width: 350px) { .home-body { padding-inline: 12px; } .home-zone { padding-inline: 10px; } .home-hours { padding-inline: 2px; } .home-facts { padding-inline: 14px; } .home-axis { font-size: 11px; } .home-foot { padding-inline: 12px; } .home-foot .btn { width: 46px; } .home-src { font-size: 10.5px; } }
+
+/* Icône du marcheur (bouton de la vue 12 heures, écran d'accueil, aide) */
+.ico-walk { display: inline-block; flex: none; width: 1.25em; height: 1.25em; vertical-align: -.25em; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.mini-btn .ico-walk { width: 28px; height: 28px; color: var(--primary); }

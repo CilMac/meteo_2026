@@ -1,7 +1,7 @@
 // Fenêtre « Balade dans l'heure ? » : lit la pluie, la neige et le contexte à 15 minutes à la position de l'appareil (walk.js) et affiche
 // le verdict, avec un sélecteur pour avancer le départ d'heure en heure. Tout le texte est écrit par textContent.
 import { fetchNextHour, walkAdvice, walkSources, hourlyAt, mmPerHour, MAX_OFFSET_H, STEP_MS, SNOW_CM_PER_MM, WalkError } from "./walk.js?v=68874bb7";
-import { stormText } from "./observation.js?v=25a46dff";
+import { stormText } from "./observation.js?v=e2268b0b";
 import { modelShort } from "./weather-provider.js?v=631084d1";
 import { MINI_MM_FULL, foldTip } from "./weather-render.js?v=383a7c5a";
 
@@ -160,7 +160,7 @@ export function initWalk({ getHere, fmtTime, getStorms = () => null, fallbackFoc
 
   async function load() {
     const here = getHere();
-    if (!here) { body.replaceChildren(el("p", "walk-msg is-err", "Position indisponible : ouvrez d'abord la vue 🥾 et attendez la position.")); return; }
+    if (!here) { body.replaceChildren(el("p", "walk-msg is-err", "Position indisponible : ouvrez d'abord la « Météo des 12 prochaines heures » et attendez la position.")); return; }
     const key = `${here.lat.toFixed(2)},${here.lon.toFixed(2)},${(here.models ?? []).join("+")}`;
     if (cache && Date.now() - cache.at < CACHE_MS && cache.key === key) { show(); return; }
     const id = ++seq;

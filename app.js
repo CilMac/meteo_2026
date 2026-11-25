@@ -6,9 +6,10 @@ import { fetchEnsemble } from "./ensemble.js?v=88c38ccc";
 import { initInfo } from "./info.js?v=0231d5ac";
 import { initBarometer, preloadDial } from "./barometer.js?v=c389d0e2";
 import { createSkyLayer } from "./skymap.js?v=490696b3";
-import { initWalk } from "./walkui.js?v=d897c777";
-import { localToMs } from "./walk.js?v=68874bb7";
-import { fetchObservedPressure, fetchPressureTrend, fetchObservedStorms, stormText, pressureDisplay, TREND_WORD } from "./observation.js?v=25a46dff";
+import { initWalk } from "./walkui.js?v=7d6d846f";
+import { buildHome, buildHomeNow, homeSteps, homeAlerts, homeHelp } from "./home.js?v=d2adb41e";
+import { localToMs, fetchNextHour } from "./walk.js?v=68874bb7";
+import { fetchObservedPressure, fetchPressureTrend, fetchObservedStorms, stormText, pressureDisplay, TREND_WORD } from "./observation.js?v=e2268b0b";
 import { getPosition, reverseGeocode, placeFromPosition, storedGeoPlace, formatCoords, deniedHelp, GEO_ID, GEO_MAX_AGE_MS } from "./geo.js?v=b6df63a8";
 import { shouldRefresh, STALE_MS, TRY_GAP_MS, RETRY_MS, QUIET_WAIT_MS } from "./refresh.js?v=beadd3fe";
 import { createLoader } from "./loading.js?v=956b591b";
@@ -221,9 +222,44 @@ function showMiniPlace(data, coords, named, pressure, at) {
   const st = stormText(geo.storms, (ms) => formatLocal(new Date(ms), data.location.timezone, { hour: "2-digit", minute: "2-digit" }));
   $("mini-storm").hidden = !st; $("mini-storm").textContent = st ?? "";
 }
+// Position de l'appareil, puis prévision, pression et orages à cet endroit, rangés dans `geo` (vue 🥾 et écran d'accueil).
+// Rend false si une autre recherche a pris le relais ; toute erreur est remontée.
+async function readHere(id, onFound = () => {}) {
+  const coords = await getPosition();
+  if (id !== geo.loadId) return false;
+  onFound();
+  let named = null;
+  try { named = await reverseGeocode(coords.latitude, coords.longitude); } catch { /* repli : « Position GPS » */ }
+  if (id !== geo.loadId) return false;
+  const place = placeFromPosition(coords, named);
+  if (!place) throw new Error("coordonnées ou fuseau horaire invalides");
+  // Prévision et pression mesurée (station la plus proche) en parallèle ; sans mesure, la valeur du modèle reste, marquée « ≈ ».
+  // Orages observés : même lecture du réseau de stations, faite après la pression (gardée 10 min, donc sans second appel).
+  const where = { latitude: coords.latitude, longitude: coords.longitude, countryCode: place.countryCode };
+  const observedP = fetchObservedPressure(where).catch(() => null);
+  const stormsP = observedP.then(() => fetchObservedStorms(where)).catch(() => null); // null = inconnu (rien affiché)
+  const trendP = trendOf(observedP);
+  const [data, observed, storms] = await Promise.all([fetchForecast(place), observedP, stormsP]);
+  if (id !== geo.loadId) return false;
+  Object.assign(geo, { at: Date.now(), data, coords, named: Boolean(named), pressure: pressureOf(data, observed), storms, recorded: false });
+  trendP.then((t) => {
+    if (!t || geo.data !== data) return; // une autre position a été chargée entre-temps
+    geo.pressure = pressureOf(data, observed, t);
+    if (geo.shown) { showPressure($("mini-pressure"), geo.pressure); $("mini-pressure").title = geo.pressure.title; }
+    if (homeDlg.open) renderHome();
+  });
+  return true;
+}
+// Carnet de relevés : la prévision affichée dans la vue 🥾 est gardée sur l'appareil (une fois), pour la comparer plus tard aux observations.
+function recordHere() {
+  if (geo.recorded) return;
+  geo.recorded = true;
+  const saved = saveRecord(makeRecord(geo.data, geo.coords, { named: geo.named, at: geo.at }));
+  showJournal(saved.ok ? null : "Relevé non enregistré : stockage de l'appareil plein ou bloqué.");
+}
 // quiet : retour dans l'application, l'ancien tableau (avec son heure d'actualisation) reste à l'écran pendant la recherche.
 async function locate(force = false, { quiet = false } = {}) {
-  if (!force && geo.data && Date.now() - geo.at < GEO_MAX_AGE_MS) { showMiniPlace(geo.data, geo.coords, geo.named, geo.pressure, geo.at); miniMessage(""); $("mini-map-btn").disabled = false; return; }
+  if (!force && geo.data && Date.now() - geo.at < GEO_MAX_AGE_MS) { showMiniPlace(geo.data, geo.coords, geo.named, geo.pressure, geo.at); miniMessage(""); $("mini-map-btn").disabled = false; recordHere(); return; }
   const id = ++geo.loadId;
   $("mini-refresh").disabled = true;
   if (!quiet) {
@@ -233,34 +269,10 @@ async function locate(force = false, { quiet = false } = {}) {
   }
   miniMessage(quiet ? "Mise à jour de votre position et de la météo…" : "Recherche de votre position…");
   try {
-    const coords = await getPosition();
-    if (id !== geo.loadId) return;
-    if (!quiet) miniMessage("Position trouvée, chargement de la météo…");
-    let named = null;
-    try { named = await reverseGeocode(coords.latitude, coords.longitude); } catch { /* repli : « Position GPS » */ }
-    if (id !== geo.loadId) return;
-    const place = placeFromPosition(coords, named);
-    if (!place) throw new Error("coordonnées ou fuseau horaire invalides");
-    // Prévision et pression mesurée (station la plus proche) en parallèle ; sans mesure, la valeur du modèle reste, marquée « ≈ ».
-    // Orages observés : même lecture du réseau de stations, faite après la pression (gardée 10 min, donc sans second appel).
-    const where = { latitude: coords.latitude, longitude: coords.longitude, countryCode: place.countryCode };
-    const observedP = fetchObservedPressure(where).catch(() => null);
-    const stormsP = observedP.then(() => fetchObservedStorms(where)).catch(() => null); // null = inconnu (rien affiché)
-    const trendP = trendOf(observedP);
-    const [data, observed, storms] = await Promise.all([fetchForecast(place), observedP, stormsP]);
-    if (id !== geo.loadId) return;
-    const pressure = pressureOf(data, observed);
-    Object.assign(geo, { at: Date.now(), data, coords, named: Boolean(named), pressure, storms });
-    showMiniPlace(data, coords, Boolean(named), pressure, geo.at);
+    if (!await readHere(id, () => { if (!quiet) miniMessage("Position trouvée, chargement de la météo…"); })) return;
+    showMiniPlace(geo.data, geo.coords, geo.named, geo.pressure, geo.at);
     miniMessage("");
-    trendP.then((t) => {
-      if (!t || geo.data !== data) return; // une autre position a été chargée entre-temps
-      geo.pressure = pressureOf(data, observed, t);
-      if (geo.shown) { showPressure($("mini-pressure"), geo.pressure); $("mini-pressure").title = geo.pressure.title; }
-    });
-    // Carnet de relevés : la prévision affichée est gardée sur l'appareil, pour la comparer plus tard aux observations.
-    const saved = saveRecord(makeRecord(data, coords, { named: Boolean(named), at: geo.at }));
-    showJournal(saved.ok ? null : "Relevé non enregistré : stockage de l'appareil plein ou bloqué.");
+    recordHere();
     $("mini-map-btn").disabled = false;
     if (!$("mini-map-wrap").hidden && globalThis.L) drawMap(globalThis.L); // carte ouverte : recentrée sur la nouvelle position
   } catch (e) {
@@ -339,6 +351,66 @@ $("mini-refresh").addEventListener("click", () => locate(true));
 $("mini-map-btn").addEventListener("click", toggleMap);
 $("journal-export").addEventListener("click", exportJournal);
 document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("mini").hidden) setMini(false); });
+
+// Écran d'accueil : les 4 heures à venir à la position de l'appareil. En essai (25/11/2026) : seulement avec l'adresse « ?accueil ».
+// « Toutes les prévisions » marche tout de suite : la page se charge dessous.
+const homeDlg = $("home");
+const home = { steps: undefined, data: null }; // steps : undefined = en cours de lecture, null = illisible ; data : prévision à laquelle ils se rapportent
+const homeTime = (ms) => formatLocal(new Date(ms), geo.data.location.timezone, { hour: "2-digit", minute: "2-digit" });
+function renderHome() {
+  const { data } = geo;
+  $("home-place").replaceChildren(buildPin(), data.location.name);
+  $("home-time").textContent = homeTime(geo.at);
+  const steps = home.data === data ? home.steps : undefined;
+  const pressureEl = document.createElement("span");
+  showPressure(pressureEl, geo.pressure); pressureEl.title = geo.pressure.title;
+  const storm = stormText(geo.storms, homeTime);
+  $("home-now").replaceChildren(buildHomeNow(data));
+  $("home-body").replaceChildren(buildHome({ data, steps, fmtTime: homeTime, pressureEl, alerts: [storm, ...homeAlerts(data, steps ?? [], homeTime)].filter(Boolean) }));
+}
+async function fillHome() {
+  const id = ++geo.loadId, msg = $("home-msg"), btn = $("home-refresh");
+  msg.textContent = geo.data ? "Mise à jour…" : "Recherche de votre position…";
+  btn.disabled = true;
+  try {
+    if (!await readHere(id, () => { if (!geo.data) msg.textContent = "Chargement de la météo…"; })) return;
+    const { data, coords, at } = geo;
+    msg.textContent = "";
+    renderHome();
+    let steps = null;
+    try {
+      const { rows } = await fetchNextHour({ lat: coords.latitude, lon: coords.longitude, models: data.metadata.modelsRequested });
+      steps = homeSteps(rows, at);
+    } catch { /* « indisponible » affiché */ }
+    if (geo.data !== data) return;
+    Object.assign(home, { data, steps });
+    renderHome();
+  } catch (e) {
+    if (id !== geo.loadId || !homeDlg.open) return;
+    if (e.kind === "denied" && !geo.data) { homeDlg.close(); return; } // position refusée : la page habituelle, jamais une autre ville présentée comme ici
+    msg.textContent = `${geo.data ? `Mise à jour impossible (valeurs de ${homeTime(geo.at)})` : "Position ou météo indisponible"} : ${e.message}`;
+  } finally { if (id === geo.loadId) btn.disabled = false; }
+}
+function openHome() { homeDlg.showModal(); $("home-all").focus(); fillHome(); }
+$("home-all").addEventListener("click", () => homeDlg.close());
+$("home-mini").addEventListener("click", () => { homeDlg.close(); setMini(true); });
+$("home-refresh").addEventListener("click", fillHome);
+const homeHelpDlg = $("home-help");
+$("home-info").addEventListener("click", () => {
+  const { data } = geo;
+  $("home-help-list").replaceChildren(...homeHelp(data, home.data === data ? home.steps : null).map(([what, text]) => {
+    const li = document.createElement("li"), b = document.createElement("strong");
+    b.textContent = what; li.append(b, ` : ${text}`);
+    return li;
+  }));
+  homeHelpDlg.showModal();
+});
+$("home-help-close").addEventListener("click", () => homeHelpDlg.close());
+homeHelpDlg.addEventListener("click", (e) => { // clic sur le voile seulement (même règle que les autres fenêtres)
+  if (e.target !== homeHelpDlg) return;
+  const r = homeHelpDlg.getBoundingClientRect();
+  if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) homeHelpDlg.close();
+});
 
 // Pastille rouge d'un jour : fenêtre d'explication (un seul écouteur, les lignes étant redessinées à chaque changement d'onglet).
 const extremeDlg = $("extreme");
@@ -580,6 +652,7 @@ $("refresh").addEventListener("click", () => { if (select.value === GEO_ID) show
 const lastAutoTry = { page: null, mini: null };
 async function autoRefresh({ retry = true } = {}) {
   if (document.hidden) return;
+  if (homeDlg.open && geo.data && Date.now() - geo.at >= GEO_MAX_AGE_MS) fillHome(); // écran d'accueil resté ouvert : relu lui aussi
   const now = Date.now(), view = $("mini").hidden ? "page" : "mini", lastTryMs = retry ? lastAutoTry[view] : null;
   let ok;
   if (view === "mini") {
@@ -650,5 +723,6 @@ applyView();
 try { localStorage.removeItem("meteo.theme"); } catch { /* ignoré */ }
 initInfo();
 
+if (new URLSearchParams(location.search).has("accueil")) openHome();
 // Premier lancement : lieu mémorisé (Bar-le-Duc par défaut).
 if (lastPlaceId() === GEO_ID) { select.value = GEO_ID; setPositionLabel(readStoredPosition()); showPosition(); } else load(readLastPlace());
