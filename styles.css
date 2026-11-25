@@ -649,6 +649,7 @@ body:has(dialog.home[open]) { overflow: hidden; }
 .home-time { color: var(--muted); font-size: 16px; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .home-when { margin: 2px 0 0; color: var(--muted); font-size: 14px; line-height: 1.35; }
 .home-now { display: flex; align-items: center; gap: 14px; margin-top: 14px; }
+#home-now { display: flow-root; min-height: 82px; } .home-head { min-height: 27px; } .home-place:empty::before { content: "\00a0"; } /* place gardée pendant la recherche : le bandeau ne saute pas */
 .home-icon { font-size: 54px; line-height: 1; } .home-temp { font: 300 68px/1 var(--font-body); letter-spacing: -3px; }
 .home-desc { display: flex; flex-direction: column; min-width: 0; line-height: 1.4; } .home-desc strong { font-size: 18px; font-weight: 600; line-height: 1.25; } .home-desc span { color: var(--muted); font-size: 15px; }
 .home-msg { margin: 10px 22px 0; color: var(--muted); font-size: 15px; } .home-msg:empty { display: none; }
@@ -678,8 +679,13 @@ body:has(dialog.home[open]) { overflow: hidden; }
 .home-help-list { margin: 0 0 14px; padding-left: 20px; } .home-help-list li + li { margin-top: 8px; }
 @media (min-height: 760px) { .home-bars { --bars: 78px; } .home-hours { padding-block: 16px; } .home-facts { padding-block: 15px; } }
 @media (max-width: 395px) { .home-foot .btn.primary { padding: 4px; font-size: 15px; } .home-foot .btn.go { margin-right: 4px; } .home-foot .btn:not(.primary) { width: 48px; } }
-@media (max-height: 700px) { .home-top { padding-block: calc(10px + env(safe-area-inset-top)) 10px; } .home-now { margin-top: 6px; } .home-temp { font-size: 56px; } .home-icon { font-size: 44px; } .home-bars { --bars: 40px; margin-top: 8px; } .home-body { gap: 8px; padding: 10px 16px 6px; } .home-zone { padding: 10px 14px; } .home-hours { padding: 8px 4px; } .home-foot { padding: 6px 16px calc(6px + env(safe-area-inset-bottom)); } }
+@media (max-height: 700px) { #home-now { min-height: 62px; } .home-top { padding-block: calc(10px + env(safe-area-inset-top)) 10px; } .home-now { margin-top: 6px; } .home-temp { font-size: 56px; } .home-icon { font-size: 44px; } .home-bars { --bars: 40px; margin-top: 8px; } .home-body { gap: 8px; padding: 10px 16px 6px; } .home-zone { padding: 10px 14px; } .home-hours { padding: 8px 4px; } .home-foot { padding: 6px 16px calc(6px + env(safe-area-inset-bottom)); } }
 @media (max-width: 350px) { .home-body { padding-inline: 12px; } .home-zone { padding-inline: 10px; } .home-hours { padding-inline: 2px; } .home-facts { padding-inline: 14px; } .home-axis { font-size: 11px; } .home-foot { padding-inline: 12px; } .home-foot .btn { width: 46px; } .home-src { font-size: 10.5px; } }
+
+html.home-boot body > main { visibility: hidden; }
+.home-ask { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 12px; padding: 24px 28px; text-align: center; } .home-ask h2 { margin: 0; font: 400 28px/1.25 var(--font-title); } .home-ask p { margin: 0; color: var(--muted); }
+.home-ask .btn { align-self: center; margin-top: 10px; padding-inline: 26px; min-height: 50px; border-radius: 14px; border-color: var(--precip-border); background: var(--precip-sel); color: var(--primary); font-weight: 600; }
+.home.is-ask :is(.home-top, .home-body, #home-mini, #home-refresh, #home-info) { display: none; } .home.is-ask .home-foot .btn.primary { background: var(--surface); border-color: var(--btn-edge); font-weight: 400; }
 
 /* Icône du marcheur (bouton de la vue 12 heures, écran d'accueil, aide) */
 .ico-walk { display: inline-block; flex: none; width: 1.25em; height: 1.25em; vertical-align: -.25em; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }

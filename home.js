@@ -7,6 +7,16 @@ import { MINI_MM_FULL, isNum, num0, num1, deg, weatherInfo, isNight, sunTimes, h
 export const HOME_HOURS = 4;
 export const HOME_STEPS = HOME_HOURS * 4; // pas de 15 minutes
 
+// Au lancement : « go » (écran, position cherchée aussitôt), « ask » (écran d'invitation : la demande de position ne surgit qu'au toucher
+// d'un bouton, pour qui n'a jamais donné sa position), « none » (page habituelle : ordinateur, ou position refusée ou déclinée sur cet appareil).
+// flag : « ok » | « no » | null (meteo.home) ; used : la position a déjà servi ici (relevés, « Ma position ») ; forced : adresse « ?accueil ».
+export const HOME_KEY = "meteo.home", PHONE_QUERY = "(max-width: 500px) and (pointer: coarse)";
+export function homeMode({ forced = false, phone = false, flag = null, used = false } = {}) {
+  if (forced) return "go";
+  if (!phone || flag === "no") return "none";
+  return flag === "ok" || used ? "go" : "ask";
+}
+
 // Les 16 quarts d'heure à partir de celui en cours. Une case manquante reste (mm inconnu) : rien n'est décalé ni deviné.
 export function homeSteps(rows, now) {
   const first = (Math.floor(now / STEP_MS) + 1) * STEP_MS; // fin du quart d'heure en cours

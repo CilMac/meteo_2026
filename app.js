@@ -7,7 +7,7 @@ import { initInfo } from "./info.js?v=0231d5ac";
 import { initBarometer, preloadDial } from "./barometer.js?v=c389d0e2";
 import { createSkyLayer } from "./skymap.js?v=490696b3";
 import { initWalk } from "./walkui.js?v=7d6d846f";
-import { buildHome, buildHomeNow, homeSteps, homeAlerts, homeHelp } from "./home.js?v=d2adb41e";
+import { buildHome, buildHomeNow, homeSteps, homeAlerts, homeHelp, homeMode, HOME_KEY, PHONE_QUERY } from "./home.js?v=48f45492";
 import { localToMs, fetchNextHour } from "./walk.js?v=68874bb7";
 import { fetchObservedPressure, fetchPressureTrend, fetchObservedStorms, stormText, pressureDisplay, TREND_WORD } from "./observation.js?v=e2268b0b";
 import { getPosition, reverseGeocode, placeFromPosition, storedGeoPlace, formatCoords, deniedHelp, GEO_ID, GEO_MAX_AGE_MS } from "./geo.js?v=b6df63a8";
@@ -222,6 +222,7 @@ function showMiniPlace(data, coords, named, pressure, at) {
   const st = stormText(geo.storms, (ms) => formatLocal(new Date(ms), data.location.timezone, { hour: "2-digit", minute: "2-digit" }));
   $("mini-storm").hidden = !st; $("mini-storm").textContent = st ?? "";
 }
+function setHomeFlag(v) { try { localStorage.setItem(HOME_KEY, v); } catch { /* ignoré */ } }
 // Position de l'appareil, puis prévision, pression et orages à cet endroit, rangés dans `geo` (vue 🥾 et écran d'accueil).
 // Rend false si une autre recherche a pris le relais ; toute erreur est remontée.
 async function readHere(id, onFound = () => {}) {
@@ -241,6 +242,7 @@ async function readHere(id, onFound = () => {}) {
   const trendP = trendOf(observedP);
   const [data, observed, storms] = await Promise.all([fetchForecast(place), observedP, stormsP]);
   if (id !== geo.loadId) return false;
+  setHomeFlag("ok"); // position accordée : l'écran d'accueil peut s'ouvrir au lancement
   Object.assign(geo, { at: Date.now(), data, coords, named: Boolean(named), pressure: pressureOf(data, observed), storms, recorded: false });
   trendP.then((t) => {
     if (!t || geo.data !== data) return; // une autre position a été chargée entre-temps
@@ -352,7 +354,7 @@ $("mini-map-btn").addEventListener("click", toggleMap);
 $("journal-export").addEventListener("click", exportJournal);
 document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("mini").hidden) setMini(false); });
 
-// Écran d'accueil : les 4 heures à venir à la position de l'appareil. En essai (25/11/2026) : seulement avec l'adresse « ?accueil ».
+// Écran d'accueil (25/11/2026) : les 4 heures à venir à la position de l'appareil, au lancement sur téléphone.
 // « Toutes les prévisions » marche tout de suite : la page se charge dessous.
 const homeDlg = $("home");
 const home = { steps: undefined, data: null }; // steps : undefined = en cours de lecture, null = illisible ; data : prévision à laquelle ils se rapportent
@@ -387,12 +389,23 @@ async function fillHome() {
     renderHome();
   } catch (e) {
     if (id !== geo.loadId || !homeDlg.open) return;
+    if (e.kind === "denied") setHomeFlag("no"); // ne plus l'ouvrir au lancement, jusqu'à ce que la position réussisse (vue 🥾)
     if (e.kind === "denied" && !geo.data) { homeDlg.close(); return; } // position refusée : la page habituelle, jamais une autre ville présentée comme ici
     msg.textContent = `${geo.data ? `Mise à jour impossible (valeurs de ${homeTime(geo.at)})` : "Position ou météo indisponible"} : ${e.message}`;
   } finally { if (id === geo.loadId) btn.disabled = false; }
 }
-function openHome() { homeDlg.showModal(); $("home-all").focus(); fillHome(); }
-$("home-all").addEventListener("click", () => homeDlg.close());
+function openHome(mode) {
+  homeDlg.showModal();
+  document.documentElement.classList.remove("home-boot"); // la page était masquée le temps d'ouvrir l'écran (index.html)
+  $("home-ask").hidden = mode !== "ask"; homeDlg.classList.toggle("is-ask", mode === "ask");
+  if (mode === "ask") { $("home-ask-btn").focus(); return; }
+  $("home-all").focus(); fillHome();
+}
+$("home-ask-btn").addEventListener("click", () => { $("home-ask").hidden = true; homeDlg.classList.remove("is-ask"); $("home-all").focus(); fillHome(); });
+$("home-all").addEventListener("click", () => {
+  if (homeDlg.classList.contains("is-ask")) setHomeFlag("no"); // invitation déclinée : elle ne revient pas
+  homeDlg.close();
+});
 $("home-mini").addEventListener("click", () => { homeDlg.close(); setMini(true); });
 $("home-refresh").addEventListener("click", fillHome);
 const homeHelpDlg = $("home-help");
@@ -723,6 +736,15 @@ applyView();
 try { localStorage.removeItem("meteo.theme"); } catch { /* ignoré */ }
 initInfo();
 
-if (new URLSearchParams(location.search).has("accueil")) openHome();
+{
+  let flag = null;
+  try { flag = localStorage.getItem(HOME_KEY); } catch { /* stockage indisponible */ }
+  const mode = homeMode({
+    forced: new URLSearchParams(location.search).has("accueil"), phone: matchMedia(PHONE_QUERY).matches, flag,
+    used: lastPlaceId() === GEO_ID || Boolean(readStoredPosition()) || loadJournal().length > 0,
+  });
+  if (mode !== "none") openHome(mode);
+  document.documentElement.classList.remove("home-boot");
+}
 // Premier lancement : lieu mémorisé (Bar-le-Duc par défaut).
 if (lastPlaceId() === GEO_ID) { select.value = GEO_ID; setPositionLabel(readStoredPosition()); showPosition(); } else load(readLastPlace());
