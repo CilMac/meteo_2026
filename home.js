@@ -8,12 +8,12 @@ export const HOME_HOURS = 4;
 export const HOME_STEPS = HOME_HOURS * 4; // pas de 15 minutes
 
 // Au lancement : « go » (écran, position cherchée aussitôt), « ask » (écran d'invitation : la demande de position ne surgit qu'au toucher
-// d'un bouton, pour qui n'a jamais donné sa position), « none » (page habituelle : ordinateur, ou position refusée ou déclinée sur cet appareil).
-// flag : « ok » | « no » | null (meteo.home) ; used : la position a déjà servi ici (relevés, « Ma position ») ; forced : adresse « ?accueil ».
+// d'un bouton, pour qui n'a jamais donné sa position), « none » (page habituelle : ordinateur, tablette autre qu'iPad, ou position refusée ou déclinée sur cet appareil).
+// mobile : téléphone (PHONE_QUERY) ou appareil iOS, iPad compris (device.js). flag : « ok » | « no » | null (meteo.home) ; used : la position a déjà servi ici (relevés, « Ma position ») ; forced : adresse « ?accueil ».
 export const HOME_KEY = "meteo.home", PHONE_QUERY = "(max-width: 500px) and (pointer: coarse)";
-export function homeMode({ forced = false, phone = false, flag = null, used = false } = {}) {
+export function homeMode({ forced = false, mobile = false, flag = null, used = false } = {}) {
   if (forced) return "go";
-  if (!phone || flag === "no") return "none";
+  if (!mobile || flag === "no") return "none";
   return flag === "ok" || used ? "go" : "ask";
 }
 

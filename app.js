@@ -7,7 +7,7 @@ import { initInfo } from "./info.js?v=0231d5ac";
 import { initBarometer, preloadDial } from "./barometer.js?v=c389d0e2";
 import { createSkyLayer } from "./skymap.js?v=490696b3";
 import { initWalk } from "./walkui.js?v=7d6d846f";
-import { buildHome, buildHomeNow, homeSteps, homeAlerts, homeHelp, homeMode, HOME_KEY, PHONE_QUERY } from "./home.js?v=4ca22481";
+import { buildHome, buildHomeNow, homeSteps, homeAlerts, homeHelp, homeMode, HOME_KEY, PHONE_QUERY } from "./home.js?v=12da0987";
 import { localToMs, fetchNextHour } from "./walk.js?v=68874bb7";
 import { fetchObservedPressure, fetchPressureTrend, fetchObservedStorms, stormText, pressureDisplay, TREND_WORD } from "./observation.js?v=e2268b0b";
 import { getPosition, reverseGeocode, placeFromPosition, storedGeoPlace, formatCoords, deniedHelp, GEO_ID, GEO_MAX_AGE_MS } from "./geo.js?v=b6df63a8";
@@ -377,15 +377,19 @@ function renderHome() {
   $("home-body").replaceChildren(buildHome({ data, steps, fmtTime: homeTime, pressureEl: homeBaroBtn, alerts: [storm, ...homeAlerts(data, steps ?? [], homeTime)].filter(Boolean) }));
   if (baroHadFocus) homeBaroBtn.focus();
 }
-async function fillHome() {
+// force = false : une position lue il y a moins de 10 minutes (écran d'accueil ou vue 🥾) sert telle quelle.
+// asked : ouvert par la maison ; un refus de position est alors expliqué, au lieu de fermer l'écran sans un mot.
+async function fillHome({ force = true, asked = false } = {}) {
   const id = ++geo.loadId, msg = $("home-msg"), btn = $("home-refresh");
-  msg.textContent = geo.data ? "Mise à jour…" : "Recherche de votre position…";
+  const fresh = !force && geo.data && Date.now() - geo.at < GEO_MAX_AGE_MS;
+  msg.textContent = fresh ? "" : geo.data ? "Mise à jour…" : "Recherche de votre position…";
   btn.disabled = true;
   try {
-    if (!await readHere(id, () => { if (!geo.data) msg.textContent = "Chargement de la météo…"; })) return;
+    if (!fresh && !await readHere(id, () => { if (!geo.data) msg.textContent = "Chargement de la météo…"; })) return;
     const { data, coords, at } = geo;
     msg.textContent = "";
     renderHome(); preloadDial();
+    if (home.data === data && home.steps) return; // pluie par quart d'heure déjà lue pour ces valeurs
     let steps = null;
     try {
       const { rows } = await fetchNextHour({ lat: coords.latitude, lon: coords.longitude, models: data.metadata.modelsRequested });
@@ -396,24 +400,26 @@ async function fillHome() {
     renderHome();
   } catch (e) {
     if (id !== geo.loadId || !homeDlg.open) return;
-    if (e.kind === "denied") setHomeFlag("no"); // ne plus l'ouvrir au lancement, jusqu'à ce que la position réussisse (vue 🥾)
-    if (e.kind === "denied" && !geo.data) { homeDlg.close(); return; } // position refusée : la page habituelle, jamais une autre ville présentée comme ici
-    msg.textContent = `${geo.data ? `Mise à jour impossible (valeurs de ${homeTime(geo.at)})` : "Position ou météo indisponible"} : ${e.message}`;
+    if (e.kind === "denied") setHomeFlag("no"); // ne plus l'ouvrir au lancement, jusqu'à ce que la position réussisse (maison, vue 🥾)
+    if (e.kind === "denied" && !geo.data && !asked) { homeDlg.close(); return; } // position refusée : la page habituelle, jamais une autre ville présentée comme ici
+    msg.textContent = `${geo.data ? `Mise à jour impossible (valeurs de ${homeTime(geo.at)})` : "Position ou météo indisponible"} : ${e.message}${e.kind === "denied" ? ` ${deniedHelp(isIOS())}` : ""}`;
   } finally { if (id === geo.loadId) btn.disabled = false; }
 }
-function openHome(mode) {
+function openHome(mode, { asked = false } = {}) {
   homeDlg.showModal();
   document.documentElement.classList.remove("home-boot"); // la page était masquée le temps d'ouvrir l'écran (index.html)
   $("home-ask").hidden = mode !== "ask"; homeDlg.classList.toggle("is-ask", mode === "ask");
-  if (mode !== "ask") fillHome(); // aucun bouton n'est mis au premier plan (autofocus sur le conteneur) : Safari l'entourerait d'un gros contour
+  if (mode !== "ask") fillHome({ force: false, asked }); // aucun bouton n'est mis au premier plan (autofocus sur le conteneur) : Safari l'entourerait d'un gros contour
 }
 $("home-ask-btn").addEventListener("click", () => { $("home-ask").hidden = true; homeDlg.classList.remove("is-ask"); fillHome(); });
+// Maison, entre le marcheur et le « i » : revenir à l'écran d'accueil (téléphones et iOS ; toucher la maison vaut accord pour chercher la position).
+$("home-open").addEventListener("click", () => openHome("go", { asked: true }));
 $("home-all").addEventListener("click", () => {
   if (homeDlg.classList.contains("is-ask")) setHomeFlag("no"); // invitation déclinée : elle ne revient pas
   homeDlg.close();
 });
 $("home-mini").addEventListener("click", () => { homeDlg.close(); setMini(true); });
-$("home-refresh").addEventListener("click", fillHome);
+$("home-refresh").addEventListener("click", () => fillHome());
 const homeHelpDlg = $("home-help");
 $("home-info").addEventListener("click", () => {
   const { data } = geo;
@@ -745,8 +751,10 @@ initInfo();
 {
   let flag = null;
   try { flag = localStorage.getItem(HOME_KEY); } catch { /* stockage indisponible */ }
+  const forced = new URLSearchParams(location.search).has("accueil"), mobile = matchMedia(PHONE_QUERY).matches || isIOS();
+  $("home-open").hidden = !mobile && !forced;
   const mode = homeMode({
-    forced: new URLSearchParams(location.search).has("accueil"), phone: matchMedia(PHONE_QUERY).matches, flag,
+    forced, mobile, flag,
     used: lastPlaceId() === GEO_ID || Boolean(readStoredPosition()) || loadJournal().length > 0,
   });
   if (mode !== "none") openHome(mode);

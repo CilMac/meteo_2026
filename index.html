@@ -13,10 +13,11 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#f6f3eb" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#1b201d" media="(prefers-color-scheme: dark)">
-<link rel="stylesheet" href="styles.css?v=f16e3e34">
+<link rel="stylesheet" href="styles.css?v=2099bfae">
 <script>
-// Téléphone : la page reste masquée le temps d'ouvrir l'écran d'accueil (app.js), 4 s au plus, pour ne pas apparaître une fraction de seconde avant lui.
-try { if (matchMedia("(max-width: 500px) and (pointer: coarse)").matches && localStorage.getItem("meteo.home") !== "no") { document.documentElement.classList.add("home-boot"); setTimeout(function () { document.documentElement.classList.remove("home-boot"); }, 4000); } } catch (e) {}
+// Téléphone, iPad : la page reste masquée le temps d'ouvrir l'écran d'accueil (app.js), 4 s au plus, pour ne pas apparaître une fraction de seconde avant lui.
+// Même règle que home.js et device.js (un test le vérifie).
+try { if ((matchMedia("(max-width: 500px) and (pointer: coarse)").matches || /iPhone|iPod|iPad/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)) && localStorage.getItem("meteo.home") !== "no") { document.documentElement.classList.add("home-boot"); setTimeout(function () { document.documentElement.classList.remove("home-boot"); }, 4000); } } catch (e) {}
 </script>
 </head>
 <body>
@@ -37,6 +38,9 @@ try { if (matchMedia("(max-width: 500px) and (pointer: coarse)").matches && loca
     <div class="head-actions">
       <button type="button" id="mini-open" class="btn mini-btn" aria-label="Rando ici ? Les 12 prochaines heures à votre position" title="Rando ici ? Les 12 prochaines heures à votre position">
         <svg class="ico-walk" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ico-walk"/></svg>
+      </button>
+      <button type="button" id="home-open" class="btn mini-btn" aria-label="Écran d'accueil : maintenant et les 4 prochaines heures" title="Écran d'accueil : maintenant et les 4 prochaines heures" hidden>
+        <svg class="mini-svg" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" focusable="false"><path d="M3.5 11.5L12 4l8.5 7.5M6 9.5V20h4.2v-5.5h3.6V20H18V9.5"/></svg>
       </button>
       <button type="button" id="info-open" class="info-btn" aria-haspopup="dialog" aria-label="Informations sur l'application" title="Informations">i</button>
     </div>
@@ -218,7 +222,7 @@ try { if (matchMedia("(max-width: 500px) and (pointer: coarse)").matches && loca
   </div>
 </dialog>
 
-<!-- Écran d'accueil : les 4 heures à venir à la position de l'appareil (au lancement sur téléphone) -->
+<!-- Écran d'accueil : les 4 heures à venir à la position de l'appareil (au lancement sur téléphone et iPad) -->
 <dialog id="home" class="home" aria-label="Météo de maintenant et des 4 prochaines heures, à votre position">
   <div class="home-in" tabindex="-1" autofocus>
     <header class="home-top">
@@ -232,7 +236,7 @@ try { if (matchMedia("(max-width: 500px) and (pointer: coarse)").matches && loca
     <section id="home-ask" class="home-ask" hidden>
       <h2>Le temps qu'il va faire, ici</h2>
       <p>La météo de maintenant et des 4 prochaines heures, là où vous êtes, à chaque ouverture.</p>
-      <p>Votre téléphone vous demandera l'accès à votre position. Elle est arrondie à environ 1 km avant d'être envoyée aux services météo.</p>
+      <p>Votre appareil vous demandera l'accès à votre position. Elle est arrondie à environ 1 km avant d'être envoyée aux services météo.</p>
       <button type="button" id="home-ask-btn" class="btn" title="Chercher la météo à votre position">Utiliser ma position</button>
     </section>
     <p id="home-msg" class="home-msg" role="status"></p>
@@ -308,8 +312,8 @@ try { if (matchMedia("(max-width: 500px) and (pointer: coarse)").matches && loca
       <h3>À quoi ça sert</h3>
       <p>Un tableau de bord météo personnel, pensé pour iPhone et Mac : situation actuelle, prochaines 24 heures, 7 jours, puis une tendance jusqu'à 15 jours. Une vue à part, ouverte par le marcheur <svg class="ico-walk" viewBox="0 0 24 24" role="img" aria-label="marcheur" focusable="false"><use href="#ico-walk"/></svg>, donne les 12 prochaines heures à l'endroit où vous êtes. Usage personnel et non commercial, sans publicité ni compte, et sans collecte de données.</p>
 
-      <h3>Écran d'accueil (téléphone)</h3>
-      <p>Au lancement sur téléphone, un écran montre l'essentiel à votre <strong>position réelle</strong> : la situation du moment, la pluie des 4 prochaines heures par quart d'heure (titre, précision et bâtons), les quatre heures suivantes (ciel, température, mm, rafales), puis le lever et le coucher du soleil, la pression et le vent. Un encadré jaune n'apparaît que s'il y a lieu (orage, rafales de 50 km/h ou plus, jour hors du commun). En bas : « Toutes les prévisions » ouvre cette page, le marcheur ouvre les 12 prochaines heures, le « i » explique chaque zone ; la flèche circulaire, en haut à droite, actualise (l'heure de la dernière actualisation est sous le lieu). Toucher la pression ouvre le baromètre. La première fois, l'écran propose d'utiliser votre position ; si vous choisissez « Toutes les prévisions » ou refusez la position, il ne s'ouvre plus. Pour le faire revenir : ouvrez une fois la vue du marcheur en autorisant la position. Il n'ajoute aucun relevé aux tests.</p>
+      <h3>Écran d'accueil (téléphone et iPad)</h3>
+      <p>Au lancement sur téléphone ou iPad, un écran montre l'essentiel à votre <strong>position réelle</strong> : la situation du moment, la pluie des 4 prochaines heures par quart d'heure (titre, précision et bâtons), les quatre heures suivantes (ciel, température, mm, rafales), puis le lever et le coucher du soleil, la pression et le vent. Un encadré jaune n'apparaît que s'il y a lieu (orage, rafales de 50 km/h ou plus, jour hors du commun). En bas : « Toutes les prévisions » ouvre cette page, le marcheur ouvre les 12 prochaines heures, le « i » explique chaque zone ; la flèche circulaire, en haut à droite, actualise (l'heure de la dernière actualisation est sous le lieu). Toucher la pression ouvre le baromètre. La première fois, l'écran propose d'utiliser votre position ; si vous choisissez « Toutes les prévisions » ou refusez la position, il ne s'ouvre plus. La <strong>maison</strong>, entre le marcheur et le « i » de cette page, le rouvre à tout moment ; dès que la position est accordée, il revient aussi au lancement. Une position lue il y a moins de 10 minutes est reprise telle quelle. Il n'ajoute aucun relevé aux tests.</p>
 
       <h3>Choisir un lieu</h3>
       <p>Huit lieux sont proposés dans la liste (Bar-le-Duc par défaut), précédés de <strong>« 📍 Ma position »</strong> : toute la page (situation, 24 heures, 7 et 15 jours) pour la position réelle de l'appareil, recherchée à chaque choix, à chaque « Actualiser » et à l'ouverture si c'était le dernier lieu choisi. Si la position n'est pas disponible, le motif est affiché et la dernière position connue est montrée en le disant (ou, à défaut, le lieu affiché ne change pas). L'épingle rouge à gauche du nom, sous le cadre du choix, n'apparaît que pour votre position actuelle : ni pour un lieu de la liste, ni pour une dernière position connue. « Autre lieu » permet de chercher n'importe quelle ville : si plusieurs lieux portent le même nom, on choisit le bon dans la liste. Choisir un lieu dans la liste, ou toucher un résultat de la recherche, affiche aussitôt sa météo. Le dernier lieu validé est retenu sur cet appareil. Le dernier « Autre lieu » choisi reste en bas de la liste, même après avoir fermé l'application, jusqu'à la recherche suivante, qui le remplace. En <strong>revenant dans l'application</strong> (icône, onglet, appareil réveillé) avec des prévisions de plus de 30 minutes ou d'un autre jour, elles sont relues <strong>toutes seules</strong> : les anciennes restent affichées pendant ce temps, avec « Mise à jour des prévisions… ». En cas d'échec, une seconde tentative suit 5 secondes après, puis l'erreur reste affichée. Sous « Actualiser » (à côté sur téléphone), un bouton donne la <strong>pression</strong> au lieu affiché et ouvre le baromètre : relevé de la station d'aéroport la plus proche (moins de 100 km, moins de 3 h), sinon valeur du modèle précédée de « ≈ ». Un petit signe donne la <strong>tendance</strong> sur environ 3 heures, à la même station : flèche verte montante ou flèche rouge descendante à partir de 2 hPa d'écart, trait gris en dessous (à peu près stable) ; rien sans relevé à l'heure voulue, ni avec la valeur d'un modèle.</p>
@@ -467,7 +471,7 @@ try { if (matchMedia("(max-width: 500px) and (pointer: coarse)").matches && loca
   </div>
 
   <div class="modal-foot">
-    <p>Par CilMac et Claude Opus 5.5 · <span id="info-updated" title="Heure de Paris, notée à la dernière modification des fichiers du site">dernière modification : <time id="info-date" datetime="2026-11-25T11:15Z" data-v="df606eae">25 novembre 2026 à 12:15</time></span></p>
+    <p>Par CilMac et Claude Opus 5.5 · <span id="info-updated" title="Heure de Paris, notée à la dernière modification des fichiers du site">dernière modification : <time id="info-date" datetime="2026-11-25T13:26Z" data-v="1b80a40f">25 novembre 2026 à 14:26</time></span></p>
   </div>
 </dialog>
 
@@ -490,6 +494,6 @@ try { if (matchMedia("(max-width: 500px) and (pointer: coarse)").matches && loca
   window.addEventListener("unhandledrejection", function (e) { show(String((e.reason && e.reason.message) || e.reason)); });
 })();
 </script>
-<script type="module" src="app.js?v=fbe4404d"></script>
+<script type="module" src="app.js?v=4e82dbe5"></script>
 </body>
 </html>
