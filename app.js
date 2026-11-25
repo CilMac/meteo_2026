@@ -7,7 +7,7 @@ import { initInfo } from "./info.js?v=0231d5ac";
 import { initBarometer, preloadDial } from "./barometer.js?v=c389d0e2";
 import { createSkyLayer } from "./skymap.js?v=490696b3";
 import { initWalk } from "./walkui.js?v=7d6d846f";
-import { buildHome, buildHomeNow, homeSteps, homeAlerts, homeHelp, homeMode, HOME_KEY, PHONE_QUERY } from "./home.js?v=48f45492";
+import { buildHome, buildHomeNow, homeSteps, homeAlerts, homeHelp, homeMode, HOME_KEY, PHONE_QUERY } from "./home.js?v=4ca22481";
 import { localToMs, fetchNextHour } from "./walk.js?v=68874bb7";
 import { fetchObservedPressure, fetchPressureTrend, fetchObservedStorms, stormText, pressureDisplay, TREND_WORD } from "./observation.js?v=e2268b0b";
 import { getPosition, reverseGeocode, placeFromPosition, storedGeoPlace, formatCoords, deniedHelp, GEO_ID, GEO_MAX_AGE_MS } from "./geo.js?v=b6df63a8";
@@ -343,9 +343,14 @@ $("mini-body").addEventListener("click", (e) => {
   const at = localToMs(b.dataset.time, geo.data.location.timezone);
   if (at !== null) walk.openAt(at, b);
 });
+// Pression de l'écran d'accueil : un seul bouton, replacé à chaque dessin de l'écran.
+const homeBaroBtn = Object.assign(document.createElement("button"), { type: "button", className: "home-baro", title: "Ouvrir le baromètre" });
+homeBaroBtn.setAttribute("aria-haspopup", "dialog");
+homeBaroBtn.append(...["Pression", ""].map((t) => Object.assign(document.createElement("span"), { textContent: t })));
 initBarometer([
   { openBtn: $("mini-baro-btn"), getPressure: () => geo.pressure },
   { openBtn: $("place-baro-btn"), getPressure: () => state.pressure },
+  { openBtn: homeBaroBtn, getPressure: () => geo.pressure },
 ]);
 $("mini-open").addEventListener("click", () => setMini(true));
 $("mini-close").addEventListener("click", () => setMini(false));
@@ -362,13 +367,15 @@ const homeTime = (ms) => formatLocal(new Date(ms), geo.data.location.timezone, {
 function renderHome() {
   const { data } = geo;
   $("home-place").replaceChildren(buildPin(), data.location.name);
-  $("home-time").textContent = homeTime(geo.at);
+  $("home-when").textContent = `Actualisé à ${homeTime(geo.at)}, à votre position`;
   const steps = home.data === data ? home.steps : undefined;
-  const pressureEl = document.createElement("span");
-  showPressure(pressureEl, geo.pressure); pressureEl.title = geo.pressure.title;
+  showPressure(homeBaroBtn.lastElementChild, geo.pressure);
+  homeBaroBtn.disabled = geo.pressure.hpa === null; // sans valeur, rien à montrer sur le cadran
+  const baroHadFocus = document.activeElement === homeBaroBtn; // redessiner l'écran le lui ferait perdre
   const storm = stormText(geo.storms, homeTime);
   $("home-now").replaceChildren(buildHomeNow(data));
-  $("home-body").replaceChildren(buildHome({ data, steps, fmtTime: homeTime, pressureEl, alerts: [storm, ...homeAlerts(data, steps ?? [], homeTime)].filter(Boolean) }));
+  $("home-body").replaceChildren(buildHome({ data, steps, fmtTime: homeTime, pressureEl: homeBaroBtn, alerts: [storm, ...homeAlerts(data, steps ?? [], homeTime)].filter(Boolean) }));
+  if (baroHadFocus) homeBaroBtn.focus();
 }
 async function fillHome() {
   const id = ++geo.loadId, msg = $("home-msg"), btn = $("home-refresh");
@@ -378,7 +385,7 @@ async function fillHome() {
     if (!await readHere(id, () => { if (!geo.data) msg.textContent = "Chargement de la météo…"; })) return;
     const { data, coords, at } = geo;
     msg.textContent = "";
-    renderHome();
+    renderHome(); preloadDial();
     let steps = null;
     try {
       const { rows } = await fetchNextHour({ lat: coords.latitude, lon: coords.longitude, models: data.metadata.modelsRequested });
@@ -398,10 +405,9 @@ function openHome(mode) {
   homeDlg.showModal();
   document.documentElement.classList.remove("home-boot"); // la page était masquée le temps d'ouvrir l'écran (index.html)
   $("home-ask").hidden = mode !== "ask"; homeDlg.classList.toggle("is-ask", mode === "ask");
-  if (mode === "ask") { $("home-ask-btn").focus(); return; }
-  $("home-all").focus(); fillHome();
+  if (mode !== "ask") fillHome(); // aucun bouton n'est mis au premier plan (autofocus sur le conteneur) : Safari l'entourerait d'un gros contour
 }
-$("home-ask-btn").addEventListener("click", () => { $("home-ask").hidden = true; homeDlg.classList.remove("is-ask"); $("home-all").focus(); fillHome(); });
+$("home-ask-btn").addEventListener("click", () => { $("home-ask").hidden = true; homeDlg.classList.remove("is-ask"); fillHome(); });
 $("home-all").addEventListener("click", () => {
   if (homeDlg.classList.contains("is-ask")) setHomeFlag("no"); // invitation déclinée : elle ne revient pas
   homeDlg.close();

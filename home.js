@@ -48,21 +48,26 @@ function wetWords(steps) {
 }
 
 // La phrase de l'écran : un titre et une précision. Les heures sont celles d'un modèle par quart d'heure, pas d'un radar : « vers ».
-export function rainPhrase(steps, fmtTime) {
+// Jamais « avant 15:45 » ni « jusqu'à 15:45 » pour la fin des 4 heures : on lirait que la pluie commence à ce moment-là.
+// nowCode : type de temps affiché en haut ; s'il annonce de la bruine, la phrase ne dit pas « sec » juste dessous.
+export function rainPhrase(steps, fmtTime, nowCode = null) {
   const total = rainTotal(steps);
   if (total === null) return { tone: "unknown", title: "Pluie des 4 prochaines heures inconnue", detail: "Données incomplètes." };
   const runs = wetRuns(steps), n = steps.length;
   const at = (i) => fmtTime(steps[i].t - STEP_MS), end4 = fmtTime(steps[n - 1].t), mm = `${num1(total)}\u00a0mm`, s = Math.round(total * 10) / 10 >= 2 ? "s" : ""; // at : début du pas i
   if (!runs.length) {
-    return steps.some((x) => x.mm > 0 || x.code >= WET_CODE)
-      ? { tone: "dry", title: "Au plus quelques gouttes", detail: `${mm} prévu${s} d'ici ${end4}.` }
-      : { tone: "dry", title: "Sec pendant 4 heures", detail: `Aucune pluie prévue avant ${end4}.` };
+    return nowCode >= WET_CODE || steps.some((x) => x.mm > 0 || x.code >= WET_CODE)
+      ? { tone: "dry", title: "Au plus quelques gouttes", detail: `${mm} prévu${s} en 4 heures.` }
+      : { tone: "dry", title: "Sec pendant 4 heures", detail: `Aucune pluie prévue de ${at(0)} à ${end4}.` };
   }
   const what = wetWords(steps), start = runs[0][0], end = runs[runs.length - 1][1], until = end < n ? at(end) : null;
-  const sum = `${mm} prévu${s} avant ${end4}`;
-  if (runs.length > 1) return { tone: "wet", title: `${cap(what)} par moments`, detail: `${start ? `De ${at(start)}` : "D'ici"} ${start ? `à ${until ?? end4} environ` : `${until ?? end4} environ`}, ${sum}.` };
+  const sum = `${mm} prévu${s} en 4 heures`;
+  if (runs.length > 1) { // fin non vue dans les 4 heures : on ne dit pas quand cela s'arrête
+    const when = start && until ? `De ${at(start)} à ${until} environ` : start ? `À partir de ${at(start)} environ` : until ? `Jusque vers ${until}` : null;
+    return { tone: "wet", title: `${cap(what)} par moments`, detail: when ? `${when}, ${sum}.` : `${cap(sum)}.` };
+  }
   if (!start && !until) return { tone: "wet", title: `${cap(what)} pendant 4 heures`, detail: `${cap(sum)}.` };
-  if (!start) return { tone: "wet", title: `Sec vers ${until}`, detail: `${cap(what)} d'ici là (${mm}), puis sec jusqu'à ${end4}.` };
+  if (!start) return { tone: "wet", title: `Sec vers ${until}`, detail: `${cap(what)} d'ici là (${mm}), puis sec le reste des 4 heures.` };
   if (!until) return { tone: "wet", title: `${cap(what)} vers ${at(start)}`, detail: `Sec d'ici là, ${sum}.` };
   return { tone: "wet", title: `${cap(what)} vers ${at(start)}`, detail: `Jusque vers ${until}, ${sum}.` };
 }
@@ -153,7 +158,7 @@ export function buildHomeNow(data) {
 
 // Zones : avertissements s'il y en a, pluie, quatre heures, repères. steps : undefined = en cours de lecture, null = illisibles.
 export function buildHome({ data, steps, alerts, fmtTime, pressureEl }) {
-  const phrase = steps ? rainPhrase(steps, fmtTime) : { tone: "unknown", title: steps === undefined ? "Lecture de la pluie…" : "Pluie par quart d'heure indisponible", detail: steps === undefined ? "Par quart d'heure, sur 4 heures." : "Les heures ci-dessous restent valables." };
+  const phrase = steps ? rainPhrase(steps, fmtTime, data.current.weatherCode) : { tone: "unknown", title: steps === undefined ? "Lecture de la pluie…" : "Pluie par quart d'heure indisponible", detail: steps === undefined ? "Par quart d'heure, sur 4 heures." : "Les heures ci-dessous restent valables." };
   const sun = sunTimes(data.current.time ? data.current.time.slice(0, 10) : data.daily[0].date, data.daily), hours = homeHours(data), out = document.createDocumentFragment();
   if (alerts.length) out.append(el("section", "home-zone home-alerts", ...alerts.map((t) => el("p", "", t))));
   out.append(el("section", "home-zone home-rain",
@@ -165,7 +170,7 @@ export function buildHome({ data, steps, alerts, fmtTime, pressureEl }) {
   out.append(el("section", "home-zone home-facts",
     sun.polar ? fact("Soleil", sun.polar.replace("Soleil ", ""))
       : fact(el("span", "sun sun-rise", said("Lever du soleil : "), sun.rise), el("span", "sun sun-set", said("Coucher du soleil : "), sun.set)),
-    fact("Pression", pressureEl),
+    pressureEl, // bouton « Pression / valeur » : ouvre le baromètre
     fact(el("span", "", said("Vent"), icon("wind")), isNum(data.current.wind) ? `${num0(data.current.wind)} km/h` : "— km/h")));
   return out;
 }
@@ -174,11 +179,11 @@ export function buildHome({ data, steps, alerts, fmtTime, pressureEl }) {
 export function homeHelp(data, steps) {
   const c = data?.current;
   return [ // [sujet en gras, explication]
-    ["En haut", `la météo de maintenant, à votre position. C'est une estimation de modèle${c?.time ? ` pour ${c.time.slice(11, 16)}` : ""}, pas une mesure. L'heure affichée est celle de la dernière actualisation.`],
+    ["En haut", `la météo de maintenant, à votre position. C'est une estimation de modèle${c?.time ? ` pour ${c.time.slice(11, 16)}` : ""}, pas une mesure. La flèche, à droite, actualise.`],
     ["Pluie", "un bâton par quart d'heure, sur 4 heures. Plein à 0,75 mm (soit 3 mm dans l'heure), rouge au-delà ; un simple trait : 0 mm. Les heures viennent d'un modèle, pas d'un radar : « vers »."],
     ["« Au plus quelques gouttes »", "le modèle annonce de la bruine ou des gouttes, trop peu pour compter."],
     ["Les quatre heures", "« 11 h » = température et ciel à 11 h, pluie et rafales (raf., en km/h) de 10 h à 11 h."],
-    ["En bas", "lever et coucher du soleil, pression (mesurée à la station d'aéroport la plus proche ; « ≈ » = calculée par le modèle) avec sa tendance sur 3 heures, vent de maintenant."],
+    ["En bas", "lever et coucher du soleil, pression (mesurée à la station d'aéroport la plus proche ; « ≈ » = calculée par le modèle) avec sa tendance sur 3 heures (la toucher ouvre le baromètre), vent de maintenant."],
     ["Encadré jaune", "seulement s'il y a lieu : orage, rafales de 50 km/h ou plus, jour hors du commun. Ce n'est pas une vigilance officielle."],
     ...(data ? [["Modèles", homeSources(data, steps ?? [])]] : []),
   ];
