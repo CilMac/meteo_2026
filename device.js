@@ -1,4 +1,4 @@
-// Vue par défaut (compacte, sur tous les appareils) et détection d'iOS (pour l'aide sur l'autorisation de position).
+// Vue par défaut (compacte, sur tous les appareils ; la seule sur iOS) et détection d'iOS (pour l'aide sur l'autorisation de position).
 // Le choix de l'utilisateur, une fois fait, passe toujours avant ce défaut.
 
 export function isIOS(nav = globalThis.navigator) {
@@ -11,4 +11,5 @@ export function isIOS(nav = globalThis.navigator) {
 export const DEFAULT_VIEW = "compact";
 
 // Vue à utiliser : le choix mémorisé s'il est valide, sinon le défaut.
-export const chooseView = (stored) => (stored === "compact" || stored === "detail" ? stored : DEFAULT_VIEW);
+// iOS (iPhone, iPad ; 26/11/2026, demandé) : vue compacte seulement, sans déroulant ; un ancien choix « detail » est ignoré (gardé tel quel).
+export const chooseView = (stored, ios = false) => (ios ? "compact" : stored === "compact" || stored === "detail" ? stored : DEFAULT_VIEW);

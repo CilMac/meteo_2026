@@ -229,7 +229,8 @@ export function homeLegend(data, steps) {
         { sym: "sun", text: "Lever et coucher du soleil" },
         { sym: "baro", text: "Pression au niveau de la mer, station la plus proche", sub: "«\u00a0≈\u00a0»\u00a0: valeur de modèle. Ouvre le baromètre." },
         { sym: "trend", text: "Tendance sur 3\u00a0h environ\u00a0: hausse, stabilité, baisse" },
-        { sym: "wind", text: "Vent actuel" }] },
+        { sym: "wind", text: "Vent actuel" },
+        { sym: "map", text: "Carte plein écran", sub: "Point bleu\u00a0: position\u00a0; disque\u00a0: précision. «\u00a0Nuages · pluie\u00a0»\u00a0: valeurs de modèles à l'instant, interpolées." }] },
       { title: "Valeurs signalées", note: "hors vigilance officielle", rows: [
         { sym: "red", text: `Hors du commun\u00a0: ≥\u00a0${EXTREME.hot}\u00a0°C, ≤\u00a0−${num0(-EXTREME.cold)}\u00a0°C, rafales ≥\u00a0${EXTREME.gust}\u00a0km/h` },
         { sym: "alert", text: `Orage, rafales ≥\u00a0${GUST_WARN}\u00a0km/h ou jour hors du commun` }] },
@@ -256,6 +257,7 @@ const SYMBOLS = {
   baro: () => { const s = draw(); s.innerHTML = '<svg class="mini-svg hl-baro" viewBox="0 0 24 24" focusable="false"><use href="#ico-baro"/></svg>'; return s; },
   trend: () => draw(trendSign("up"), trendSign("steady"), trendSign("down")),
   wind: () => draw(icon("wind")),
+  map: () => { const s = draw(); s.innerHTML = '<svg class="mini-svg hl-baro" viewBox="0 0 24 24" focusable="false"><path d="M9 4 3.5 6v14L9 18l6 2 5.5-2V4L15 6 9 4zM9 4v14M15 6v14"/></svg>'; return s; },
   red: () => { const s = text("105"); s.classList.add("is-red"); s.prepend(said("En rouge, comme ")); return s; },
   alert: () => { const s = el("span", "hl-sym", el("span", "hl-frame", said("Encadré jaune"))); return s; },
 };

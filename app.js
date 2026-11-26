@@ -7,14 +7,14 @@ import { initInfo } from "./info.js?v=0231d5ac";
 import { initBarometer, preloadDial, trendSign } from "./barometer.js?v=f58dbfb8";
 import { createSkyLayer } from "./skymap.js?v=490696b3";
 import { initWalk } from "./walkui.js?v=b13afaa3";
-import { buildHome, buildHomeNow, homeSteps, homeAlerts, homeLegend, buildLegend, homeMode, HOME_KEY, PHONE_QUERY } from "./home.js?v=29de76f1";
+import { buildHome, buildHomeNow, homeSteps, homeAlerts, homeLegend, buildLegend, homeMode, HOME_KEY, PHONE_QUERY } from "./home.js?v=c66d38a9";
 import { localToMs, fetchNextHour } from "./walk.js?v=68874bb7";
 import { fetchObservedPressure, fetchPressureTrend, fetchObservedStorms, stormText, pressureDisplay, TREND_WORD } from "./observation.js?v=6922543a";
 import { getPosition, reverseGeocode, placeFromPosition, storedGeoPlace, formatCoords, deniedHelp, GEO_ID, GEO_MAX_AGE_MS } from "./geo.js?v=b6df63a8";
 import { shouldRefresh, STALE_MS, TRY_GAP_MS, RETRY_MS, QUIET_WAIT_MS } from "./refresh.js?v=beadd3fe";
 import { createLoader } from "./loading.js?v=956b591b";
 import { makeRecord, saveRecord, loadJournal, exportText, exportName } from "./journal.js?v=e6b1a5fe";
-import { chooseView, DEFAULT_VIEW, isIOS } from "./device.js?v=fddeae53";
+import { chooseView, DEFAULT_VIEW, isIOS } from "./device.js?v=804d2636";
 import { TABS, foldTip, buildPin, buildTopPlace, buildTopNow, buildCurrent, buildHourly, buildWeek, buildTrend, buildCompact, buildMini, extremeText, COMPACT_HELP_ITEMS, buildSources, buildWarnings, buildAttribution, warningsStatus, formatLocal } from "./weather-render.js?v=38232aca";
 
 const $ = (id) => {
@@ -150,30 +150,32 @@ function loadLeaflet() {
   });
   return leafletP;
 }
-const mapState = { map: null, layer: null, sky: null };
+const mapState = { map: null, layer: null, sky: null }; // carte de la vue 🥾
+const homeMapState = { map: null, layer: null, sky: null }; // carte plein écran de l'écran d'accueil
 function setMapButton(open) { // l'icône reste : seul le libellé change
   $("mini-map-btn").setAttribute("aria-expanded", String(open));
   $("mini-map-label").textContent = open ? "Masquer la carte" : "Carte";
 }
-function drawMap(L) {
+// Une carte par conteneur (vue 🥾, écran d'accueil) : mêmes tuiles, même point de position, même calque « Nuages · pluie ».
+function drawMap(L, st = mapState, box = $("mini-map")) {
   const { latitude, longitude, accuracy } = geo.coords;
   const here = [latitude, longitude];
-  if (!mapState.map) {
-    mapState.map = L.map($("mini-map"), { zoomControl: false, attributionControl: true }).setView(here, 15);
-    L.control.zoom({ zoomInTitle: "Zoom avant", zoomOutTitle: "Zoom arrière" }).addTo(mapState.map);
-    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "© contributeurs <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a>" }).addTo(mapState.map);
-    L.control.scale({ position: "bottomright", metric: true, imperial: false, maxWidth: 110 }).addTo(mapState.map); // échelle des distances, sous le crédit des cartes
-    mapState.sky = createSkyLayer(L, mapState.map, {
+  if (!st.map) {
+    st.map = L.map(box, { zoomControl: false, attributionControl: true }).setView(here, 15);
+    L.control.zoom({ zoomInTitle: "Zoom avant", zoomOutTitle: "Zoom arrière" }).addTo(st.map);
+    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "© contributeurs <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a>" }).addTo(st.map);
+    L.control.scale({ position: "bottomright", metric: true, imperial: false, maxWidth: 110 }).addTo(st.map); // échelle des distances, sous le crédit des cartes
+    st.sky = createSkyLayer(L, st.map, {
       getHere: () => ({ lat: geo.coords.latitude, lon: geo.coords.longitude }),
       fmtTime: (ms) => formatLocal(new Date(ms), geo.data.location.timezone, { hour: "2-digit", minute: "2-digit" }),
     });
-  } else { mapState.map.setView(here, mapState.map.getZoom()); mapState.sky?.update(); }
-  mapState.layer?.remove();
-  mapState.layer = L.layerGroup([
+  } else { st.map.setView(here, st.map.getZoom()); st.sky?.update(); }
+  st.layer?.remove();
+  st.layer = L.layerGroup([
     ...(accuracy ? [L.circle(here, { radius: accuracy, color: "#285775", weight: 1, fillOpacity: 0.12 })] : []),
     L.circleMarker(here, { radius: 8, color: "#ffffff", weight: 3, fillColor: "#285775", fillOpacity: 1 }),
-  ]).addTo(mapState.map);
-  mapState.map.invalidateSize();
+  ]).addTo(st.map);
+  st.map.invalidateSize();
 }
 async function toggleMap() {
   const wrap = $("mini-map-wrap"), btn = $("mini-map-btn");
@@ -369,6 +371,7 @@ function renderHome() {
   const steps = home.data === data ? home.steps : undefined;
   showPressure(homeBaroBtn.lastElementChild, geo.pressure);
   homeBaroBtn.disabled = geo.pressure.hpa === null; // sans valeur, rien à montrer sur le cadran
+  $("home-map-btn").disabled = !geo.coords;
   const baroHadFocus = document.activeElement === homeBaroBtn; // redessiner l'écran le lui ferait perdre
   const storm = stormText(geo.storms, homeTime);
   $("home-now").replaceChildren(buildHomeNow(data));
@@ -418,6 +421,20 @@ $("home-all").addEventListener("click", () => {
 });
 $("home-mini").addEventListener("click", () => { homeDlg.close(); setMini(true); });
 $("home-refresh").addEventListener("click", () => fillHome());
+// Carte plein écran : Leaflet chargé au premier toucher, carte créée une fois (après l'ouverture : il lui faut sa taille), recentrée à chaque ouverture.
+const homeMapDlg = $("home-map-dlg");
+$("home-map-btn").addEventListener("click", async () => {
+  if (!geo.coords) return;
+  const btn = $("home-map-btn");
+  btn.disabled = true;
+  try {
+    const L = await loadLeaflet();
+    homeMapDlg.showModal();
+    drawMap(L, homeMapState, $("home-map"));
+  } catch (e) { $("home-msg").textContent = `Carte indisponible : ${e.message}`; }
+  finally { btn.disabled = !geo.coords; }
+});
+$("home-map-close").addEventListener("click", () => homeMapDlg.close());
 const homeHelpDlg = $("home-help");
 $("home-info").addEventListener("click", () => {
   const { data } = geo;
@@ -730,7 +747,10 @@ function setView(view) {
   // Choix mémorisé s'il existe ; sinon vue compacte.
   let stored = null;
   try { stored = localStorage.getItem(VIEW_KEY); } catch { /* stockage indisponible : vue par défaut */ }
-  state.view = chooseView(stored);
+  state.view = chooseView(stored, isIOS());
+  // iOS : vue compacte seulement ; le déroulant disparaît et la ligne du haut se partage entre le lieu et la situation.
+  $("view-pick").hidden = isIOS();
+  document.querySelector(".top-row").classList.toggle("no-view-pick", isIOS());
 }
 {
   const ul = document.createElement("ul");
