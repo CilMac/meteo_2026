@@ -7,10 +7,10 @@ import { initInfo } from "./info.js?v=0231d5ac";
 import { initBarometer, preloadDial, trendSign } from "./barometer.js?v=f58dbfb8";
 import { createSkyLayer, addDoubleTapZoom, createStationLayer } from "./skymap.js?v=1dd4b71e";
 import { parseMapPrefs, MAP_ZOOM, maxZoomFor } from "./weathermap.js?v=32549e56";
-import { initWalk } from "./walkui.js?v=7fb08f37";
-import { buildHome, buildHomeNow, homeSteps, homeAlerts, homeLegend, buildLegend, homeMode, HOME_KEY, PHONE_QUERY } from "./home.js?v=fb56b19d";
-import { localToMs, fetchNextHour } from "./walk.js?v=68874bb7";
-import { fetchObservedPressure, fetchPressureTrend, fetchObservedStorms, stormText, pressureDisplay, TREND_WORD, fetchStationsForMap, distanceKm, STORM_WORDS, metarLines } from "./observation.js?v=6ad7dab4";
+import { initWalk } from "./walkui.js?v=31aca129";
+import { buildHome, buildHomeNow, homeSteps, homeAlerts, homeLegend, buildLegend, homeMode, HOME_KEY, PHONE_QUERY } from "./home.js?v=0081b817";
+import { localToMs, fetchNextHour } from "./walk.js?v=0add2639";
+import { fetchObservedPressure, fetchPressureTrend, fetchObservedStorms, stormText, fetchObservedPrecip, precipText, pressureDisplay, TREND_WORD, fetchStationsForMap, distanceKm, STORM_WORDS, metarLines } from "./observation.js?v=9b23b237";
 import { getPosition, reverseGeocode, placeFromPosition, storedGeoPlace, formatCoords, deniedHelp, GEO_ID, GEO_MAX_AGE_MS } from "./geo.js?v=b6df63a8";
 import { shouldRefresh, STALE_MS, TRY_GAP_MS, RETRY_MS, QUIET_WAIT_MS } from "./refresh.js?v=beadd3fe";
 import { createLoader } from "./loading.js?v=956b591b";
@@ -131,7 +131,7 @@ function renderAll() {
 
 // Vue minimale : les prochaines heures à la position réelle de l'appareil ; remplace la page tant qu'elle est ouverte.
 // La position n'est jamais stockée (mémoire seulement) ; la prévision est celle de la position, pas du lieu choisi dans la liste.
-const geo = { at: 0, shown: false, data: null, coords: null, named: true, pressure: null, storms: null, loadId: 0 };
+const geo = { at: 0, shown: false, data: null, coords: null, named: true, pressure: null, storms: null, precip: null, loadId: 0 };
 function miniMessage(text, kind = "") { const m = $("mini-msg"); m.hidden = !text; m.textContent = text; m.className = `mini-msg${kind ? ` is-${kind}` : ""}`; }
 // Carte : Leaflet est chargé au premier clic seulement (aucun appel réseau tant qu'on ne l'ouvre pas).
 const LEAFLET = {
@@ -301,6 +301,9 @@ function showMiniPlace(data, coords, named, pressure, at) {
   // Orage OBSERVÉ par une station d'aéroport à moins de 50 km (message de moins d'une heure) : bandeau ; sinon rien.
   const st = stormText(geo.storms, (ms) => formatLocal(new Date(ms), data.location.timezone, { hour: "2-digit", minute: "2-digit" }));
   $("mini-storm").hidden = !st; $("mini-storm").textContent = st ?? "";
+  // Pluie, bruine ou neige OBSERVÉE par une station à moins de 50 km (même lecture) : bandeau plus discret ; sinon rien.
+  const pr = precipText(geo.precip, (ms) => formatLocal(new Date(ms), data.location.timezone, { hour: "2-digit", minute: "2-digit" }));
+  $("mini-precip").hidden = !pr; $("mini-precip").textContent = pr ? `${pr} C'est une observation, pas une prévision.` : "";
 }
 function setHomeFlag(v) { try { localStorage.setItem(HOME_KEY, v); } catch { /* ignoré */ } }
 // Position de l'appareil, puis prévision, pression et orages à cet endroit, rangés dans `geo` (vue 🥾 et écran d'accueil).
@@ -319,11 +322,12 @@ async function readHere(id, onFound = () => {}) {
   const where = { latitude: coords.latitude, longitude: coords.longitude, countryCode: place.countryCode };
   const observedP = fetchObservedPressure(where).catch(() => null);
   const stormsP = observedP.then(() => fetchObservedStorms(where)).catch(() => null); // null = inconnu (rien affiché)
+  const precipP = observedP.then(() => fetchObservedPrecip(where)).catch(() => null);
   const trendP = trendOf(observedP);
-  const [data, observed, storms] = await Promise.all([fetchForecast(place), observedP, stormsP]);
+  const [data, observed, storms, precip] = await Promise.all([fetchForecast(place), observedP, stormsP, precipP]);
   if (id !== geo.loadId) return false;
   setHomeFlag("ok"); // position accordée : l'écran d'accueil peut s'ouvrir au lancement
-  Object.assign(geo, { at: Date.now(), data, coords, named: Boolean(named), pressure: pressureOf(data, observed), storms, recorded: false, cc: place.countryCode });
+  Object.assign(geo, { at: Date.now(), data, coords, named: Boolean(named), pressure: pressureOf(data, observed), storms, precip, recorded: false, cc: place.countryCode });
   trendP.then((t) => {
     if (!t || geo.data !== data) return; // une autre position a été chargée entre-temps
     geo.pressure = pressureOf(data, observed, t);
@@ -418,6 +422,7 @@ const walk = initWalk({
   // mêmes modèles que le tableau « Lieu actuel » (selon le pays de la position)
   getHere: () => (geo.coords ? { lat: geo.coords.latitude, lon: geo.coords.longitude, models: geo.data?.metadata?.modelsRequested ?? [] } : null),
   getStorms: () => geo.storms, // orages observés par les stations (repris en tête de « Balade ? »)
+  getPrecip: () => geo.precip, // pluie, bruine, neige observées (idem)
   fmtTime: (ms) => formatLocal(new Date(ms), geo.data?.location.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone, { hour: "2-digit", minute: "2-digit" }),
 });
 // Toucher une heure du tableau : « Balade ? » pour un départ à cette heure (heure locale du lieu → instant).
@@ -459,8 +464,9 @@ function renderHome() {
   $("home-map-btn").disabled = !geo.coords;
   const baroHadFocus = document.activeElement === homeBaroBtn; // redessiner l'écran le lui ferait perdre
   const storm = stormText(geo.storms, homeTime);
+  const precip = precipText(geo.precip, homeTime);
   $("home-now").replaceChildren(buildHomeNow(data));
-  $("home-body").replaceChildren(buildHome({ data, steps, fmtTime: homeTime, pressureEl: homeBaroBtn, alerts: [storm, ...homeAlerts(data, steps ?? [], homeTime)].filter(Boolean) }));
+  $("home-body").replaceChildren(buildHome({ data, steps, fmtTime: homeTime, pressureEl: homeBaroBtn, alerts: [storm, precip && `${precip} C'est une observation, pas une prévision.`, ...homeAlerts(data, steps ?? [], homeTime)].filter(Boolean) }));
   if (baroHadFocus) homeBaroBtn.focus();
 }
 // force = false : une position lue il y a moins de 10 minutes (écran d'accueil ou vue 🥾) sert telle quelle.

@@ -1,7 +1,7 @@
 // Fenêtre « Balade dans l'heure ? » : lit la pluie, la neige et le contexte à 15 minutes à la position de l'appareil (walk.js) et affiche
 // le verdict, avec un sélecteur pour avancer le départ d'heure en heure. Tout le texte est écrit par textContent.
-import { fetchNextHour, walkAdvice, walkSources, hourlyAt, mmPerHour, MAX_OFFSET_H, STEP_MS, SNOW_CM_PER_MM, WalkError } from "./walk.js?v=68874bb7";
-import { stormText } from "./observation.js?v=6ad7dab4";
+import { fetchNextHour, walkAdvice, walkSources, hourlyAt, mmPerHour, MAX_OFFSET_H, STEP_MS, SNOW_CM_PER_MM, WalkError } from "./walk.js?v=0add2639";
+import { stormText, precipText } from "./observation.js?v=9b23b237";
 import { modelShort } from "./weather-provider.js?v=631084d1";
 import { MINI_MM_FULL, foldTip } from "./weather-render.js?v=38232aca";
 
@@ -50,7 +50,7 @@ function timeline(steps, fmtTime) {
 }
 
 // Ouverture : seulement par openAt (toucher une heure du tableau de la vue 🥾) ; le bouton parapluie a été retiré le 23/11/2026.
-export function initWalk({ getHere, fmtTime, getStorms = () => null, fallbackFocus = () => null }) {
+export function initWalk({ getHere, fmtTime, getStorms = () => null, getPrecip = () => null, fallbackFocus = () => null }) {
   const $ = (id) => {
     const e = document.getElementById(id);
     if (!e) throw new Error(`élément « #${id} » introuvable : les fichiers du site ne sont pas tous de la même version (republiez-les tous, puis rechargez avec Cmd+Maj+R)`);
@@ -106,6 +106,8 @@ export function initWalk({ getHere, fmtTime, getStorms = () => null, fallbackFoc
     if (advice.storm) kids.push(stormHelp(advice.storm, title)); // « i » du titre : fiabilité de l'alerte orage
     const observed = stormText(getStorms(), fmtTime); // orage OBSERVÉ par une station d'aéroport proche, en ce moment
     if (observed) kids.push(el("p", "walk-obs-storm", `${observed} C'est une observation, pas une prévision.`));
+    const wet = precipText(getPrecip(), fmtTime); // pluie, bruine ou neige OBSERVÉE par une station proche, en ce moment
+    if (wet) kids.push(el("p", "walk-obs-precip", `${wet} C'est une observation, pas une prévision.`));
     if (advice.steps.length >= 3 && advice.level !== "unknown") {
       // légende + « i » à droite : explication courte de la frise, ouverte ou fermée d'un toucher
       const head = el("div", "walk-sub-row");
@@ -152,6 +154,8 @@ export function initWalk({ getHere, fmtTime, getStorms = () => null, fallbackFoc
     syncStepper(start);
     const at = hourlyAt(cache.hourly, start);
     const ctx = { ...at, depart: anchor !== null || offset > 0 ? fmtTime(start) : null };
+    // pluie observée EN CE MOMENT par une station proche (pas « dans l'heure passée ») : ne vaut que pour un départ maintenant
+    ctx.observedWet = ctx.depart === null && (getPrecip() ?? []).some((p) => !p.code.startsWith("RE"));
     const advice = walkAdvice(cache.rows, ctx, start);
     // grandeurs de la probabilité / neige au sol / UV : citées seulement si la valeur sert (fait ou remarque)
     const used = { prob: at.prob !== null ? at.src.prob : null, depth: at.depth >= 0.01 ? at.src.depth : null, uv: at.uv >= 6 ? at.src.uv : null };

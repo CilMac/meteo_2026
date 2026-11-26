@@ -23,6 +23,7 @@ export const GUST_WARN = 50, GUST_DANGER = 75; // km/h
 export const HEAT_WARN = 30, HEAT_DANGER = 35;  // température ressentie, °C
 export const COLD_INFO = 5, COLD_WARN = 0, COLD_DANGER = -10;
 export const FOG_WARN_M = 1000, FOG_DANGER_M = 200;
+const DROPS_CODE = 51; // types de temps OMM à partir de 51 : bruine, pluie, neige… (le brouillard, 45 et 48, n'en fait pas partie)
 const FREEZING_CODES = [56, 57, 66, 67], SNOW_CODES = [71, 73, 75, 77, 85, 86], FOG_CODES = [45, 48];
 const isNum = (v) => typeof v === "number" && Number.isFinite(v);
 const capFirst = (t) => (t ? t[0].toUpperCase() + t.slice(1) : t);
@@ -219,7 +220,7 @@ const WORDS = {
 // Verdict. Niveaux : go, caution, short, light, wait, shower, mixed, no, storm, ice, unknown.
 // `now` est le début de la fenêtre (maintenant, ou le départ décalé de quelques heures) ; ctx.depart = « 20:54 » quand le départ est décalé.
 export function walkAdvice(rows, ctx = {}, now = Date.now()) {
-  const { prob = null, depth = null, uv = null, depart = null } = typeof ctx === "number" || ctx === null ? { prob: ctx } : ctx; // ancienne signature : (rows, prob, now)
+  const { prob = null, depth = null, uv = null, depart = null, observedWet = false } = typeof ctx === "number" || ctx === null ? { prob: ctx } : ctx; // ancienne signature : (rows, prob, now)
   const later = depart !== null;
   const steps = windowSteps(rows, now);
   if (steps.length < MIN_STEPS || steps.some((s) => s.mm === null)) {
@@ -260,8 +261,13 @@ export function walkAdvice(rows, ctx = {}, now = Date.now()) {
     return { ...res, storm: { by: named, main: mainModel, onlyOther: Boolean(onlyOther) } };
   }
   if (!anyWet) {
-    return danger
-      ? out("caution", "Pas de pluie, mais des conditions difficiles", "Aucune précipitation prévue dans l'heure qui suit, mais lisez attentivement les remarques ci-dessous avant de partir.")
+    // Bruine ou gouttes annoncées sans cumul notable (type de temps ≥ 51, ou un peu d'eau sous le seuil de 0,1 mm par quart d'heure) :
+    // jamais « pas une goutte » (même règle que l'écran d'accueil, 26/11/2026 : bruine vécue un matin où tout était « au vert »).
+    const drops = steps.some((s) => s.mm > 0 || (isNum(s.code) && s.code >= DROPS_CODE));
+    if (danger) return out("caution", "Pas de pluie, mais des conditions difficiles", `${drops ? "Au plus quelques gouttes ou un peu de bruine dans l'heure qui suit" : "Aucune précipitation prévue dans l'heure qui suit"}, mais lisez attentivement les remarques ci-dessous avant de partir.`);
+    if (observedWet && !drops) return out("light", "Rien de prévu, mais observé à proximité", "Les modèles ne prévoient aucune précipitation dans l'heure qui suit, mais une station d'aéroport proche en signale en ce moment (ci-dessous) : prévoyez une veste.");
+    return drops
+      ? out("light", "Au plus quelques gouttes", "Les modèles annoncent un peu de bruine ou quelques gouttes dans l'heure qui suit, sans cumul notable. Rien qui empêche de marcher ; une veste suffit.")
       : out("go", "Pas une goutte en vue", "Aucune précipitation prévue dans l'heure qui suit : vous pouvez partir vous promener.");
   }
 

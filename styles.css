@@ -497,6 +497,9 @@ dialog.baro-modal { width: min(440px, calc(100vw - 24px)); }
 .mini-lead:empty { display: none; }
 /* Orage observé par une station d'aéroport proche : bandeau d'alerte, couleurs « attention » de la charte */
 .mini-storm { margin: 8px 0 10px; padding: 10px 14px; border-left: 4px solid var(--alert-red); border-radius: var(--radius-control); background: var(--attention); color: var(--attention-ink); font-weight: 600; line-height: 1.45; }
+.mini-precip { margin: 8px 0 10px; padding: 8px 14px; border-left: 4px solid var(--primary); border-radius: var(--radius-control); background: var(--precip-sel); color: var(--ink); line-height: 1.45; }
+.walk-obs-precip { margin: 10px 0 0; padding: 8px 12px; border-left: 4px solid var(--primary); border-radius: var(--radius-control); background: var(--precip-sel); color: var(--ink); font-size: 14px; }
+.mini-precip[hidden], .walk-obs-precip[hidden] { display: none; }
 .walk-obs-storm { margin: 10px 0 0; padding: 8px 12px; border-left: 4px solid var(--alert-red); border-radius: var(--radius-control); background: var(--attention); color: var(--attention-ink); font-weight: 600; font-size: 14px; }
 .mini-when { white-space: nowrap; } /* « actualisé sam. 21/11 17:42 » passe à la ligne d'un seul bloc */
 .mini-msg { margin: 10px 0 14px; padding: 10px 14px; border: 1px solid var(--information-border); border-left-width: 4px; border-radius: var(--radius-control); background: var(--information); }

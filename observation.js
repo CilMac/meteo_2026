@@ -238,6 +238,46 @@ export function stormText(storms, fmtTime) {
   return `⚡ ${what} ${s.name} (${Math.round(s.km)} km), relevé de ${fmtTime(s.at)}${more}.`;
 }
 
+// ── Pluie, bruine, neige OBSERVÉES près de soi (26/11/2026) ──────────────────────────────────────────────────────────────────────
+// Même lecture, mêmes règles que les orages observés (stations à ≤ 50 km, message de moins d'une heure, partie observée seulement,
+// une seule lecture du réseau gardée 10 min) : demandé après une bruine vécue le 25/11/2026 alors que les modèles n'annonçaient rien
+// l'après-midi (Nancy et Troyes signalaient DZ). Les codes avec orage (TS…) sont laissés au bandeau d'orage. Rang : en ce moment sur
+// l'aéroport, puis à proximité (VC), puis dans l'heure passée (RE).
+const PRECIP_RE = /^(?:[+-]|VC|RE)?(?:SH|FZ|BL|DR)?(?:DZ|RA|SN|SG|IC|PL|GR|GS|UP)+$/;
+const PRECIP_RANK = (code) => (code.startsWith("RE") ? 1 : code.startsWith("VC") ? 2 : 3);
+export function metarPrecip(raw) {
+  if (typeof raw !== "string") return null;
+  let best = null;
+  for (const tok of observedPart(raw).split(/\s+/).slice(1)) {
+    if (!PRECIP_RE.test(tok) && tok !== "VCSH") continue;
+    if (!best || PRECIP_RANK(tok) > PRECIP_RANK(best)) best = tok;
+  }
+  return best;
+}
+export function precipNear(rows, lat, lon, { now = Date.now(), maxKm = STORM_OBS_KM, maxAgeMs = STORM_OBS_MAX_AGE_MS } = {}) {
+  const out = [];
+  for (const r of Array.isArray(rows) ? rows : []) {
+    if (!isNum(r?.lat) || !isNum(r?.lon) || typeof r.station !== "string") continue;
+    const at = Date.parse(r.utc_valid);
+    if (!Number.isFinite(at) || now - at > maxAgeMs || at - now > 10 * 60 * 1000) continue;
+    const code = metarPrecip(r.raw);
+    if (!code) continue;
+    const km = distanceKm(lat, lon, r.lat, r.lon);
+    if (km <= maxKm) out.push({ station: r.station, name: typeof r.name === "string" ? r.name : r.station, km, at, code });
+  }
+  return out.sort((a, b) => a.km - b.km);
+}
+export async function fetchObservedPrecip({ latitude, longitude, countryCode }, { fetchImpl = fetch, now = Date.now(), timeoutMs = TIMEOUTS.pressure } = {}) {
+  return precipNear(await networkRows(countryCode, { fetchImpl, now, timeoutMs }), latitude, longitude, { now });
+}
+// « 💧 Observé à l'aéroport de Nancy (23 km), relevé de 14:30 — bruine, intensité faible (-DZ). » (+ autres stations)
+export function precipText(list, fmtTime) {
+  if (!Array.isArray(list) || !list.length) return null;
+  const s = list[0], n = list.length - 1;
+  const more = n ? ` (et ${n} autre${n > 1 ? "s" : ""} station${n > 1 ? "s" : ""} à moins de ${STORM_OBS_KM} km)` : "";
+  return `💧 Observé à l'aéroport de ${s.name} (${Math.round(s.km)} km), relevé de ${fmtTime(s.at)} — ${wxText(s.code)}${more}.`;
+}
+
 // ── Message METAR décodé pour la bulle d'une station (26/11/2026) ─────────────────────────────────────────────────────────────────
 // Seule la partie OBSERVÉE est lue (comme pour l'orage). Valeurs telles que publiées, converties seulement d'unité : vent en nœuds
 // (ou m/s, km/h) → km/h ; hauteur des nuages en centaines de pieds au-dessus de l'aéroport → m (arrondi à 10 m). Le vent du METAR est
@@ -283,7 +323,7 @@ export function wxText(code) {
     : d === "DR" ? `${names} soulevée par le vent (basse)` : names;
   if (m[1] === "-") t += ", intensité faible"; else if (m[1] === "+") t += ", intensité forte";
   if (m[1] === "VC") t = `à proximité : ${t}`; else if (m[1] === "RE") t = `récemment : ${t}`;
-  return `${t} (${code})`;
+  return `${t} (${code.replace(/^-/, "-\u2060")})`; // \u2060 (gluon invisible) : « (-DZ) » ne se coupe pas après le tiret
 }
 const COMPASS = ["nord", "nord-nord-est", "nord-est", "est-nord-est", "est", "est-sud-est", "sud-est", "sud-sud-est", "sud", "sud-sud-ouest", "sud-ouest", "ouest-sud-ouest", "ouest", "ouest-nord-ouest", "nord-ouest", "nord-nord-ouest"];
 export const compassFrom = (deg) => { const n = COMPASS[Math.round(((deg % 360) / 22.5)) % 16]; return /^[eo]/.test(n) ? `de l'${n}` : `du ${n}`; };

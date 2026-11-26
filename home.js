@@ -1,6 +1,6 @@
 // Écran d'accueil (25/11/2026) : l'essentiel des 4 heures à venir à la position de l'appareil. Calculs (testés) puis construction de l'écran.
 // Tout le texte est écrit par textContent ; une donnée absente est « — », jamais 0.
-import { STEP_MS, stepKind, mmPerHour, GUST_WARN, LEVEL_WORD } from "./walk.js?v=68874bb7";
+import { STEP_MS, stepKind, mmPerHour, GUST_WARN, LEVEL_WORD } from "./walk.js?v=0add2639";
 import { trendSign } from "./barometer.js?v=f58dbfb8";
 import { next24h, modelShort } from "./weather-provider.js?v=631084d1";
 import { EXTREME, MINI_MM_FULL, RISK_PCT, minVisible, outlookSpan, isNum, num0, num1, deg, weatherInfo, isNight, sunTimes, hourLabel, extremeOf, modelsOf } from "./weather-render.js?v=38232aca";

@@ -13,7 +13,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#f6f3eb" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#1b201d" media="(prefers-color-scheme: dark)">
-<link rel="stylesheet" href="styles.css?v=2e41d7d5">
+<link rel="stylesheet" href="styles.css?v=2d033787">
 <script>
 // Téléphone, iPad : la page reste masquée le temps d'ouvrir l'écran d'accueil (app.js), 4 s au plus, pour ne pas apparaître une fraction de seconde avant lui.
 // Même règle que home.js et device.js (un test le vérifie).
@@ -195,6 +195,7 @@ try { if ((matchMedia("(max-width: 500px) and (pointer: coarse)").matches || /iP
       </div>
     </div>
     <p id="mini-storm" class="mini-storm" role="status" title="Observation d'une station d'aéroport (message METAR), à moins de 50 km, de moins d'une heure. Une station tous les 50 km environ : l'absence de bandeau ne garantit pas l'absence d'orage." hidden></p>
+    <p id="mini-precip" class="mini-precip" role="status" title="Observation d'une station d'aéroport (message METAR), à moins de 50 km, de moins d'une heure. Une station tous les 50 km environ : l'absence de bandeau ne garantit pas qu'il ne pleut pas." hidden></p>
     <p id="mini-lead" class="mini-lead"></p>
     <p id="mini-msg" class="mini-msg" role="status" aria-live="polite" hidden></p>
     <div id="mini-body"></div>
@@ -341,6 +342,8 @@ try { if ((matchMedia("(max-width: 500px) and (pointer: coarse)").matches || /iP
         <li><strong>Une ligne par heure</strong> : le pictogramme du temps, puis la pluie (hauteur en mm, avec une barre verticale proportionnelle, échelle fixe de 0 à 3 mm ; au-delà de 3 mm la barre est pleine, rouge et porte un « + », le chiffre donnant la valeur exacte), la probabilité de pluie (en %, barre horizontale qui suit le pourcentage), la température et le vent (km/h, avec les rafales dessous). Les autres petites barres : pour la température elle va de la plus basse à la plus haute de ces heures, pour le vent la partie foncée est le vent et la claire les rafales.</li>
         <li><strong>L'étiquette de l'heure</strong> a l'allure d'un petit bouton : jaune quand le soleil est levé, bleu pâle quand il est couché, d'après le lever et le coucher du jour du lieu (neutre si ces heures manquent). La toucher ouvre « Balade ? » pour un départ à cette heure-là, ou maintenant pour la première ligne. Le petit « i » du titre de colonne « Heure » en donne des exemples.</li>
         <li><strong>⚡ Orage observé</strong> : si une station d'aéroport à moins de 50 km signale un orage dans son dernier message (de moins d'une heure), un bandeau l'indique sous l'en-tête, avec le nom de l'aéroport, la distance et l'heure du relevé ; il est repris dans « Balade ? ». C'est une <strong>observation</strong>, pas une prévision. Les aéroports sont espacés d'environ 50 km et publient toutes les 30 minutes environ : un orage local peut échapper à toutes les stations, donc l'absence de bandeau ne garantit pas l'absence d'orage.</li>
+        <li><strong>💧 Pluie observée</strong> : de même, si une station d'aéroport à moins de 50 km signale de la pluie, de la bruine, de la neige ou des averses (en ce moment, à proximité ou dans l'heure passée) dans son dernier message de moins d'une heure, un bandeau bleu l'indique, avec le code du message traduit ; il est repris sur l'écran d'accueil et dans « Balade ? ». Mêmes limites que pour l'orage : l'absence de bandeau ne garantit pas qu'il ne pleut pas. Dans « Balade ? », pour un départ immédiat, le titre devient « Rien de prévu, mais observé à proximité » quand les modèles ne prévoient rien alors qu'une station signale de la pluie.</li>
+        <li><strong>« Au plus quelques gouttes »</strong> (« Balade ? ») : les modèles annoncent de la bruine ou quelques gouttes sans cumul notable (moins de 0,1 mm par quart d'heure) ; jamais « Pas une goutte en vue » dans ce cas, comme sur l'écran d'accueil.</li>
         <li><strong>Sous le tableau</strong>, « Comment lire ces valeurs » (replié) : le modèle de chaque colonne et la lecture des petites barres.</li>
         <li><strong>Un trait épais</strong> sépare la ligne de 12 h de celle de 13 h : le matin d'un côté, l'après-midi de l'autre.</li>
         <li><strong>Actualiser</strong> et <strong>Retour</strong> sont à droite du titre (sur téléphone, seulement leur icône : flèche circulaire et flèche). <strong>Retour</strong> ferme la vue (la touche Échap aussi) et ramène là d'où vous venez : la page météo, ou l'écran d'accueil si la vue a été ouverte par son marcheur. <strong>Actualiser</strong> relit la position et recharge la météo ; sans cela, une même position est gardée 10 minutes. En revenant dans l'application au-delà de ces 10 minutes, la position et la météo sont relues toutes seules, l'ancien tableau restant affiché pendant ce temps. Sous le lieu, le bouton de la <strong>pression</strong> ouvre le baromètre, et <strong>Carte</strong> affiche une carte centrée sur la position, avec un zoom (boutons + et −, molette ou deux doigts) ; elle n'est chargée qu'au premier clic et le bouton devient « Masquer la carte ». Ces deux boutons n'apparaissent que si la position est connue.</li>
@@ -490,7 +493,7 @@ try { if ((matchMedia("(max-width: 500px) and (pointer: coarse)").matches || /iP
   </div>
 
   <div class="modal-foot">
-    <p>Par CilMac et Claude Opus 5.5 · <span id="info-updated" title="Heure de Paris, notée à la dernière modification des fichiers du site">dernière modification : <time id="info-date" datetime="2026-11-26T14:12Z" data-v="484efdba">26 novembre 2026 à 15:12</time></span></p>
+    <p>Par CilMac et Claude Opus 5.5 · <span id="info-updated" title="Heure de Paris, notée à la dernière modification des fichiers du site">dernière modification : <time id="info-date" datetime="2026-11-26T16:03Z" data-v="63084a21">26 novembre 2026 à 17:03</time></span></p>
   </div>
 </dialog>
 
@@ -513,6 +516,6 @@ try { if ((matchMedia("(max-width: 500px) and (pointer: coarse)").matches || /iP
   window.addEventListener("unhandledrejection", function (e) { show(String((e.reason && e.reason.message) || e.reason)); });
 })();
 </script>
-<script type="module" src="app.js?v=6ca07b08"></script>
+<script type="module" src="app.js?v=5ee4c134"></script>
 </body>
 </html>
