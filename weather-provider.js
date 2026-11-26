@@ -37,7 +37,7 @@ const HOURLY_VARS = [
   "temperature_2m", "apparent_temperature", "precipitation", "precipitation_probability",
   "wind_speed_10m", "wind_gusts_10m", "wind_direction_10m", "weather_code",
 ];
-const CURRENT_VARS = ["temperature_2m", "apparent_temperature", "weather_code", "precipitation", "wind_speed_10m", "wind_gusts_10m", "pressure_msl"];
+const CURRENT_VARS = ["temperature_2m", "apparent_temperature", "weather_code", "precipitation", "wind_speed_10m", "wind_gusts_10m", "wind_direction_10m", "pressure_msl"];
 
 export class ForecastError extends Error {
   constructor(kind, message) { super(message); this.name = "ForecastError"; this.kind = kind; } // kind : network | http | format
@@ -159,7 +159,7 @@ export function normalize(raw, place, { now = new Date() } = {}) {
     status: "estimation de modèle",
     model: null,
     temp: c.temperature_2m ?? null, apparent: c.apparent_temperature ?? null, weatherCode: c.weather_code ?? null,
-    precip: c.precipitation ?? null, wind: c.wind_speed_10m ?? null, gust: c.wind_gusts_10m ?? null,
+    precip: c.precipitation ?? null, wind: c.wind_speed_10m ?? null, gust: c.wind_gusts_10m ?? null, windDir: c.wind_direction_10m ?? null, // degrés, d'où vient le vent
     pressure: c.pressure_msl ?? null, // hPa, au niveau de la mer
   };
 

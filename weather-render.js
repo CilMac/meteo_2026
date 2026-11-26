@@ -1,7 +1,7 @@
 // Rendu des sections (cahier 4 à 8, 13). Les helpers purs sont testables sous Node ; `document` n'est utilisé que dans les builders.
 import { ECCC_ATTRIBUTION, ECCC_LICENCE_URL } from "./warnings.js?v=79a17bd6";
 import { ENSEMBLE_FIRST_DAY, ENSEMBLE_MEDIAN_FROM, WET_MM } from "./ensemble.js?v=88c38ccc";
-import { modelShort, modelLabel, next24h, firstWeek, secondWeek } from "./weather-provider.js?v=631084d1";
+import { modelShort, modelLabel, next24h, firstWeek, secondWeek } from "./weather-provider.js?v=afd8726c";
 
 export const TABS = [
   { id: "precip", label: "Précipitations", tip: "Afficher la pluie : quantité et probabilité" },

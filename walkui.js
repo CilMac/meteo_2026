@@ -1,9 +1,9 @@
 // Fenêtre « Balade dans l'heure ? » : lit la pluie, la neige et le contexte à 15 minutes à la position de l'appareil (walk.js) et affiche
 // le verdict, avec un sélecteur pour avancer le départ d'heure en heure. Tout le texte est écrit par textContent.
-import { fetchNextHour, walkAdvice, walkSources, hourlyAt, mmPerHour, MAX_OFFSET_H, STEP_MS, SNOW_CM_PER_MM, WalkError } from "./walk.js?v=0add2639";
+import { fetchNextHour, walkAdvice, walkSources, hourlyAt, mmPerHour, MAX_OFFSET_H, STEP_MS, SNOW_CM_PER_MM, WalkError } from "./walk.js?v=dbfc9474";
 import { stormText, precipText } from "./observation.js?v=9b23b237";
-import { modelShort } from "./weather-provider.js?v=631084d1";
-import { MINI_MM_FULL, foldTip } from "./weather-render.js?v=38232aca";
+import { modelShort } from "./weather-provider.js?v=afd8726c";
+import { MINI_MM_FULL, foldTip } from "./weather-render.js?v=8a4c0223";
 
 // Échelle de la frise : la même que la barre de pluie du tableau « Lieu actuel » (pleine à 3 mm dans l'heure),
 // soit 0,75 mm par quart d'heure ; au-delà, bâton plein et rouge (choix de l'utilisateur, 22/11/2026).

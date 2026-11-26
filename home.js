@@ -1,9 +1,9 @@
 // Écran d'accueil (25/11/2026) : l'essentiel des 4 heures à venir à la position de l'appareil. Calculs (testés) puis construction de l'écran.
 // Tout le texte est écrit par textContent ; une donnée absente est « — », jamais 0.
-import { STEP_MS, stepKind, mmPerHour, GUST_WARN, LEVEL_WORD } from "./walk.js?v=0add2639";
+import { STEP_MS, stepKind, mmPerHour, GUST_WARN, LEVEL_WORD } from "./walk.js?v=dbfc9474";
 import { trendSign } from "./barometer.js?v=f58dbfb8";
-import { next24h, modelShort } from "./weather-provider.js?v=631084d1";
-import { EXTREME, MINI_MM_FULL, RISK_PCT, minVisible, outlookSpan, isNum, num0, num1, deg, weatherInfo, isNight, sunTimes, hourLabel, extremeOf, modelsOf } from "./weather-render.js?v=38232aca";
+import { next24h, modelShort } from "./weather-provider.js?v=afd8726c";
+import { EXTREME, MINI_MM_FULL, RISK_PCT, minVisible, outlookSpan, isNum, num0, num1, deg, weatherInfo, isNight, sunTimes, hourLabel, extremeOf, modelsOf } from "./weather-render.js?v=8a4c0223";
 
 export const HOME_HOURS = 4;
 export const HOME_STEPS = HOME_HOURS * 4; // pas de 15 minutes
@@ -111,10 +111,41 @@ export function homeHours(data) {
       hour: hourLabel(x.time), icon: w.icon, sky: w.label, temp: deg(x.temp.value),
       mm: isNum(x.precip.value) ? `${num1(x.precip.value)} mm` : "— mm", wet: isNum(x.precip.value) && x.precip.value > 0,
       pct: isNum(x.precipProb?.value) ? x.precipProb.value : null, prob: isNum(x.precipProb?.value) ? `${num0(x.precipProb.value)}\u00a0%` : "—\u00a0%",
-      gust: isNum(x.gust.value) ? num0(x.gust.value) : "—",
+      gust: isNum(x.gust.value) ? num0(x.gust.value) : "—", dir: isNum(x.windDir?.value) ? x.windDir.value : null,
       tempRed: isExtremeTemp(x.temp.value), gustRed: isExtremeGust(x.gust.value),
     };
   });
+}
+
+// Vent (26/11/2026) : d'où il vient, en 8 directions (« vent d'est »). La girouette, elle, pointe vers où il va, nord en haut.
+const FROM8 = ["du nord", "du nord-est", "d'est", "du sud-est", "du sud", "du sud-ouest", "d'ouest", "du nord-ouest"];
+export const windFrom = (deg) => (isNum(deg) ? FROM8[Math.round((((deg % 360) + 360) % 360) / 45) % 8] : null);
+
+// Soleil du bandeau du bas : celui d'aujourd'hui jusqu'au coucher, puis celui de demain. Durée du jour en « 8 h 43 ».
+export function homeSun(data) {
+  const now = data.current.time, today = now ? now.slice(0, 10) : data.daily[0]?.date;
+  const i = data.daily.findIndex((d) => d.date === today), set = data.daily[i]?.sunset.value;
+  if (i < 0) return null;
+  const after = now && set && !sunTimes(today, data.daily).polar && now >= set; // nuit polaire, soleil de minuit : pas de « coucher » à passer
+  const day = after && data.daily[i + 1] ? data.daily[i + 1] : data.daily[i];
+  const sun = sunTimes(day.date, data.daily), label = day === data.daily[i] ? "Soleil" : "Soleil demain";
+  if (sun.polar) return { label, polar: sun.polar };
+  const r = day.sunrise.value, s = day.sunset.value, min = r && s ? Math.round((Date.parse(`${s}:00Z`) - Date.parse(`${r}:00Z`)) / 60000) : null;
+  return { label, polar: null, rise: sun.rise, set: sun.set, length: isNum(min) && min > 0 ? `${Math.floor(min / 60)} h ${String(min % 60).padStart(2, "0")}` : null };
+}
+
+// Demain (jour suivant la date locale de la prévision) : ciel, min / max, cumul, rafale max, direction dominante.
+export function homeTomorrow(data) {
+  const today = data.current.time ? data.current.time.slice(0, 10) : data.daily[0]?.date;
+  const d = data.daily[data.daily.findIndex((x) => x.date === today) + 1];
+  if (!d || d.date === today) return null;
+  const w = weatherInfo(d.weatherCode.value, false), v = (k) => d[k]?.value;
+  return {
+    icon: w.icon, sky: w.label, min: deg(v("tempMin")), max: deg(v("tempMax")),
+    mm: isNum(v("precipSum")) ? `${num1(v("precipSum"))} mm` : "— mm", wet: isNum(v("precipSum")) && v("precipSum") > 0,
+    gust: isNum(v("gustMax")) ? num0(v("gustMax")) : "—", dir: isNum(v("windDirDominant")) ? v("windDirDominant") : null,
+    minRed: isExtremeTemp(v("tempMin")), maxRed: isExtremeTemp(v("tempMax")), gustRed: isExtremeGust(v("gustMax")),
+  };
 }
 
 // « Heures : Météo-France. Probabilité : ECMWF. Quarts d'heure : Météo-France. »
@@ -133,14 +164,14 @@ const el = (tag, cls, ...children) => {
 const hidden = (e) => { e.setAttribute("aria-hidden", "true"); return e; };
 const link = (href, text) => { const a = el("a", "", text); a.href = href; a.rel = "noopener"; return a; };
 
-// Dessin au trait du vent (icône Tabler, licence MIT).
-const SVG = {
-  wind: "M5 8h8.5a2.5 2.5 0 1 0-2.34-3.24M3 12h15.5a2.5 2.5 0 1 1-2.34 3.24M4 16h5.5a2.5 2.5 0 1 1-2.34 3.24",
-};
-function icon(name) {
+// Girouette : flèche à empennage dessinée vers le sud, tournée de la direction d'où vient le vent (convention de la carte :
+// la pointe va où va le vent ; nord en haut). Sans direction connue, rien n'est dessiné.
+const VANE = "M12 3.5v17M12 20.5l-3.5-4.5M12 20.5l3.5-4.5M12 3.5l-3-2.5M12 6.5l-3-2.5M12 3.5l3-2.5M12 6.5l3-2.5";
+function vane(dir, small = false) {
+  if (!isNum(dir)) return null;
   const ns = "http://www.w3.org/2000/svg", svg = document.createElementNS(ns, "svg"), path = document.createElementNS(ns, "path");
-  svg.setAttribute("viewBox", "0 0 24 24"); svg.setAttribute("class", `mini-svg home-ico is-${name}`); svg.setAttribute("focusable", "false");
-  path.setAttribute("d", SVG[name]); svg.append(path);
+  svg.setAttribute("viewBox", "0 0 24 24"); svg.setAttribute("class", `vane${small ? " is-small" : ""}`); svg.setAttribute("focusable", "false");
+  path.setAttribute("d", VANE); path.style.transform = `rotate(${Math.round(dir)}deg)`; svg.append(path);
   return hidden(svg);
 }
 
@@ -176,24 +207,47 @@ function probBar(pct) {
   if (isNum(pct)) { const b = el("div", "hbar"); b.style.width = `${minVisible(Math.max(0, Math.min(100, pct)))}%`; box.append(b); }
   return box;
 }
-// Repère sur deux lignes : haut, bas.
-const fact = (top, bottom) => el("div", "home-fact", el("div", "", top), el("div", "", bottom));
 const RED = () => said("Hors du commun : "); // le rouge ne se voit pas à l'oreille
 const said = (text) => el("span", "sr-only", text); // lu par les lecteurs d'écran, à la place du dessin
 
 // Haut de l'écran : la situation à l'instant T, à la position de l'appareil.
-export function buildHomeNow(data) {
-  const c = data.current, info = weatherInfo(c.weatherCode, c.time ? isNight(c.time, data.daily) : false);
-  return el("div", "home-now",
+// Dessous : pression (bouton du baromètre) et vent (girouette, vitesse, rafales, d'où il vient).
+export function buildHomeNow(data, pressureEl) {
+  const c = data.current, info = weatherInfo(c.weatherCode, c.time ? isNight(c.time, data.daily) : false), from = windFrom(c.windDir);
+  const out = document.createDocumentFragment();
+  out.append(el("div", "home-now",
     hidden(el("span", "home-icon", info.icon)),
     el("span", `home-temp${isExtremeTemp(c.temp) ? " is-extreme" : ""}`, isExtremeTemp(c.temp) ? RED() : null, deg(c.temp)),
-    el("div", "home-desc", el("strong", "", info.label), el("span", "", `Ressenti ${deg(c.apparent)}`)));
+    el("div", "home-desc", el("strong", "", info.label), el("span", "", `Ressenti ${deg(c.apparent)}`))));
+  const wind = el("div", "home-wind", vane(c.windDir),
+    el("span", "", said("Vent : "), el("b", "", isNum(c.wind) ? `${num0(c.wind)}\u00a0km/h` : "—\u00a0km/h"), " ",
+      el("small", isExtremeGust(c.gust) ? "is-extreme" : "", isExtremeGust(c.gust) ? RED() : null, "raf.\u00a0", isNum(c.gust) ? num0(c.gust) : "—"),
+      el("br"), el("small", "", from ? `vent ${from}` : "direction —")));
+  wind.title = "Vent actuel : vitesse, rafales et direction d'où il vient (la flèche pointe vers où il va, nord en haut)";
+  out.append(el("div", "home-chips", pressureEl, wind));
+  return out;
 }
 
-// Zones : avertissements s'il y en a, pluie, quatre heures, repères. steps : undefined = en cours de lecture, null = illisibles.
-export function buildHome({ data, steps, alerts, fmtTime, pressureEl }) {
+// Bandeau du bas : demain, puis le soleil (aujourd'hui jusqu'au coucher, demain ensuite).
+function tomorrowBand(data) {
+  const t = homeTomorrow(data), sun = homeSun(data);
+  if (!t && !sun) return null;
+  const red = (on, v) => el("span", on ? "is-extreme" : "", on ? RED() : null, v);
+  return el("section", "home-zone home-tomorrow",
+    t ? el("div", "home-tm-row",
+      el("span", "home-tm-lab", "Demain"), hidden(el("span", "home-tm-ico", t.icon)), el("span", "sr-only", t.sky),
+      el("span", "home-tm-val", said("Minimale "), red(t.minRed, t.min), "\u00a0/ ", said("maximale "), el("b", "", red(t.maxRed, t.max))),
+      el("span", `home-tm-val${t.wet ? " is-wet" : ""}`, t.mm),
+      el("span", `home-tm-val${t.gustRed ? " is-extreme" : ""}`, vane(t.dir, true), t.dir === null ? null : said(`vent dominant ${windFrom(t.dir)}, `), t.gustRed ? RED() : null, "raf.\u00a0", t.gust)) : null,
+    sun ? el("div", "home-tm-row is-sun", el("span", "home-tm-lab", sun.label),
+      ...(sun.polar ? [el("span", "home-tm-val", sun.polar.replace("Soleil ", ""))]
+        : [el("span", "sun sun-rise", said("Lever : "), sun.rise), el("span", "sun sun-set", said("Coucher : "), sun.set), el("span", "home-tm-len", said("Durée du jour : "), sun.length ?? "—")])) : null);
+}
+
+// Zones : avertissements s'il y en a, pluie, quatre heures, demain et soleil. steps : undefined = en cours de lecture, null = illisibles.
+export function buildHome({ data, steps, alerts, fmtTime }) {
   const phrase = steps ? rainPhrase(steps, fmtTime, data.current.weatherCode, homeRisk(data)) : { tone: "unknown", title: steps === undefined ? "Lecture de la pluie…" : "Pluie par quart d'heure indisponible", detail: steps === undefined ? "Par quart d'heure, sur 4 heures." : "Les heures ci-dessous restent valables." };
-  const sun = sunTimes(data.current.time ? data.current.time.slice(0, 10) : data.daily[0].date, data.daily), hours = homeHours(data), out = document.createDocumentFragment();
+  const hours = homeHours(data), out = document.createDocumentFragment();
   if (alerts.length) out.append(el("section", "home-zone home-alerts", ...alerts.map((t) => el("p", "", t))));
   out.append(el("section", "home-zone home-rain",
     el("h2", `is-${phrase.tone}`, phrase.title), el("p", "", phrase.detail),
@@ -201,12 +255,9 @@ export function buildHome({ data, steps, alerts, fmtTime, pressureEl }) {
   out.append(hours.length ? el("section", "home-zone home-hours", ...hours.map((x) => el("div", "home-hour",
     el("span", "home-h-hour", x.hour), hidden(el("span", "home-h-icon", x.icon)), el("span", "sr-only", x.sky), el("span", `home-h-temp${x.tempRed ? " is-extreme" : ""}`, x.tempRed ? RED() : null, x.temp),
     el("span", `home-h-mm${x.wet ? " is-wet" : ""}`, x.mm),
-    el("span", "home-h-prob", said("Probabilité de pluie : "), x.prob), probBar(x.pct), el("span", `home-h-gust${x.gustRed ? " is-extreme" : ""}`, x.gustRed ? RED() : null, "raf. ", x.gust)))) : el("p", "home-zone muted", "Données horaires indisponibles."));
-  out.append(el("section", "home-zone home-facts",
-    sun.polar ? fact("Soleil", sun.polar.replace("Soleil ", ""))
-      : fact(el("span", "sun sun-rise", said("Lever du soleil : "), sun.rise), el("span", "sun sun-set", said("Coucher du soleil : "), sun.set)),
-    pressureEl, // bouton « icône, valeur, tendance » : ouvre le baromètre
-    fact(el("span", "", said("Vent"), icon("wind")), isNum(data.current.wind) ? `${num0(data.current.wind)} km/h` : "— km/h")));
+    el("span", "home-h-prob", said("Probabilité de pluie : "), x.prob), probBar(x.pct), el("span", `home-h-gust${x.gustRed ? " is-extreme" : ""}`, vane(x.dir, true), x.dir === null ? null : said(`vent ${windFrom(x.dir)}, `), x.gustRed ? RED() : null, "raf. ", x.gust)))) : el("p", "home-zone muted", "Données horaires indisponibles."));
+  const band = tomorrowBand(data);
+  if (band) out.append(band);
   return out;
 }
 
@@ -216,7 +267,10 @@ export function homeLegend(data, steps) {
   return {
     sections: [
       { title: "Situation actuelle", note: `valeurs de modèle${time ? `, ${time}` : ""}`, rows: [
-        { sym: "temp", text: "Température de l'air et ressenti, à votre position" }] },
+        { sym: "temp", text: "Température de l'air et ressenti, à votre position" },
+        { sym: "baro", text: "Pression au niveau de la mer, station la plus proche", sub: "«\u00a0≈\u00a0»\u00a0: valeur de modèle. Ouvre le baromètre." },
+        { sym: "trend", text: "Tendance sur 3\u00a0h environ\u00a0: hausse, stabilité, baisse" },
+        { sym: "wind", text: "Vent actuel\u00a0: vitesse, rafales, direction d'où il vient", sub: "Girouette\u00a0: pointe vers où va le vent, nord en haut. Petite girouette des heures\u00a0: direction à l'heure dite\u00a0; de demain\u00a0: direction dominante du jour." } ] },
       { title: "Pluie par quart d'heure", note: "4 heures, en mm", rows: [
         { sym: "bars", text: `Échelle fixe\u00a0: barre pleine = ${full}, soit ${MINI_MM_FULL}\u00a0mm/h`, sub: "Grise\u00a0: 0\u00a0mm. Rouge\u00a0: échelle dépassée. «\u00a0—\u00a0»\u00a0: donnée absente." },
         { sym: "risk", text: `«\u00a0Sec, mais pluie possible\u00a0»\u00a0: cumul prévu nul, probabilité d'au moins ${RISK_PCT}\u00a0% dans l'une des 4\u00a0heures` }] },
@@ -225,11 +279,10 @@ export function homeLegend(data, steps) {
         { sym: "mm", text: "Cumul de précipitations" },
         { sym: "prob", text: "Probabilité de précipitations", sub: "Seuil\u00a0: plus de 0,1\u00a0mm dans l'heure" },
         { sym: "gust", text: "Rafale maximale, en km/h" }] },
-      { title: "Repères", rows: [
-        { sym: "sun", text: "Lever et coucher du soleil" },
-        { sym: "baro", text: "Pression au niveau de la mer, station la plus proche", sub: "«\u00a0≈\u00a0»\u00a0: valeur de modèle. Ouvre le baromètre." },
-        { sym: "trend", text: "Tendance sur 3\u00a0h environ\u00a0: hausse, stabilité, baisse" },
-        { sym: "wind", text: "Vent actuel" },
+      { title: "Demain et soleil", rows: [
+        { sym: "tomorrow", text: "Demain\u00a0: ciel, minimale / maximale, cumul de précipitations, rafale maximale" },
+        { sym: "sun", text: "Lever, coucher et durée du jour", sub: "Ceux d'aujourd'hui jusqu'au coucher, puis ceux de demain." }] },
+      { title: "Boutons", rows: [
         { sym: "map", text: "Carte plein écran", sub: "Point bleu\u00a0: position\u00a0; disque\u00a0: précision. «\u00a0Nuages\u00a0» et «\u00a0Pluie\u00a0»\u00a0: valeurs de modèles à l'instant ou heure par heure (réglette), interpolées. Cible\u00a0: recentrer. Montagne\u00a0: fond relief (OpenTopoMap). Manche à air\u00a0: stations d'aéroport (pression mesurée, éclair si orage observé ; toucher une station : son dernier relevé décodé). Radar\u00a0: pluie observée des 2 dernières heures (RainViewer)." }] },
       { title: "Valeurs signalées", note: "hors vigilance officielle", rows: [
         { sym: "red", text: `Hors du commun\u00a0: ≥\u00a0${EXTREME.hot}\u00a0°C, ≤\u00a0−${num0(-EXTREME.cold)}\u00a0°C, rafales ≥\u00a0${EXTREME.gust}\u00a0km/h` },
@@ -256,7 +309,8 @@ const SYMBOLS = {
   sun: () => draw(el("span", "sun sun-rise"), el("span", "sun sun-set")),
   baro: () => { const s = draw(); s.innerHTML = '<svg class="mini-svg hl-baro" viewBox="0 0 24 24" focusable="false"><use href="#ico-baro"/></svg>'; return s; },
   trend: () => draw(trendSign("up"), trendSign("steady"), trendSign("down")),
-  wind: () => draw(icon("wind")),
+  wind: () => draw(vane(250)),
+  tomorrow: () => text("2°\u00a0/ 8°"),
   map: () => { const s = draw(); s.innerHTML = '<svg class="mini-svg hl-baro" viewBox="0 0 24 24" focusable="false"><path d="M9 4 3.5 6v14L9 18l6 2 5.5-2V4L15 6 9 4zM9 4v14M15 6v14"/></svg>'; return s; },
   red: () => { const s = text("105"); s.classList.add("is-red"); s.prepend(said("En rouge, comme ")); return s; },
   alert: () => { const s = el("span", "hl-sym", el("span", "hl-frame", said("Encadré jaune"))); return s; },

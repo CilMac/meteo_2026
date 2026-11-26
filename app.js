@@ -1,22 +1,22 @@
 // Orchestration : lieu, un appel réseau par validation, onglets qui re-rendent sans appel réseau.
 import { FAVORITES, DEFAULT_PLACE, CUSTOM_ID, searchPlaces, validatePlace, placeLabel } from "./places.js?v=521daa6a";
-import { fetchForecast, localDateISO } from "./weather-provider.js?v=631084d1";
+import { fetchForecast, localDateISO } from "./weather-provider.js?v=afd8726c";
 import { loadWarnings, officialSource } from "./warnings.js?v=79a17bd6";
 import { fetchEnsemble } from "./ensemble.js?v=88c38ccc";
 import { initInfo } from "./info.js?v=0231d5ac";
 import { initBarometer, preloadDial, trendSign } from "./barometer.js?v=f58dbfb8";
 import { createSkyLayer, addDoubleTapZoom, createStationLayer } from "./skymap.js?v=1dd4b71e";
 import { parseMapPrefs, MAP_ZOOM, maxZoomFor } from "./weathermap.js?v=32549e56";
-import { initWalk } from "./walkui.js?v=31aca129";
-import { buildHome, buildHomeNow, homeSteps, homeAlerts, homeLegend, buildLegend, homeMode, HOME_KEY, PHONE_QUERY } from "./home.js?v=0081b817";
-import { localToMs, fetchNextHour } from "./walk.js?v=0add2639";
+import { initWalk } from "./walkui.js?v=fbdaa9a1";
+import { buildHome, buildHomeNow, homeSteps, homeAlerts, homeLegend, buildLegend, homeMode, HOME_KEY, PHONE_QUERY } from "./home.js?v=a7383e5c";
+import { localToMs, fetchNextHour } from "./walk.js?v=dbfc9474";
 import { fetchObservedPressure, fetchPressureTrend, fetchObservedStorms, stormText, fetchObservedPrecip, precipText, pressureDisplay, TREND_WORD, fetchStationsForMap, distanceKm, STORM_WORDS, metarLines } from "./observation.js?v=9b23b237";
 import { getPosition, reverseGeocode, placeFromPosition, storedGeoPlace, formatCoords, deniedHelp, GEO_ID, GEO_MAX_AGE_MS } from "./geo.js?v=b6df63a8";
 import { shouldRefresh, STALE_MS, TRY_GAP_MS, RETRY_MS, QUIET_WAIT_MS } from "./refresh.js?v=beadd3fe";
 import { createLoader } from "./loading.js?v=956b591b";
-import { makeRecord, saveRecord, loadJournal, exportText, exportName } from "./journal.js?v=e6b1a5fe";
+import { makeRecord, saveRecord, loadJournal, exportText, exportName } from "./journal.js?v=47a0f04a";
 import { chooseView, DEFAULT_VIEW, isIOS } from "./device.js?v=804d2636";
-import { TABS, foldTip, buildPin, buildTopPlace, buildTopNow, buildCurrent, buildHourly, buildWeek, buildTrend, buildCompact, buildMini, extremeText, COMPACT_HELP_ITEMS, buildSources, buildWarnings, buildAttribution, warningsStatus, formatLocal } from "./weather-render.js?v=38232aca";
+import { TABS, foldTip, buildPin, buildTopPlace, buildTopNow, buildCurrent, buildHourly, buildWeek, buildTrend, buildCompact, buildMini, extremeText, COMPACT_HELP_ITEMS, buildSources, buildWarnings, buildAttribution, warningsStatus, formatLocal } from "./weather-render.js?v=8a4c0223";
 
 const $ = (id) => {
   const el = document.getElementById(id);
@@ -465,8 +465,8 @@ function renderHome() {
   const baroHadFocus = document.activeElement === homeBaroBtn; // redessiner l'écran le lui ferait perdre
   const storm = stormText(geo.storms, homeTime);
   const precip = precipText(geo.precip, homeTime);
-  $("home-now").replaceChildren(buildHomeNow(data));
-  $("home-body").replaceChildren(buildHome({ data, steps, fmtTime: homeTime, pressureEl: homeBaroBtn, alerts: [storm, precip && `${precip} C'est une observation, pas une prévision.`, ...homeAlerts(data, steps ?? [], homeTime)].filter(Boolean) }));
+  $("home-now").replaceChildren(buildHomeNow(data, homeBaroBtn)); // bouton « icône, valeur, tendance » : ouvre le baromètre
+  $("home-body").replaceChildren(buildHome({ data, steps, fmtTime: homeTime, alerts: [storm, precip && `${precip} C'est une observation, pas une prévision.`, ...homeAlerts(data, steps ?? [], homeTime)].filter(Boolean) }));
   if (baroHadFocus) homeBaroBtn.focus();
 }
 // force = false : une position lue il y a moins de 10 minutes (écran d'accueil ou vue 🥾) sert telle quelle.
