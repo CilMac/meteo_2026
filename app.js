@@ -5,9 +5,9 @@ import { loadWarnings, officialSource } from "./warnings.js?v=79a17bd6";
 import { fetchEnsemble } from "./ensemble.js?v=88c38ccc";
 import { initInfo } from "./info.js?v=0231d5ac";
 import { initBarometer, preloadDial, trendSign } from "./barometer.js?v=f58dbfb8";
-import { createSkyLayer } from "./skymap.js?v=490696b3";
+import { createSkyLayer } from "./skymap.js?v=4e82698b";
 import { initWalk } from "./walkui.js?v=b13afaa3";
-import { buildHome, buildHomeNow, homeSteps, homeAlerts, homeLegend, buildLegend, homeMode, HOME_KEY, PHONE_QUERY } from "./home.js?v=c66d38a9";
+import { buildHome, buildHomeNow, homeSteps, homeAlerts, homeLegend, buildLegend, homeMode, HOME_KEY, PHONE_QUERY } from "./home.js?v=0e873254";
 import { localToMs, fetchNextHour } from "./walk.js?v=68874bb7";
 import { fetchObservedPressure, fetchPressureTrend, fetchObservedStorms, stormText, pressureDisplay, TREND_WORD } from "./observation.js?v=6922543a";
 import { getPosition, reverseGeocode, placeFromPosition, storedGeoPlace, formatCoords, deniedHelp, GEO_ID, GEO_MAX_AGE_MS } from "./geo.js?v=b6df63a8";
@@ -157,18 +157,34 @@ function setMapButton(open) { // l'icône reste : seul le libellé change
   $("mini-map-label").textContent = open ? "Masquer la carte" : "Carte";
 }
 // Une carte par conteneur (vue 🥾, écran d'accueil) : mêmes tuiles, même point de position, même calque « Nuages · pluie ».
-function drawMap(L, st = mapState, box = $("mini-map")) {
+// opts.saved : réglages retenus (zoom, calques) ; opts.onSave(réglages) : à chaque changement. Sans eux : zoom 15, calques éteints (vue 🥾).
+function drawMap(L, st = mapState, box = $("mini-map"), { saved = null, onSave = null } = {}) {
   const { latitude, longitude, accuracy } = geo.coords;
   const here = [latitude, longitude];
   if (!st.map) {
-    st.map = L.map(box, { zoomControl: false, attributionControl: true }).setView(here, 15);
+    st.map = L.map(box, { zoomControl: false, attributionControl: true }).setView(here, saved?.zoom ?? 15);
     L.control.zoom({ zoomInTitle: "Zoom avant", zoomOutTitle: "Zoom arrière" }).addTo(st.map);
+    // Recentrer sur la position (après un déplacement de la carte), sans changer le zoom.
+    const center = L.control({ position: "topleft" });
+    center.onAdd = () => {
+      const bar = L.DomUtil.create("div", "leaflet-bar map-center"), b = L.DomUtil.create("a", "", bar);
+      b.href = "#"; b.setAttribute("role", "button"); b.title = "Recentrer sur votre position"; b.setAttribute("aria-label", "Recentrer sur votre position");
+      b.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="6.5"/><circle cx="12" cy="12" r="2" class="dot"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>';
+      L.DomEvent.on(b, "click", (e) => { L.DomEvent.preventDefault(e); L.DomEvent.stopPropagation(e); st.map.setView([geo.coords.latitude, geo.coords.longitude], st.map.getZoom()); });
+      return bar;
+    };
+    center.addTo(st.map);
+    new ResizeObserver(() => st.map.invalidateSize()).observe(box); // la ligne d'état sous la carte change sa hauteur : le centre doit rester juste
     L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "© contributeurs <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a>" }).addTo(st.map);
     L.control.scale({ position: "bottomright", metric: true, imperial: false, maxWidth: 110 }).addTo(st.map); // échelle des distances, sous le crédit des cartes
+    const kept = { zoom: st.map.getZoom(), clouds: Boolean(saved?.clouds), rain: Boolean(saved?.rain) };
     st.sky = createSkyLayer(L, st.map, {
       getHere: () => ({ lat: geo.coords.latitude, lon: geo.coords.longitude }),
       fmtTime: (ms) => formatLocal(new Date(ms), geo.data.location.timezone, { hour: "2-digit", minute: "2-digit" }),
+      show: kept,
+      onShow: (s) => { Object.assign(kept, s); onSave?.(kept); },
     });
+    if (onSave) st.map.on("zoomend", () => { kept.zoom = st.map.getZoom(); onSave(kept); });
   } else { st.map.setView(here, st.map.getZoom()); st.sky?.update(); }
   st.layer?.remove();
   st.layer = L.layerGroup([
@@ -422,6 +438,16 @@ $("home-all").addEventListener("click", () => {
 $("home-mini").addEventListener("click", () => { homeDlg.close(); setMini(true); });
 $("home-refresh").addEventListener("click", () => fillHome());
 // Carte plein écran : Leaflet chargé au premier toucher, carte créée une fois (après l'ouverture : il lui faut sa taille), recentrée à chaque ouverture.
+// Réglages retenus sur l'appareil (meteo.map) : zoom et calques ; au départ, nuages et pluie allumés, zone d'environ 200 km.
+const MAP_KEY = "meteo.map", MAP_DEFAULT = { zoom: 8, clouds: true, rain: true };
+function readMapPrefs() {
+  try {
+    const p = JSON.parse(localStorage.getItem(MAP_KEY));
+    if (p && Number.isInteger(p.zoom) && p.zoom >= 3 && p.zoom <= 19) return { zoom: p.zoom, clouds: p.clouds === true, rain: p.rain === true };
+  } catch { /* illisible : défaut */ }
+  return { ...MAP_DEFAULT };
+}
+const saveMapPrefs = (p) => { try { localStorage.setItem(MAP_KEY, JSON.stringify({ zoom: p.zoom, clouds: p.clouds, rain: p.rain })); } catch { /* ignoré */ } };
 const homeMapDlg = $("home-map-dlg");
 $("home-map-btn").addEventListener("click", async () => {
   if (!geo.coords) return;
@@ -430,7 +456,7 @@ $("home-map-btn").addEventListener("click", async () => {
   try {
     const L = await loadLeaflet();
     homeMapDlg.showModal();
-    drawMap(L, homeMapState, $("home-map"));
+    drawMap(L, homeMapState, $("home-map"), { saved: readMapPrefs(), onSave: saveMapPrefs });
   } catch (e) { $("home-msg").textContent = `Carte indisponible : ${e.message}`; }
   finally { btn.disabled = !geo.coords; }
 });

@@ -1,6 +1,6 @@
-// Commandes Leaflet du calque « nuages et pluie » : interrupteur ON/OFF, légende, et flèche du vent toujours affichée. Le calcul est dans weathermap.js.
+// Commandes Leaflet des calques « Nuages » et « Pluie » : deux interrupteurs ON/OFF indépendants (26/11/2026), légende, et flèche du vent toujours affichée. Le calcul est dans weathermap.js.
 // Tout le texte affiché est écrit par textContent ; seules des valeurs numériques calculées ici sont injectées dans les styles.
-import { fetchSky, fetchHere, gridDims, skyImageUrl, windFromText, arrowAngle, cloudGradientCss, rainGradientCss, MAX_LAT, RAIN_STOPS } from "./weathermap.js?v=d14e9b77";
+import { fetchSky, fetchHere, gridDims, skyImageUrl, windFromText, arrowAngle, cloudGradientCss, rainGradientCss, MAX_LAT, RAIN_STOPS, RAIN_MIN } from "./weathermap.js?v=daabd986";
 
 const SKY_ZOOM = 8;      // à l'échelle d'un village, la grille des modèles n'a aucun sens : le calque s'ouvre sur une zone d'environ 200 km
 const REFETCH_MS = 700;  // délai après un déplacement de la carte avant de relire la grille
@@ -18,24 +18,31 @@ function windArrow() {
 }
 
 // getHere() → {lat, lon} de l'appareil ; fmtTime(ms) → « 16:15 » dans le fuseau du lieu.
-export function createSkyLayer(L, map, { getHere, fmtTime }) {
+// show : calques allumés au départ ({ clouds, rain }) ; onShow(show) : appelé à chaque changement (pour le retenir).
+export function createSkyLayer(L, map, { getHere, fmtTime, show: start = { clouds: false, rain: false }, onShow = () => {} }) {
   const pane = map.createPane("skypane");
   pane.style.zIndex = 250; pane.style.pointerEvents = "none"; // au-dessus des tuiles, sous le point de position
-  let on = false, overlay = null, last = null, timer = 0, seq = 0, restoreZoom = null;
+  const show = { clouds: Boolean(start.clouds), rain: Boolean(start.rain) };
+  let on = false, overlay = null, last = null, timer = 0, seq = 0, restoreZoom = null, sky = null;
 
-  // ---- interrupteur + vent (en haut à droite)
-  const panel = el("div", "sky-panel");
-  const sw = el("button", "sky-switch");
-  sw.type = "button"; sw.setAttribute("role", "switch"); sw.setAttribute("aria-checked", "false");
-  sw.title = "Afficher ou masquer les nuages et la pluie à cet instant (valeurs des modèles)";
-  const swLabel = el("span", "sky-switch-label", "Nuages · pluie"), swState = el("span", "sky-switch-state", "OFF");
-  sw.append(swLabel, swState);
+  // ---- deux interrupteurs (nuages, pluie) + vent (en haut à droite)
+  const panel = el("div", "sky-panel"), switches = el("div", "sky-switches");
+  const makeSwitch = (key, label, title) => {
+    const b = el("button", "sky-switch");
+    b.type = "button"; b.setAttribute("role", "switch"); b.title = title; b.dataset.layer = key;
+    b.append(el("span", "sky-switch-label", label), el("span", "sky-switch-state", "OFF"));
+    b.addEventListener("click", () => setShow({ ...show, [key]: !show[key] }));
+    switches.append(b);
+    return b;
+  };
+  const swCloud = makeSwitch("clouds", "Nuages", "Afficher ou masquer la couverture nuageuse à cet instant (valeurs des modèles)");
+  const swRain = makeSwitch("rain", "Pluie", "Afficher ou masquer la pluie à cet instant (valeurs des modèles)");
   const wind = el("div", "sky-wind"); wind.hidden = true;
   const arrow = windArrow(), windText = el("div", "sky-wind-text");
   const windMain = el("strong", "sky-wind-main"), windSub = el("span", "sky-wind-sub");
   windText.append(windMain, windSub);
   wind.append(arrow, windText);
-  panel.append(sw, wind);
+  panel.append(switches, wind);
 
   // ---- légende (en bas à gauche)
   const legend = el("div", "sky-legend"); legend.hidden = true;
@@ -44,10 +51,10 @@ export function createSkyLayer(L, map, { getHere, fmtTime }) {
   const cloudBar = el("div", "sky-bar"); cloudBar.style.background = `${cloudGradientCss()}, #fff`; // fond blanc : la légende montre le gris tel qu'il apparaît sur la carte
   const rainBar = el("div", "sky-bar"); rainBar.style.background = rainGradientCss();
   const ticks = (labels) => { const d = el("div", "sky-ticks"); labels.forEach((t) => d.append(el("span", "", t))); return d; };
-  legend.append(
-    el("p", "sky-leg-title", "Nuages (couverture)"), cloudBar, ticks(["0 %", "50 %", "100 %"]),
-    el("p", "sky-leg-title", "Pluie (mm par heure)"), rainBar, ticks(RAIN_STOPS.map(([v], i, a) => (i === a.length - 1 ? `${nf0.format(v)}+` : nf1.format(v)))),
-  );
+  const legCloud = el("div", "sky-leg-part"), legRain = el("div", "sky-leg-part");
+  legCloud.append(el("p", "sky-leg-title", "Nuages (couverture)"), cloudBar, ticks(["0 %", "50 %", "100 %"]));
+  legRain.append(el("p", "sky-leg-title", "Pluie (mm par heure)"), rainBar, ticks(RAIN_STOPS.map(([v], i, a) => (i === a.length - 1 ? `${nf0.format(v)}+` : nf1.format(v)))));
+  legend.append(legCloud, legRain);
 
   const mkControl = (position, node) => {
     const c = L.control({ position });
@@ -84,14 +91,16 @@ export function createSkyLayer(L, map, { getHere, fmtTime }) {
     const { nx, ny } = gridDims(pw / ph);
     setStatus("Chargement…");
     try {
-      const sky = await fetchSky({ here: getHere(), bounds, nx, ny });
+      const got = await fetchSky({ here: getHere(), bounds, nx, ny });
       if (id !== seq || !on) return;
       const w = 160, h = Math.max(24, Math.round((w * ph) / pw));
-      const next = L.imageOverlay(skyImageUrl(sky, w, h), [[bounds.south, bounds.west], [bounds.north, bounds.east]], { pane: "skypane", interactive: false, className: "sky-img" }).addTo(map);
-      overlay?.remove(); overlay = next;
+      sky = { data: got, bounds: [[bounds.south, bounds.west], [bounds.north, bounds.east]], w, h };
+      paint();
       last = { bounds: L.latLngBounds([bounds.south, bounds.west], [bounds.north, bounds.east]), zoom: z };
-      showWind(sky.here);
-      setStatus(`Modèles Open-Meteo${sky.at ? `, ${fmtTime(sky.at)}` : ""}. Valeurs interpolées entre points : indicatif.`);
+      showWind(got.here);
+      sky.text = `Modèles Open-Meteo${got.at ? `, ${fmtTime(got.at)}` : ""}. Valeurs interpolées entre points : indicatif.`;
+      sky.dry = got.rain.length > 0 && got.rain.every((v) => typeof v === "number" && v < RAIN_MIN); // tous les points connus et secs ; un seul inconnu : rien n'est affirmé
+      tell();
     } catch (e) {
       if (id !== seq) return;
       setStatus(`Indisponible : ${e.message}`, true);
@@ -99,30 +108,43 @@ export function createSkyLayer(L, map, { getHere, fmtTime }) {
     }
   }
 
-  function setOn(next) {
-    on = next;
-    sw.setAttribute("aria-checked", String(on)); swState.textContent = on ? "ON" : "OFF"; sw.classList.toggle("is-on", on);
-    legend.hidden = !on; if (!on) setStatus("");
+  // Image redessinée sans nouvel appel quand on change seulement de calque.
+  // Pluie seule et rien à dessiner : on le dit, pour qu'une carte vide ne passe pas pour une panne.
+  function tell() { if (sky?.text) setStatus(`${show.rain && sky.dry ? "Pas de pluie sur la zone à cet instant. " : ""}${sky.text}`); }
+  function paint() {
+    if (!sky) return;
+    tell();
+    const next = L.imageOverlay(skyImageUrl(sky.data, sky.w, sky.h, show), sky.bounds, { pane: "skypane", interactive: false, className: "sky-img" }).addTo(map);
+    overlay?.remove(); overlay = next;
+  }
+  function setShow(next, { first = false } = {}) {
+    const was = on;
+    show.clouds = next.clouds; show.rain = next.rain; on = show.clouds || show.rain;
+    for (const [b, v] of [[swCloud, show.clouds], [swRain, show.rain]]) { b.setAttribute("aria-checked", String(v)); b.lastElementChild.textContent = v ? "ON" : "OFF"; b.classList.toggle("is-on", v); }
+    legend.hidden = !on; legCloud.hidden = !show.clouds; legRain.hidden = !show.rain;
+    if (!first) onShow({ ...show });
     clearTimeout(timer);
+    if (on && was) { paint(); return; } // déjà lu : on redessine seulement
     if (on) {
       const here = getHere();
-      if (map.getZoom() > SKY_ZOOM + 1) { restoreZoom = map.getZoom(); map.setView([here.lat, here.lon], SKY_ZOOM, { animate: false }); } else restoreZoom = null;
+      // À l'allumage, la grille n'a pas de sens à l'échelle d'un village : zone d'environ 200 km (sauf au départ : le zoom retenu est gardé).
+      if (!first && map.getZoom() > SKY_ZOOM + 1) { restoreZoom = map.getZoom(); map.setView([here.lat, here.lon], SKY_ZOOM, { animate: false }); } else restoreZoom = null;
       refresh();
     } else {
-      seq++; overlay?.remove(); overlay = null; last = null; loadWind();
+      setStatus(""); seq++; overlay?.remove(); overlay = null; last = null; sky = null; loadWind();
       if (restoreZoom !== null) { const here = getHere(); map.setView([here.lat, here.lon], restoreZoom, { animate: false }); restoreZoom = null; }
     }
   }
-  sw.addEventListener("click", () => setOn(!on));
   map.on("moveend", () => {
     if (!on) return;
     clearTimeout(timer);
     timer = setTimeout(() => { if (!last || map.getZoom() !== last.zoom || !last.bounds.contains(map.getBounds())) refresh(); }, REFETCH_MS);
   });
-  loadWind();
+  setShow(show, { first: true });
+  if (!on) loadWind();
   return {
     isOn: () => on,
     update: () => { if (on) refresh(); else loadWind(); }, // nouvelle position : on relit
-    off: () => { if (on) setOn(false); },
+    off: () => { if (on) setShow({ clouds: false, rain: false }); },
   };
 }

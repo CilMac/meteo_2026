@@ -662,6 +662,8 @@ dialog.map-dlg[open] { display: flex; flex-direction: column; } dialog.map-dlg::
 #home-map-close { width: 50px; min-height: 50px; padding: 0; border: 1px solid var(--home-edge); border-radius: 14px; background: color-mix(in srgb, var(--surface) 55%, transparent); font-size: 20px; }
 .map-full { flex: 1; min-height: 0; z-index: 0; background: var(--note); } .map-full img { max-width: none; } .map-full.leaflet-container { font: inherit; }
 .map-dlg .sky-status { margin: 0; padding: 6px 18px; }
+.sky-switches { display: flex; gap: 6px; } @media (max-width: 360px) { .leaflet-bottom.leaflet-left .sky-legend { margin-bottom: 46px; } } /* crédit des cartes sur deux lignes : la légende passe au-dessus */ .sky-leg-part + .sky-leg-part { margin-top: 4px; } .sky-leg-part[hidden] { display: none; }
+.map-center a { display: flex !important; align-items: center; justify-content: center; color: var(--primary) !important; } .map-center svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; } .map-center .dot { fill: currentColor; stroke: none; }
 .home-when { margin: 2px 110px 0 0; /* place des deux boutons du haut (2 × 50 + 10) */ font-variant-numeric: tabular-nums; color: var(--muted); font-size: 14px; line-height: 1.35; }
 .home-now { display: flex; align-items: center; gap: 14px; margin-top: 14px; }
 #home-now { display: flow-root; min-height: 82px; } .home-head { min-height: 27px; } .home-place:empty::before { content: "\00a0"; } /* place gardée pendant la recherche : le bandeau ne saute pas */

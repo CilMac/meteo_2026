@@ -110,15 +110,16 @@ export const cloudGradientCss = () => `linear-gradient(90deg, ${toCssRgb(CLOUD_R
 export const rainGradientCss = () => `linear-gradient(90deg, ${RAIN_STOPS.map(([, c], i) => `${toCssRgb(c, 0.85)} ${Math.round((i / (RAIN_STOPS.length - 1)) * 100)}%`).join(", ")})`;
 
 // Pixels RGBA (w × h) : nuages (gris translucide) puis pluie par-dessus (bleu → violet). Rien là où la valeur est inconnue.
-export function skyPixels({ cloud, rain, nx, ny }, w, h) {
+// show : calques dessinés (26/11/2026 : nuages et pluie séparables, pour ne voir que la pluie).
+export function skyPixels({ cloud, rain, nx, ny }, w, h, show = { clouds: true, rain: true }) {
   const out = new Uint8ClampedArray(w * h * 4);
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
       const fx = (x / (w - 1)) * (nx - 1), fy = (y / (h - 1)) * (ny - 1);
       let r = 0, g = 0, b = 0, a = 0;
-      const ca = cloudAlpha(bilinear(cloud, nx, ny, fx, fy));
+      const ca = show.clouds ? cloudAlpha(bilinear(cloud, nx, ny, fx, fy)) : 0;
       if (ca > 0) { [r, g, b] = CLOUD_RGB; a = ca; }
-      const rc = rainColor(bilinear(rain, nx, ny, fx, fy));
+      const rc = show.rain ? rainColor(bilinear(rain, nx, ny, fx, fy)) : null;
       if (rc) {
         const ao = rc.alpha + a * (1 - rc.alpha); // « over » : la pluie recouvre le nuage
         r = (rc.rgb[0] * rc.alpha + r * a * (1 - rc.alpha)) / ao; g = (rc.rgb[1] * rc.alpha + g * a * (1 - rc.alpha)) / ao; b = (rc.rgb[2] * rc.alpha + b * a * (1 - rc.alpha)) / ao; a = ao;
@@ -131,11 +132,11 @@ export function skyPixels({ cloud, rain, nx, ny }, w, h) {
 }
 
 // Image (data URL) du calque, dans le navigateur.
-export function skyImageUrl(sky, w, h) {
+export function skyImageUrl(sky, w, h, show) {
   const canvas = document.createElement("canvas");
   canvas.width = w; canvas.height = h;
   const ctx = canvas.getContext("2d");
-  ctx.putImageData(new ImageData(skyPixels(sky, w, h), w, h), 0, 0);
+  ctx.putImageData(new ImageData(skyPixels(sky, w, h, show), w, h), 0, 0);
   return canvas.toDataURL("image/png");
 }
 
