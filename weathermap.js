@@ -192,6 +192,99 @@ const dist = (a, b) => Math.hypot(b.x - a.x, b.y - a.y);
 export const isTap = (down, up) => Boolean(down && up) && up.t - down.t >= 0 && up.t - down.t <= TAP.maxPressMs && dist(down, up) <= TAP.maxMovePx;
 export const isDoubleTap = (prev, cur) => Boolean(prev && cur) && cur.t - prev.t > 0 && cur.t - prev.t <= TAP.maxGapMs && dist(prev, cur) <= TAP.maxDistPx;
 
+// ── Radar de pluie OBSERVÉE : RainViewer (26/11/2026) ──────────────────────────────────────────────────────────────────────────
+// Lu sur rainviewer.com/api (26/11/2026) : gratuit, sans clé, « personal and educational use only », crédit « RainViewer » + lien
+// demandé, 100 demandes par minute et par adresse IP, aucune garantie de disponibilité. Passé : 2 h, une image toutes les 10 min ;
+// plus de prévision ni de satellite depuis le 01/01/2026 ; zoom 7 au plus (au-delà, une image « Zoom Level Not Supported », vérifié) ;
+// une seule palette, « Universal Blue » (n° 2). Tuiles de 512 px : le niveau 7 correspond au zoom 8 de la carte (zoomOffset −1).
+// Couverture : image noire opaque hors radar, transparente sous radar (pixels vérifiés), grisée sur la carte.
+export const RADAR = { stepMin: 20, frames: 7, nativeZoom: 8, color: 2, options: "1_1" /* lissé, neige en couleurs à part */ };
+export const RADAR_INDEX_URL = "https://api.rainviewer.com/public/weather-maps.json";
+export const RADAR_COVERAGE_URL = "https://tilecache.rainviewer.com/v2/coverage/0/512/{z}/{x}/{y}/0/0_0.png";
+// Images retenues, de la plus ancienne à la plus récente : la dernière publiée, puis en remontant, une tous les stepMin minutes
+// (écart mesuré sur les heures réelles : une image manquante ne décale pas les autres). Hôte et chemin vérifiés avant d'en faire
+// une adresse d'image (la réponse vient d'un service tiers).
+export function radarFrames(json, { stepMin = RADAR.stepMin, maxFrames = RADAR.frames } = {}) {
+  const host = json?.host, past = json?.radar?.past;
+  if (typeof host !== "string" || !/^https:\/\/([a-z0-9-]+\.)*rainviewer\.com$/.test(host) || !Array.isArray(past)) return [];
+  const ok = past.filter((f) => isNum(f?.time) && typeof f.path === "string" && /^\/v2\/radar\/[A-Za-z0-9]+$/.test(f.path)).sort((a, b) => a.time - b.time);
+  const out = [];
+  let prev = Infinity;
+  for (let i = ok.length - 1; i >= 0 && out.length < maxFrames; i--) {
+    if (prev - ok[i].time < stepMin * 60 - 60) continue; // une minute de tolérance
+    out.unshift({ at: ok[i].time * 1000, url: `${host}${ok[i].path}/512/{z}/{x}/{y}/${RADAR.color}/${RADAR.options}.png` });
+    prev = ok[i].time;
+  }
+  return out;
+}
+export async function fetchRadarFrames({ fetchImpl = fetch, timeoutMs = TIMEOUTS.sky } = {}) {
+  const body = await timed(timeoutMs, async (signal) => {
+    let res;
+    try { res = await fetchImpl(RADAR_INDEX_URL, { signal }); } catch (e) { throw new SkyError("network", `réseau indisponible (${e.message})`); }
+    if (!res.ok) throw new SkyError("http", `RainViewer a répondu HTTP ${res.status}`);
+    try { return await res.json(); } catch { throw new SkyError("format", "réponse illisible"); }
+  }, () => new SkyError("timeout", `RainViewer ne répond pas (aucune réponse en ${seconds(timeoutMs)})`));
+  const frames = radarFrames(body);
+  if (!frames.length) throw new SkyError("format", "aucune image radar dans la réponse de RainViewer");
+  return frames;
+}
+// Réflectivité (dBZ) → intensité de pluie, relation de Marshall-Palmer (Z = 200 R^1,6) : approximation classique, pour la pluie
+// seulement (pas pour la neige ni la grêle). Sert à la seule légende.
+export const dbzToMmh = (dbz) => (10 ** (dbz / 10) / 200) ** (1 / 1.6);
+// Couleurs de la palette « Universal Blue » de 10 à 55 dBZ, tous les 5 dBZ (tableau officiel rainviewer_api_colors_table.csv,
+// lu le 26/11/2026 ; la pluie et la neige ont chacune leur colonne).
+export const RADAR_RAIN = ["#cec08796", "#88ddeeff", "#00a3e0ff", "#0077aaff", "#005588ff", "#ffee00ff", "#ffaa00ff", "#ff4400ff", "#c10000ff", "#ffaaffff"];
+export const RADAR_SNOW = ["#bfffffff", "#9fdfffff", "#7fbfffff", "#5f9fffff", "#4f8fffff", "#3f7fffff", "#2f6fffff", "#1f5fffff", "#0f4fffff", "#003fffff"];
+export const RADAR_TICKS_DBZ = [10, 25, 40, 55]; // régulièrement espacés sur la barre (10 → 55 dBZ)
+const fmtMmh = (v) => (v < 1 ? v.toFixed(1).replace(".", ",") : String(Math.round(v)));
+export const radarTicks = () => RADAR_TICKS_DBZ.map((d, i, a) => `${fmtMmh(dbzToMmh(d))}${i === a.length - 1 ? "+" : ""}`);
+export const radarGradientCss = (list) => `linear-gradient(90deg, ${list.map((c, i) => `${c} ${Math.round((i / (list.length - 1)) * 100)}%`).join(", ")})`;
+
+// ── Pluie et neige séparées (26/11/2026) ─────────────────────────────────────────────────────────────────────────────────────
+// Chaque point d'une image radar porte une couleur de la palette « Universal Blue » : celles de la pluie et celles de la neige
+// (tableau officiel, « dBZ:RRGGBBAA », points transparents exclus) n'ont AUCUNE couleur en commun (vérifié), d'où un classement sûr.
+// Essai du 26/11/2026 sur deux images réelles, lissées ou non : 99 à 100 % des points reconnus (le lissage ne crée pas de couleurs
+// intermédiaires). Les autres (moins de 1 %, des roses absents du tableau, sens non publié) restent tels quels. La neige est recolorée
+// en violet (choix de l'utilisateur) : ses bleus se confondaient avec ceux de la pluie. Sur la carte, tout est affiché (show par défaut) :
+// les cases « pluie seule / neige seule » ont été retirées le 26/11/2026, le violet suffisant ; show ne sert plus qu'aux tests.
+export const RV_RAIN = "-10:63615914 -9:66635a19 -8:69665c1e -7:6c685d24 -6:6f6b5f29 -5:726e612e -4:75706234 -3:78736439 -2:7c75653e -1:7f786744 0:827b6949 1:857d6a4e 2:88806c54 3:8b826d59 4:8e856f5e 5:92887164 6:9e93756e 7:aa9e7978 8:b6a97e82 9:c2b4828c 10:cec08796 11:d2c48ba0 12:d6c88faa 13:dacc93b4 14:ded097be 15:88ddeeff 16:6cd1ebff 17:51c5e8ff 18:36bae5ff 19:1baee2ff 20:00a3e0ff 21:009ad5ff 22:0091caff 23:0088bfff 24:007fb4ff 25:0077aaff 26:0070a3ff 27:00699cff 28:006295ff 29:005b8eff 30:005588ff 31:005180ff 32:004e78ff 33:004a70ff 34:004768ff 35:ffee00ff 36:ffe000ff 37:ffd200ff 38:ffc500ff 39:ffb700ff 40:ffaa00ff 41:ff9f00ff 42:ff9500ff 43:ff8b00ff 44:ff8100ff 45:ff4400ff 46:f23600ff 47:e62800ff 48:d91b00ff 49:cd0d00ff 50:c10000ff 51:a80000ff 52:8f0000ff 53:760000ff 54:5d0000ff 55:ffaaffff 56:ff9fffff 57:ff95ffff 58:ff8bffff 59:ff81ffff 60:ff77ffff 61:ff6cffff 62:ff62ffff 63:ff58ffff 64:ff4effff 65:ffffffff 75:00ff00ff";
+export const RV_SNOW = "-9:ceffff0c -8:cdffff19 -7:ccffff26 -6:cbffff33 -5:cbffff3f -4:caffff4c -3:c9ffff59 -2:c8ffff66 -1:c7ffff72 0:c7ffff7f 1:c6ffff8c 2:c5ffff99 3:c4ffffa5 4:c3ffffb2 5:c3ffffbf 6:c2ffffcc 7:c1ffffd8 8:c0ffffe5 9:bffffff2 10:bfffffff 11:b8f8ffff 12:b2f2ffff 13:abebffff 14:a5e5ffff 15:9fdfffff 16:98d8ffff 17:92d2ffff 18:8bcbffff 19:85c5ffff 20:7fbfffff 21:78b8ffff 22:72b2ffff 23:6babffff 24:65a5ffff 25:5f9fffff 26:5b9bffff 27:5898ffff 28:5595ffff 29:5292ffff 30:4f8fffff 31:4b8bffff 32:4888ffff 33:4585ffff 34:4282ffff 35:3f7fffff 36:3b7bffff 37:3878ffff 38:3575ffff 39:3272ffff 40:2f6fffff 41:2b6bffff 42:2868ffff 43:2565ffff 44:2262ffff 45:1f5fffff 46:1b5bffff 47:1858ffff 48:1555ffff 49:1252ffff 50:0f4fffff 51:0c4bffff 52:0948ffff 53:0645ffff 54:0242ffff 55:003fffff 56:003bffff 57:0038ffff 58:0035ffff 59:0032ffff 60:002fffff 61:002bffff 62:0028ffff 63:0025ffff 64:0022ffff 65:001fffff 66:001bffff 67:0018ffff 68:0015ffff 69:0012ffff 70:000fffff 71:000cffff 72:0009ffff 73:0006ffff 74:0002ffff 75:0000ffff";
+const parseRv = (txt) => txt.split(" ").map((t) => { const [d, h] = t.split(":"); return [Number(d), parseInt(h, 16) >>> 0]; });
+const RAIN_SET = new Set(parseRv(RV_RAIN).map(([, c]) => c));
+const SNOW_DBZ = new Map(parseRv(RV_SNOW).map(([d, c]) => [c, d]));
+export const SNOW_VIOLET = [[10, [225, 210, 255]], [30, [160, 110, 235]], [55, [90, 30, 170]]]; // clair = faible, foncé = forte
+export const SNOW_MIN_ALPHA = 200; // la neige la plus faible de RainViewer est presque transparente : rendue lisible
+export function snowColor(dbz) {
+  const st = SNOW_VIOLET, d = clamp(dbz, st[0][0], st[st.length - 1][0]);
+  for (let k = 1; k < st.length; k++) {
+    const [a, ca] = st[k - 1], [b, cb] = st[k];
+    if (d <= b) { const t = (d - a) / (b - a); return ca.map((v, i) => Math.round(v + (cb[i] - v) * t)); }
+  }
+  return st[st.length - 1][1];
+}
+export const snowGradientCss = () => `linear-gradient(90deg, ${[10, 20, 30, 40, 55].map((d, i, a) => `rgb(${snowColor(d).join(", ")}) ${Math.round((i / (a.length - 1)) * 100)}%`).join(", ")})`;
+// Filtre en place des pixels RGBA d'une image radar : show = { rain, snow }. Renvoie le décompte (pour les tests).
+export function filterRadarPixels(px, show = { rain: true, snow: true }) {
+  const n = { rain: 0, snow: 0, other: 0 };
+  for (let i = 0; i < px.length; i += 4) {
+    const a = px[i + 3];
+    if (!a) continue;
+    const c = ((px[i] << 24) | (px[i + 1] << 16) | (px[i + 2] << 8) | a) >>> 0;
+    if (RAIN_SET.has(c)) { n.rain++; if (!show.rain) px[i + 3] = 0; continue; }
+    const d = SNOW_DBZ.get(c);
+    if (d !== undefined) {
+      n.snow++;
+      if (!show.snow) { px[i + 3] = 0; continue; }
+      const [r, g, b] = snowColor(d);
+      px[i] = r; px[i + 1] = g; px[i + 2] = b; px[i + 3] = Math.max(a, SNOW_MIN_ALPHA);
+      continue;
+    }
+    n.other++;
+    if (!(show.rain && show.snow)) px[i + 3] = 0;
+  }
+  return n;
+}
+
 // Échelles de la carte (26/11/2026, choix de l'utilisateur) : deux zooms retenus chacun de son côté.
 // « lieu » (calques éteints, ouverture) : 12 au départ (échelle 2 km, nom du lieu lisible) ; « météo » (Nuages ou Pluie allumés) :
 // 8 au départ et 10 au plus (la grille d'environ 48 points n'a plus de sens plus près) ; relief : 17 au plus (tuiles d'OpenTopoMap).

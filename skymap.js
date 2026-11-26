@@ -1,9 +1,10 @@
 // Commandes Leaflet des calques « Nuages » et « Pluie » : deux interrupteurs ON/OFF indépendants (26/11/2026), légende, et flèche du vent toujours affichée. Le calcul est dans weathermap.js.
 // Tout le texte affiché est écrit par textContent ; seules des valeurs numériques calculées ici sont injectées dans les styles.
-import { fetchSky, fetchHere, gridDims, skyImageUrl, windFromText, arrowAngle, cloudGradientCss, rainGradientCss, MAX_LAT, RAIN_STOPS, RAIN_MIN, isTap, isDoubleTap } from "./weathermap.js?v=df6ad046";
+import { fetchSky, fetchHere, gridDims, skyImageUrl, windFromText, arrowAngle, cloudGradientCss, rainGradientCss, MAX_LAT, RAIN_STOPS, RAIN_MIN, isTap, isDoubleTap, fetchRadarFrames, RADAR, RADAR_COVERAGE_URL, RADAR_RAIN, radarTicks, radarGradientCss, snowGradientCss, filterRadarPixels } from "./weathermap.js?v=32549e56";
 
 const REFETCH_MS = 700;
 const TIMELINE_HOURS = 12; // curseur de la carte plein écran : maintenant, puis les 12 heures suivantes (comme la vue des 12 heures)
+const RADAR_INDEX_MAX_AGE_MS = 5 * 60 * 1000; // liste des images radar relue au-delà (une nouvelle image toutes les 10 min)
 const PLAY_MS = 1000;      // durée d'une heure pendant la lecture  // délai après un déplacement de la carte avant de relire la grille
 const nf0 = new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 });
 const nf1 = new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 1 });
@@ -23,10 +24,13 @@ function windArrow() {
 // timeline : curseur « Maintenant · +1 h … +12 h » et lecture ▶ sous la carte (carte plein écran seulement), même appel enrichi.
 // onSwitch(on) : appelé quand le calque passe d'éteint à allumé ou l'inverse, AVANT la lecture de la grille : l'application y règle
 // l'échelle (zoom « météo » ou « lieu », voir MAP_ZOOM) ; le centre n'est pas touché ici.
-export function createSkyLayer(L, map, { getHere, fmtTime, show: start = { clouds: false, rain: false }, onShow = () => {}, onSwitch = () => {}, timeline = false }) {
+// radar : interrupteur « Radar » (pluie OBSERVÉE, RainViewer, 26/11/2026), seul à l'écran : l'allumer éteint Nuages et Pluie, et
+// l'inverse (passé observé et futur prévu ne se mélangent pas). Sa propre réglette : de −2 h à la dernière image, par pas de 20 min.
+export function createSkyLayer(L, map, { getHere, fmtTime, show: start = { clouds: false, rain: false }, onShow = () => {}, onSwitch = () => {}, timeline = false, radar = false }) {
   const pane = map.createPane("skypane");
   pane.style.zIndex = 250; pane.style.pointerEvents = "none"; // au-dessus des tuiles, sous le point de position
-  const show = { clouds: Boolean(start.clouds), rain: Boolean(start.rain) };
+  const show = { clouds: Boolean(start.clouds), rain: Boolean(start.rain), radar: false };
+  let radarOn = false;
   let on = false, overlay = null, last = null, timer = 0, seq = 0, sky = null, step = 0, playing = 0;
 
   // ---- deux interrupteurs (nuages, pluie) + vent (en haut à droite)
@@ -35,12 +39,16 @@ export function createSkyLayer(L, map, { getHere, fmtTime, show: start = { cloud
     const b = el("button", "sky-switch");
     b.type = "button"; b.setAttribute("role", "switch"); b.title = title; b.dataset.layer = key;
     b.append(el("span", "sky-switch-label", label), el("span", "sky-switch-state", "OFF"));
-    b.addEventListener("click", () => setShow({ ...show, [key]: !show[key] }));
+    b.addEventListener("click", () => {
+      const v = !show[key];
+      setShow(key === "radar" ? { clouds: false, rain: false, radar: v } : { ...show, [key]: v, radar: v ? false : show.radar });
+    });
     switches.append(b);
     return b;
   };
   const swCloud = makeSwitch("clouds", "Nuages", "Afficher ou masquer la couverture nuageuse à cet instant (valeurs des modèles)");
   const swRain = makeSwitch("rain", "Pluie", "Afficher ou masquer la pluie à cet instant (valeurs des modèles)");
+  const swRadar = radar ? makeSwitch("radar", "Radar", "Afficher ou masquer la pluie observée par les radars (2 dernières heures, RainViewer)") : null;
   const wind = el("div", "sky-wind"); wind.hidden = true;
   const arrow = windArrow(), windText = el("div", "sky-wind-text");
   const windMain = el("strong", "sky-wind-main"), windSub = el("span", "sky-wind-sub");
@@ -58,7 +66,12 @@ export function createSkyLayer(L, map, { getHere, fmtTime, show: start = { cloud
   const legCloud = el("div", "sky-leg-part"), legRain = el("div", "sky-leg-part");
   legCloud.append(el("p", "sky-leg-title", "Nuages (couverture)"), cloudBar, ticks(["0 %", "50 %", "100 %"]));
   legRain.append(el("p", "sky-leg-title", "Pluie (mm par heure)"), rainBar, ticks(RAIN_STOPS.map(([v], i, a) => (i === a.length - 1 ? `${nf0.format(v)}+` : nf1.format(v)))));
-  legend.append(legCloud, legRain);
+  const legRadar = el("div", "sky-leg-part");
+  const radarRainBar = el("div", "sky-bar"); radarRainBar.style.background = `${radarGradientCss(RADAR_RAIN)}, #fff`;
+  const radarSnowBar = el("div", "sky-bar"); radarSnowBar.style.background = `${snowGradientCss()}, #fff`;
+  legRadar.append(el("p", "sky-leg-title", "Radar : pluie (≈ mm par heure)"), radarRainBar, ticks(radarTicks()),
+    el("p", "sky-leg-title", "Radar : neige"), radarSnowBar, ticks(["faible", "forte"]));
+  legend.append(legCloud, legRain, legRadar);
 
   const mkControl = (position, node) => {
     const c = L.control({ position });
@@ -170,24 +183,120 @@ export function createSkyLayer(L, map, { getHere, fmtTime, show: start = { cloud
     const next = L.imageOverlay(url, sky.bounds, { pane: "skypane", interactive: false, className: "sky-img" }).addTo(map);
     overlay?.remove(); overlay = next;
   }
+  // ---- radar de pluie observée (RainViewer) : couverture grisée + une couche de tuiles par image, réglette à part
+  const radarPane = map.createPane("radarpane");
+  radarPane.style.zIndex = 240; radarPane.style.pointerEvents = "none"; // sous les nuages et la pluie des modèles (jamais affichés ensemble)
+  const RADAR_ATTR = 'Radar : <a href="https://www.rainviewer.com/">RainViewer</a>'; // crédit demandé par RainViewer, ajouté au crédit de la carte tant que le radar est affiché
+  const radarOpts = { pane: "radarpane", tileSize: 512, zoomOffset: -1, maxNativeZoom: RADAR.nativeZoom, attribution: RADAR_ATTR }; // au-delà du zoom 8 : images agrandies
+  // Tuiles radar redessinées dans un canevas : la neige y est repeinte en violet (filterRadarPixels, weathermap.js) ; tout reste affiché.
+  // RainViewer autorise cette lecture (en-tête « access-control-allow-origin: * », vérifié) et la permet expressément (api.html).
+  const RadarTiles = L.TileLayer.extend({
+    createTile(coords, done) {
+      const canvas = document.createElement("canvas"), img = new Image();
+      canvas.width = canvas.height = 512;
+      img.crossOrigin = "anonymous";
+      img.onload = () => {
+        try {
+          const ctx = canvas.getContext("2d", { willReadFrequently: true });
+          ctx.drawImage(img, 0, 0, 512, 512);
+          const d = ctx.getImageData(0, 0, 512, 512);
+          filterRadarPixels(d.data);
+          ctx.putImageData(d, 0, 0);
+          canvas.complete = true; // Leaflet traite comme « en cours » une tuile sans cette marque
+          done(null, canvas);
+        } catch (e) { done(e, canvas); }
+      };
+      img.onerror = (e) => done(e, canvas);
+      img.src = this.getTileUrl(coords);
+      return canvas;
+    },
+  });
+  const rBar = el("div", "sky-time"); rBar.hidden = true;
+  const rPlay = el("button", "sky-play"); rPlay.type = "button";
+  const rRange = el("input", "sky-range"); rRange.type = "range"; rRange.min = "0"; rRange.max = "0"; rRange.step = "1"; rRange.value = "0";
+  rRange.setAttribute("aria-label", "Heure de l'image radar");
+  rRange.title = "Faire glisser pour voir la pluie observée des 2 dernières heures, toutes les 20 minutes";
+  const rWhen = el("output", "sky-when");
+  rBar.append(rPlay, rRange, rWhen);
+  if (radar) map.getContainer().insertAdjacentElement("afterend", rBar);
+  let frames = [], framesAt = 0, rStep = 0, rPlaying = 0, rSeq = 0, rLayer = null, rOld = [], cover = null, rFailed = false;
+  const setRPlay = () => {
+    rPlay.textContent = rPlaying ? "⏸︎" : "▶︎";
+    const t = rPlaying ? "Arrêter la lecture" : "Faire défiler les 2 dernières heures";
+    rPlay.title = t; rPlay.setAttribute("aria-label", t);
+  };
+  setRPlay();
+  const rStop = () => { clearInterval(rPlaying); rPlaying = 0; setRPlay(); };
+  function rTell() {
+    const f = frames[rStep];
+    if (!f) return;
+    setStatus(rFailed ? "Radar : certaines images n'ont pas pu être chargées (RainViewer ne garantit pas leur disponibilité)."
+      : `Radar RainViewer : pluie et neige (en violet) observées à ${fmtTime(f.at)}${rStep === frames.length - 1 ? " (dernière image publiée)" : ""}. `
+        + "Zones grisées : hors de portée des radars. Couleurs ≈ mm/h (approximation).", rFailed);
+  }
+  function rGoTo(k) {
+    if (!frames.length) return;
+    rStep = Math.max(0, Math.min(k, frames.length - 1));
+    rRange.value = String(rStep);
+    const f = frames[rStep], txt = rStep === frames.length - 1 ? `${fmtTime(f.at)} · dernière` : fmtTime(f.at);
+    rWhen.textContent = txt; rRange.setAttribute("aria-valuetext", txt);
+    if (rLayer) rOld.push(rLayer);
+    const next = new RadarTiles(f.url, radarOpts);
+    next.on("tileerror", () => { if (next === rLayer && !rFailed) { rFailed = true; rTell(); } });
+    // L'image précédente reste jusqu'à l'arrivée de la nouvelle (pas de clignotement), au plus 2 s.
+    const clean = () => { if (next !== rLayer) return; rOld.forEach((l) => l.remove()); rOld = []; };
+    next.once("load", clean); setTimeout(clean, 2000);
+    rLayer = next.addTo(map); rFailed = false;
+    rTell();
+  }
+  rRange.addEventListener("input", () => { rStop(); rGoTo(Number(rRange.value)); });
+  rPlay.addEventListener("click", () => {
+    if (rPlaying) { rStop(); return; }
+    if (rStep >= frames.length - 1) rGoTo(0);
+    rPlaying = setInterval(() => { if (rStep >= frames.length - 1) rStop(); else rGoTo(rStep + 1); }, PLAY_MS);
+    setRPlay();
+  });
+  async function startRadar() {
+    const id = ++rSeq;
+    setStatus("Radar : chargement…");
+    try {
+      if (!frames.length || Date.now() - framesAt > RADAR_INDEX_MAX_AGE_MS) { frames = await fetchRadarFrames(); framesAt = Date.now(); }
+      if (id !== rSeq || !radarOn) return;
+      cover = L.tileLayer(RADAR_COVERAGE_URL, { ...radarOpts, opacity: 0.25 }).addTo(map); // noir hors radar, transparent dessous : gris léger
+      rRange.max = String(frames.length - 1);
+      rBar.hidden = false;
+      rGoTo(frames.length - 1); // ouverture sur la dernière image publiée
+    } catch (e) {
+      if (id !== rSeq) return;
+      setStatus(`Radar indisponible : ${e.message}`, true);
+    }
+  }
+  function stopRadar() {
+    rSeq++; rStop(); rBar.hidden = true;
+    rOld.forEach((l) => l.remove()); rOld = []; rLayer?.remove(); rLayer = null; cover?.remove(); cover = null; rFailed = false;
+  }
+
   function setShow(next, { first = false } = {}) {
-    const was = on;
-    show.clouds = next.clouds; show.rain = next.rain; on = show.clouds || show.rain;
-    for (const [b, v] of [[swCloud, show.clouds], [swRain, show.rain]]) { b.setAttribute("aria-checked", String(v)); b.lastElementChild.textContent = v ? "ON" : "OFF"; b.classList.toggle("is-on", v); }
-    legend.hidden = !on; legCloud.hidden = !show.clouds; legRain.hidden = !show.rain;
+    const wasModel = on, wasRadar = radarOn, wasAny = wasModel || wasRadar;
+    show.clouds = Boolean(next.clouds); show.rain = Boolean(next.rain); show.radar = radar && Boolean(next.radar);
+    on = show.clouds || show.rain; radarOn = show.radar;
+    const any = on || radarOn;
+    for (const [b, v] of [[swCloud, show.clouds], [swRain, show.rain], [swRadar, show.radar]]) {
+      if (!b) continue;
+      b.setAttribute("aria-checked", String(v)); b.lastElementChild.textContent = v ? "ON" : "OFF"; b.classList.toggle("is-on", v);
+    }
+    legend.hidden = !any; legCloud.hidden = !show.clouds; legRain.hidden = !show.rain; legRadar.hidden = !show.radar;
     if (!first) onShow({ ...show });
     clearTimeout(timer);
-    if (on && was) { paint(); return; } // déjà lu : on redessine seulement
-    if (on) {
-      if (!first) onSwitch(true);
-      clearTimeout(timer); // le changement d'échelle a pu programmer une relecture : celle-ci suffit
-      refresh();
-    } else {
-      stop(); step = 0; bar.hidden = true;
-      setStatus(""); seq++; overlay?.remove(); overlay = null; last = null; sky = null;
-      if (map.getContainer().offsetParent) loadWind(); // carte fermée : pas d'appel ; update() relira le vent à la réouverture
-      if (was) onSwitch(false);
-    }
+    if (!first && any !== wasAny) onSwitch(any); // échelle « météo » ou « lieu », AVANT la lecture
+    clearTimeout(timer); // le changement d'échelle a pu programmer une relecture : celle qui suit suffit
+    if (wasRadar && !radarOn) stopRadar();
+    if (on && wasModel) paint(); // déjà lu : on redessine seulement
+    else if (on) refresh();
+    else if (wasModel) { stop(); step = 0; bar.hidden = true; seq++; overlay?.remove(); overlay = null; last = null; sky = null; }
+    if (radarOn && !wasRadar) startRadar();
+    if (!any) setStatus("");
+    if (!on && wasModel && map.getContainer().offsetParent) loadWind(); // carte fermée : pas d'appel ; update() relira le vent à la réouverture
   }
   map.on("moveend", () => {
     if (!on) return;
@@ -199,7 +308,7 @@ export function createSkyLayer(L, map, { getHere, fmtTime, show: start = { cloud
   return {
     isOn: () => on,
     update: () => { if (on) refresh(); else loadWind(); }, // nouvelle position : on relit
-    off: () => { if (on) setShow({ clouds: false, rain: false }); },
+    off: () => { if (on || radarOn) setShow({ clouds: false, rain: false, radar: false }); },
     pause: () => { stop(); if (step) goTo(0); }, // fermeture de la carte : la lecture s'arrête, on rouvrira sur « Maintenant »
   };
 }

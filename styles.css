@@ -672,7 +672,7 @@ dialog.map-dlg[open] { display: flex; flex-direction: column; } dialog.map-dlg::
 .sky-range { flex: 1; min-width: 0; height: 44px; margin: 0; accent-color: var(--primary); }
 .sky-when { flex: none; min-width: 108px; text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
 @media (max-width: 360px) { .sky-time { gap: 8px; } .sky-when { min-width: 92px; font-size: 14px; } }
-.sky-switches { display: flex; gap: 6px; } .leaflet-bottom.leaflet-left .sky-legend { margin-bottom: calc(var(--attrib-h, 0px) + 6px); } /* toujours au-dessus du crédit des cartes, quelle que soit sa hauteur (--attrib-h, app.js) */ .sky-leg-part + .sky-leg-part { margin-top: 4px; } .sky-leg-part[hidden] { display: none; }
+.sky-switches { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; max-width: calc(100vw - 78px); } /* trois interrupteurs : passent sur deux lignes si la place manque (colonne de boutons à gauche) */ .leaflet-bottom.leaflet-left .sky-legend { margin-bottom: calc(var(--attrib-h, 0px) + 6px); } /* toujours au-dessus du crédit des cartes, quelle que soit sa hauteur (--attrib-h, app.js) */ .sky-leg-part + .sky-leg-part { margin-top: 4px; } .sky-leg-part[hidden] { display: none; }
 .map-base a { display: flex !important; align-items: center; justify-content: center; color: var(--primary) !important; } .map-base svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linejoin: round; stroke-linecap: round; }
 .map-base.is-on a { background: var(--precip-sel) !important; } .map-base.is-on svg { fill: var(--precip-border); fill-opacity: .35; }
 /* Stations d'aéroport sur la carte (26/11/2026) : pastille de pression, éclair si orage observé */

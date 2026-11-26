@@ -5,10 +5,10 @@ import { loadWarnings, officialSource } from "./warnings.js?v=79a17bd6";
 import { fetchEnsemble } from "./ensemble.js?v=88c38ccc";
 import { initInfo } from "./info.js?v=0231d5ac";
 import { initBarometer, preloadDial, trendSign } from "./barometer.js?v=f58dbfb8";
-import { createSkyLayer, addDoubleTapZoom, createStationLayer } from "./skymap.js?v=ec785c32";
-import { parseMapPrefs, MAP_ZOOM, maxZoomFor } from "./weathermap.js?v=df6ad046";
+import { createSkyLayer, addDoubleTapZoom, createStationLayer } from "./skymap.js?v=1dd4b71e";
+import { parseMapPrefs, MAP_ZOOM, maxZoomFor } from "./weathermap.js?v=32549e56";
 import { initWalk } from "./walkui.js?v=7fb08f37";
-import { buildHome, buildHomeNow, homeSteps, homeAlerts, homeLegend, buildLegend, homeMode, HOME_KEY, PHONE_QUERY } from "./home.js?v=a5ad3673";
+import { buildHome, buildHomeNow, homeSteps, homeAlerts, homeLegend, buildLegend, homeMode, HOME_KEY, PHONE_QUERY } from "./home.js?v=fb56b19d";
 import { localToMs, fetchNextHour } from "./walk.js?v=68874bb7";
 import { fetchObservedPressure, fetchPressureTrend, fetchObservedStorms, stormText, pressureDisplay, TREND_WORD, fetchStationsForMap, distanceKm, STORM_WORDS, metarLines } from "./observation.js?v=6ad7dab4";
 import { getPosition, reverseGeocode, placeFromPosition, storedGeoPlace, formatCoords, deniedHelp, GEO_ID, GEO_MAX_AGE_MS } from "./geo.js?v=b6df63a8";
@@ -247,6 +247,7 @@ function drawMap(L, target, { saved = null, onSave = null, timeline = false, kee
       show: { clouds: false, rain: false }, // toujours éteints à l'ouverture
       onSwitch: toScale,
       timeline,
+      radar: true, // radar de pluie observée (RainViewer)
     });
     st.map.on("zoomend", () => {
       if (switching) return;
