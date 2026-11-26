@@ -26,7 +26,7 @@ const $ = (id) => {
 const PLACE_KEY = "meteo.lastPlace", CUSTOM_KEY = "meteo.customPlace", POSITION_KEY = "meteo.position", TAB_DEFAULT = "precip";
 
 const loader = createLoader($("loader"));
-const state = { place: null, data: null, warnings: null, ensemble: undefined, pressure: null, view: DEFAULT_VIEW, tab: TAB_DEFAULT, loading: false, searching: 0, loadId: 0 };
+const state = { place: null, data: null, warnings: null, ensemble: undefined, pressure: null, view: DEFAULT_VIEW, tab: TAB_DEFAULT, loading: false, searching: 0, loadId: 0, posCoords: null };
 
 // Dernier « autre lieu » choisi, relu et revalidé (jamais pris tel quel dans le stockage) ; absent ou illisible : null.
 function readCustomPlace() {
@@ -124,6 +124,7 @@ function renderAll() {
   renderTabbed();
   renderWarnings();
   $("refresh").hidden = false;
+  $("place-map-btn").disabled = false;
   updateFreshness();
 }
 
@@ -152,11 +153,18 @@ function loadLeaflet() {
 }
 // Une seule carte, plein écran (26/11/2026 : la carte intégrée à la vue 🥾 a été remplacée par celle-ci), ouverte par le bouton carte
 // de l'écran d'accueil et par le bouton « Carte » de la vue 🥾. Fermer ramène à l'écran d'où l'on vient.
-const mapState = { map: null, layer: null, sky: null };
-// opts.saved : réglages retenus (zoom, calques) ; opts.onSave(réglages) : à chaque changement ; opts.timeline : réglette des 12 heures.
-function drawMap(L, st = mapState, box = $("home-map"), { saved = null, onSave = null, timeline = false } = {}) {
-  const { latitude, longitude, accuracy } = geo.coords;
-  const here = [latitude, longitude];
+const mapState = { map: null, layer: null, sky: null, target: null, centerBtn: null };
+// Lieu montré par la carte (26/11/2026 : la page principale ouvre aussi la carte, sur le lieu affiché) :
+// { lat, lon, accuracy (m, ou null), here (vrai seulement pour la position actuelle de l'appareil), name, tz }.
+// here : point bleu plein (+ disque de précision) et « à votre position » ; sinon anneau blanc cerclé de bleu et le nom du lieu.
+const placeName = (l) => `${l.name}${l.country ? ` (${l.country})` : ""}`;
+const geoTarget = () => ({ lat: geo.coords.latitude, lon: geo.coords.longitude, accuracy: geo.coords.accuracy ?? null, here: true, name: placeName(geo.data.location), tz: geo.data.location.timezone });
+// opts.saved : réglages retenus (zoom, calques, fond) ; opts.onSave(réglages) : à chaque changement ; opts.timeline : réglette des 12 heures.
+function drawMap(L, target, { saved = null, onSave = null, timeline = false } = {}) {
+  const st = mapState, box = $("home-map");
+  st.target = target;
+  const here = [target.lat, target.lon];
+  const centerTip = target.here ? "Recentrer sur votre position" : `Recentrer sur ${target.name}`;
   if (!st.map) {
     st.map = L.map(box, { zoomControl: false, attributionControl: true, doubleClickZoom: false }).setView(here, saved?.zoom ?? 15);
     addDoubleTapZoom(L, st.map); // le double toucher de Leaflet ne marche pas sur iPhone (constaté le 26/11/2026)
@@ -165,9 +173,9 @@ function drawMap(L, st = mapState, box = $("home-map"), { saved = null, onSave =
     const center = L.control({ position: "topleft" });
     center.onAdd = () => {
       const bar = L.DomUtil.create("div", "leaflet-bar map-center"), b = L.DomUtil.create("a", "", bar);
-      b.href = "#"; b.setAttribute("role", "button"); b.title = "Recentrer sur votre position"; b.setAttribute("aria-label", "Recentrer sur votre position");
+      b.href = "#"; b.setAttribute("role", "button"); st.centerBtn = b;
       b.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="6.5"/><circle cx="12" cy="12" r="2" class="dot"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>';
-      L.DomEvent.on(b, "click", (e) => { L.DomEvent.preventDefault(e); L.DomEvent.stopPropagation(e); st.map.setView([geo.coords.latitude, geo.coords.longitude], st.map.getZoom()); });
+      L.DomEvent.on(b, "click", (e) => { L.DomEvent.preventDefault(e); L.DomEvent.stopPropagation(e); st.map.setView([st.target.lat, st.target.lon], st.map.getZoom()); });
       return bar;
     };
     center.addTo(st.map);
@@ -176,8 +184,10 @@ function drawMap(L, st = mapState, box = $("home-map"), { saved = null, onSave =
     // OpenTopoMap (opentopomap.org/about, lu le 26/11/2026) : CC-BY-SA 3.0, attribution obligatoire (le texte ci-dessous),
     // gratuit et sans garantie ; tuiles jusqu'au zoom 17 seulement (au-delà, il renvoie « max zoom layer = 17 ») : agrandies aux zooms 18 et 19.
     const plan = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "© contributeurs <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a>" });
+    // Crédit raccourci (26/11/2026, demandé : 3 lignes sur iPhone) : noms, © et licence gardés, mots « Données » / « Rendu » retirés
+    // (OpenTopoMap « devrait » afficher sa formule, pas « doit » ; OpenStreetMap exige son nom et le lien vers /copyright).
     const relief = L.tileLayer("https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png", { subdomains: "abc", maxNativeZoom: 17, maxZoom: 19,
-      attribution: "Données : © contributeurs <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a>, SRTM | Rendu : © <a href=\"https://opentopomap.org/\">OpenTopoMap</a> (<a href=\"https://creativecommons.org/licenses/by-sa/3.0/\">CC-BY-SA</a>)" });
+      attribution: "© <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a>, SRTM · © <a href=\"https://opentopomap.org/\">OpenTopoMap</a> (<a href=\"https://creativecommons.org/licenses/by-sa/3.0/\">CC-BY-SA</a>)" });
     let topo = Boolean(saved?.topo);
     (topo ? relief : plan).addTo(st.map);
     const base = L.control({ position: "topleft" });
@@ -201,24 +211,26 @@ function drawMap(L, st = mapState, box = $("home-map"), { saved = null, onSave =
     base.addTo(st.map);
     // Le crédit des cartes (obligatoire) change de hauteur selon le fond et la largeur (3 lignes à 375 px avec le relief) :
     // la légende des calques, en bas à gauche, se place toujours au-dessus de lui (--attrib-h, lu par styles.css).
+    st.map.attributionControl.setPrefix(false); // sans « Leaflet » ni drapeau : non exigé par sa licence (BSD), place gagnée ; Leaflet reste cité dans l'aide
     const attrib = st.map.attributionControl.getContainer();
     new ResizeObserver(() => box.style.setProperty("--attrib-h", `${attrib.offsetHeight}px`)).observe(attrib);
     L.control.scale({ position: "bottomright", metric: true, imperial: false, maxWidth: 110 }).addTo(st.map); // échelle des distances, sous le crédit des cartes
     const kept = { zoom: st.map.getZoom(), clouds: Boolean(saved?.clouds), rain: Boolean(saved?.rain), topo };
     st.sky = createSkyLayer(L, st.map, {
-      getHere: () => ({ lat: geo.coords.latitude, lon: geo.coords.longitude }),
-      fmtTime: (ms) => formatLocal(new Date(ms), geo.data.location.timezone, { hour: "2-digit", minute: "2-digit" }),
+      getHere: () => ({ lat: st.target.lat, lon: st.target.lon }),
+      fmtTime: (ms) => formatLocal(new Date(ms), st.target.tz, { hour: "2-digit", minute: "2-digit" }), // heures du lieu montré
       show: kept,
       onShow: (s) => { Object.assign(kept, s); onSave?.(kept); },
       timeline,
     });
     if (onSave) st.map.on("zoomend", () => { kept.zoom = st.map.getZoom(); onSave(kept); });
   } else { st.map.setView(here, st.map.getZoom()); st.sky?.update(); }
+  st.centerBtn.title = centerTip; st.centerBtn.setAttribute("aria-label", centerTip);
   st.layer?.remove();
-  st.layer = L.layerGroup([
-    ...(accuracy ? [L.circle(here, { radius: accuracy, color: "#285775", weight: 1, fillOpacity: 0.12 })] : []),
-    L.circleMarker(here, { radius: 8, color: "#ffffff", weight: 3, fillColor: "#285775", fillOpacity: 1 }),
-  ]).addTo(st.map);
+  st.layer = L.layerGroup(target.here
+    ? [...(target.accuracy ? [L.circle(here, { radius: target.accuracy, color: "#285775", weight: 1, fillOpacity: 0.12 })] : []),
+      L.circleMarker(here, { radius: 8, color: "#ffffff", weight: 3, fillColor: "#285775", fillOpacity: 1 })]
+    : [L.circleMarker(here, { radius: 7, color: "#285775", weight: 3, fillColor: "#ffffff", fillOpacity: 1 })]).addTo(st.map);
   st.map.invalidateSize();
 }
 // « sam. 21/11 17:42 » : dernière actualisation (position + météo), à l'heure de l'appareil.
@@ -311,7 +323,7 @@ async function locate(force = false, { quiet = false } = {}) {
     miniMessage("");
     recordHere();
     $("mini-map-btn").disabled = false;
-    if ($("home-map-dlg").open && globalThis.L) drawMap(globalThis.L); // carte ouverte (mise à jour au retour) : recentrée sur la nouvelle position
+    if ($("home-map-dlg").open && mapState.target?.here && globalThis.L) drawMap(globalThis.L, geoTarget()); // carte de la position ouverte (mise à jour au retour) : recentrée
   } catch (e) {
     if (id !== geo.loadId) return;
     if (quiet) { // l'ancien tableau reste, daté ; il n'est plus présenté comme étant « ici et maintenant »
@@ -395,7 +407,7 @@ initBarometer([
 $("mini-open").addEventListener("click", () => setMini(true));
 $("mini-close").addEventListener("click", () => setMini(false));
 $("mini-refresh").addEventListener("click", () => locate(true));
-$("mini-map-btn").addEventListener("click", () => openMap($("mini-map-btn"), (t) => miniMessage(t, "err")));
+$("mini-map-btn").addEventListener("click", () => { if (geo.coords) openMap($("mini-map-btn"), geoTarget(), (t) => miniMessage(t, "err")); });
 $("journal-export").addEventListener("click", exportJournal);
 document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("mini").hidden) setMini(false); });
 
@@ -474,18 +486,31 @@ function readMapPrefs() {
 }
 const saveMapPrefs = (p) => { try { localStorage.setItem(MAP_KEY, JSON.stringify({ zoom: p.zoom, topo: p.topo === true })); } catch { /* ignoré */ } };
 const homeMapDlg = $("home-map-dlg");
-// btn : bouton qui ouvre la carte (désactivé pendant le chargement) ; fail(texte) : où dire que la carte est indisponible.
-async function openMap(btn, fail) {
-  if (!geo.coords) return;
+// btn : bouton qui ouvre la carte (désactivé pendant le chargement, puis rendu tel qu'il était) ; target : lieu montré (voir drawMap) ;
+// fail(texte) : où dire que la carte est indisponible. Titre : « à votre position » seulement pour la position actuelle, sinon le nom du lieu.
+async function openMap(btn, target, fail) {
+  const was = btn.disabled;
   btn.disabled = true;
   try {
     const L = await loadLeaflet();
+    const where = target.here ? "à votre position" : target.name;
+    $("home-map-title").querySelector("span").textContent = `· ${where}`;
+    $("home-map").setAttribute("aria-label", target.here ? "Carte de votre position" : `Carte : ${target.name}`);
     homeMapDlg.showModal();
-    drawMap(L, mapState, $("home-map"), { saved: readMapPrefs(), onSave: saveMapPrefs, timeline: true });
+    drawMap(L, target, { saved: readMapPrefs(), onSave: saveMapPrefs, timeline: true });
   } catch (e) { fail(`Carte indisponible : ${e.message}`); }
-  finally { btn.disabled = !geo.coords; }
+  finally { btn.disabled = was; }
 }
-$("home-map-btn").addEventListener("click", () => openMap($("home-map-btn"), (t) => { $("home-msg").textContent = t; }));
+$("home-map-btn").addEventListener("click", () => { if (geo.coords) openMap($("home-map-btn"), geoTarget(), (t) => { $("home-msg").textContent = t; }); });
+// Page principale : carte du lieu affiché. « Ma position » réellement trouvée (comme l'épingle rouge : sans « dernière position
+// connue ») = votre position, avec les coordonnées précises gardées en mémoire (state.posCoords, jamais stockées) ; sinon le lieu.
+function pageTarget() {
+  const p = state.place, d = state.data;
+  if (!p || !d) return null;
+  const here = p.id === GEO_ID && !state.note, c = here ? state.posCoords : null;
+  return { lat: c?.latitude ?? p.latitude, lon: c?.longitude ?? p.longitude, accuracy: c?.accuracy ?? null, here, name: placeName(d.location), tz: d.location.timezone };
+}
+$("place-map-btn").addEventListener("click", () => { const t = pageTarget(); if (t) openMap($("place-map-btn"), t, (m) => setStatus(m, "err")); });
 $("home-map-close").addEventListener("click", () => homeMapDlg.close());
 // Fermer ou Échap : la lecture des heures s'arrête et les calques s'éteignent (la carte se rouvre toujours sans nuages ni pluie).
 homeMapDlg.addEventListener("close", () => { mapState.sky?.pause(); mapState.sky?.off(); });
@@ -667,6 +692,7 @@ async function showPosition({ quiet = false } = {}) {
   try {
     const coords = await getPosition();
     if (!stillWanted()) return;
+    state.posCoords = coords; // précises, en mémoire seulement : pour la carte (le lieu gardé est arrondi à 0,01°)
     let named = null;
     try { named = await reverseGeocode(coords.latitude, coords.longitude); } catch { /* repli : « Position GPS » */ }
     if (!stillWanted()) return;

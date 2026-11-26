@@ -246,6 +246,13 @@ h2 .h2-main { display: block; }
 
 /* « Autre lieu » : même langage que replier/déplier (pastille lavande + flèche), avec un libellé qui dit quoi faire */
 .other { border-top: 0; padding-top: 0; margin-top: 14px; }
+/* « Autre lieu » et, à sa droite, le bouton Carte (26/11/2026), dans la colonne d'Actualiser et de la pression (142 px) ; sur téléphone : icône seule */
+/* Grille à une case : « Autre lieu » occupe toute la largeur (la recherche ouverte aussi), le bouton se pose à droite de son titre. */
+.other-row { --map-w: 142px; display: grid; grid-template-columns: minmax(0, 1fr) auto; margin-top: 14px; }
+.other-row > .other { grid-area: 1 / 1 / 2 / 3; min-width: 0; margin-top: 0; }
+.other-row > .other > summary { margin-right: calc(var(--map-w) + 10px); }
+.btn.place-map { grid-area: 1 / 2; align-self: start; width: var(--map-w); min-height: 44px; justify-content: center; gap: 8px; }
+@media (max-width: 450px) { .other-row { --map-w: 52px; } .btn.place-map { padding-inline: 0; } .place-map-label { display: none; } }
 .other > summary { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 14px; list-style: none; border: 1px solid var(--help-border); border-radius: var(--radius-control); background: var(--help); color: var(--ink); font-weight: 600; }
 .other > summary::-webkit-details-marker { display: none; }
 .other > summary:hover { filter: brightness(.96); }
@@ -655,7 +662,7 @@ dialog.map-dlg[open] { display: flex; flex-direction: column; } dialog.map-dlg::
 .map-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: calc(10px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right)) 10px calc(18px + env(safe-area-inset-left)); background: var(--home-top); border-bottom: 1px solid var(--home-edge); }
 .map-head h2 { margin: 0; font: 400 24px/1.2 var(--font-title); } .map-head h2 span { color: var(--muted); font: 15px var(--font-body); }
 #home-map-close { width: 50px; min-height: 50px; padding: 0; border: 1px solid var(--home-edge); border-radius: 14px; background: color-mix(in srgb, var(--surface) 55%, transparent); font-size: 20px; }
-.map-full { flex: 1; min-height: 0; z-index: 0; background: var(--note); } .map-full img { max-width: none; } .map-full.leaflet-container { font: inherit; }
+.map-full { flex: 1; min-height: 0; z-index: 0; background: var(--note); } .map-full img { max-width: none; } .map-full.leaflet-container { font: inherit; } .map-full .leaflet-control-attribution { font-size: 13px; line-height: 1.4; } /* crédit du relief sur une ligne dès 375 px (14 px : 378 px, 3 de trop) ; Leaflet met 12 px */
 .map-dlg .sky-status { margin: 0; padding: 6px 18px; }
 /* Curseur des 12 heures sous la carte plein écran (26/11/2026) */
 .sky-time { display: flex; align-items: center; gap: 12px; padding: 8px calc(18px + env(safe-area-inset-right)) 4px calc(18px + env(safe-area-inset-left)); border-top: 1px solid var(--home-edge); background: var(--home-top); }
