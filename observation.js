@@ -237,3 +237,102 @@ export function stormText(storms, fmtTime) {
   const more = storms.length > 1 ? ` (et ${storms.length - 1} autre${storms.length > 2 ? "s" : ""} station${storms.length > 2 ? "s" : ""} à moins de ${STORM_OBS_KM} km)` : "";
   return `⚡ ${what} ${s.name} (${Math.round(s.km)} km), relevé de ${fmtTime(s.at)}${more}.`;
 }
+
+// ── Message METAR décodé pour la bulle d'une station (26/11/2026) ─────────────────────────────────────────────────────────────────
+// Seule la partie OBSERVÉE est lue (comme pour l'orage). Valeurs telles que publiées, converties seulement d'unité : vent en nœuds
+// (ou m/s, km/h) → km/h ; hauteur des nuages en centaines de pieds au-dessus de l'aéroport → m (arrondi à 10 m). Le vent du METAR est
+// la moyenne des 10 dernières minutes, la rafale le maximum de ces 10 minutes (définition OMM/OACI) ; une rafale n'est transmise que si
+// elle dépasse nettement le vent moyen : son absence ne veut pas dire « 0 ». Un groupe absent ou illisible reste null : rien n'est deviné.
+const KT_KMH = 1.852, FT_M = 0.3048;
+const observedPart = (raw) => raw.split(/\s(?:TEMPO|BECMG|NOSIG|RMK|INTER|PROB\d{2}|FM\d{4,6})\b/)[0];
+export function metarObs(raw) {
+  if (typeof raw !== "string" || !raw.trim()) return null;
+  const o = { auto: false, tempC: null, dewC: null, wind: null, windVar: null, visM: null, visPlus: false, cavok: false, clouds: [], sky: null, vvM: null, wx: [] };
+  const toks = observedPart(raw).trim().split(/\s+/);
+  const t2 = (v) => (v.startsWith("M") ? -Number(v.slice(1)) : Number(v));
+  for (const t of toks.slice(1)) {
+    let m;
+    if (t === "AUTO") o.auto = true;
+    else if (t === "CAVOK") { o.cavok = true; o.visM = 10000; o.visPlus = true; }
+    else if (!o.wind && (m = /^(\d{3}|VRB)(\d{2,3})(?:G(\d{2,3}))?(KT|MPS|KMH)$/.exec(t))) {
+      const f = m[4] === "KT" ? KT_KMH : m[4] === "MPS" ? 3.6 : 1, kmh = Math.round(Number(m[2]) * f);
+      o.wind = { dir: m[1] === "VRB" ? null : Number(m[1]), variable: m[1] === "VRB", calm: Number(m[2]) === 0 && !m[3], kmh, gustKmh: m[3] ? Math.round(Number(m[3]) * f) : null };
+    } else if (o.wind && !o.windVar && (m = /^(\d{3})V(\d{3})$/.exec(t))) o.windVar = [Number(m[1]), Number(m[2])];
+    else if (o.visM === null && (m = /^(\d{4})(?:NDV)?$/.exec(t))) { const v = Number(m[1]); o.visM = v === 9999 ? 10000 : v; o.visPlus = v === 9999; }
+    else if (o.visM === null && (m = /^(P)?(\d{1,2})SM$/.exec(t))) { o.visM = Math.round(Number(m[2]) * 1609.344); o.visPlus = !!m[1] || Number(m[2]) >= 10; }
+    else if ((m = /^(FEW|SCT|BKN|OVC)(\d{3}|\/\/\/)(CB|TCU|\/\/\/)?$/.exec(t))) o.clouds.push({ cover: m[1], m: m[2] === "///" ? null : Math.round(Number(m[2]) * 100 * FT_M / 10) * 10, type: m[3] === "CB" || m[3] === "TCU" ? m[3] : null });
+    else if ((m = /^VV(\d{3}|\/\/\/)$/.exec(t))) o.vvM = m[1] === "///" ? -1 : Math.round(Number(m[1]) * 100 * FT_M / 10) * 10;
+    else if (/^(NSC|NCD|SKC|CLR)$/.test(t)) o.sky = t;
+    else if ((m = /^(M?\d{2})\/(M?\d{2}|\/\/)?$/.exec(t))) { o.tempC = t2(m[1]); o.dewC = m[2] && m[2] !== "//" ? t2(m[2]) : null; }
+    else if (/^(?:[+-]|VC|RE)?(?:MI|PR|BC|DR|BL|SH|TS|FZ)?(?:(?:DZ|RA|SN|SG|IC|PL|GR|GS|UP)+|BR|FG|FU|VA|DU|SA|HZ|PO|SQ|FC|SS|DS)$/.test(t) || /^(?:VC|RE)?TS$/.test(t)) o.wx.push(t);
+  }
+  return o;
+}
+const PHEN = { DZ: "bruine", RA: "pluie", SN: "neige", SG: "neige en grains", IC: "cristaux de glace", PL: "granules de glace", GR: "grêle", GS: "grésil",
+  UP: "précipitation de type inconnu", BR: "brume", FG: "brouillard", FU: "fumée", VA: "cendres volcaniques", DU: "poussière", SA: "sable", HZ: "brume sèche",
+  PO: "tourbillons de poussière", SQ: "grains", FC: "trombe", SS: "tempête de sable", DS: "tempête de poussière" };
+// « -SHRA » → « averses de pluie, intensité faible (-SHRA) ». Le code reste affiché : la traduction peut se vérifier.
+export function wxText(code) {
+  const m = /^([+-]|VC|RE)?(MI|PR|BC|DR|BL|SH|TS|FZ)?([A-Z]*)$/.exec(code);
+  if (!m) return code;
+  const names = (m[3].match(/../g) ?? []).map((p) => PHEN[p] ?? p).join(" et ");
+  const d = m[2];
+  let t = d === "SH" ? `averses${names ? ` de ${names}` : ""}` : d === "TS" ? `orage${names ? ` avec ${names}` : ""}`
+    : d === "FZ" ? (m[3] === "FG" ? "brouillard givrant" : `${names} se congelant au sol (verglaçante)`) : d === "BC" ? `bancs de ${names}`
+    : d === "MI" ? `${names} mince (au ras du sol)` : d === "PR" ? `${names} partiel` : d === "BL" ? `${names} soulevée par le vent (haute)`
+    : d === "DR" ? `${names} soulevée par le vent (basse)` : names;
+  if (m[1] === "-") t += ", intensité faible"; else if (m[1] === "+") t += ", intensité forte";
+  if (m[1] === "VC") t = `à proximité : ${t}`; else if (m[1] === "RE") t = `récemment : ${t}`;
+  return `${t} (${code})`;
+}
+const COMPASS = ["nord", "nord-nord-est", "nord-est", "est-nord-est", "est", "est-sud-est", "sud-est", "sud-sud-est", "sud", "sud-sud-ouest", "sud-ouest", "ouest-sud-ouest", "ouest", "ouest-nord-ouest", "nord-ouest", "nord-nord-ouest"];
+export const compassFrom = (deg) => { const n = COMPASS[Math.round(((deg % 360) / 22.5)) % 16]; return /^[eo]/.test(n) ? `de l'${n}` : `du ${n}`; };
+const COVER = { FEW: "quelques nuages (1 à 2 octas)", SCT: "nuages épars (3 à 4 octas)", BKN: "nuages fragmentés (5 à 7 octas)", OVC: "ciel couvert (8 octas)" };
+const SKY = { NSC: "pas de nuage significatif", NCD: "aucun nuage détecté (capteur automatique)", SKC: "ciel clair", CLR: "aucun nuage détecté sous 3 700 m environ (capteur automatique)" };
+const fmtM = (m) => (m >= 1000 ? `${new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 1 }).format(m / 1000)} km` : `${m} m`);
+// Lignes de la bulle, dans l'ordre : température, vent, rafales, visibilité, nuages, temps présent. skip = codes déjà dits (orage).
+export function metarLines(o, { skip = [] } = {}) {
+  if (!o) return [];
+  const out = [];
+  if (o.tempC !== null) out.push(`Température : ${o.tempC} °C${o.dewC !== null ? ` · point de rosée ${o.dewC} °C` : ""}`);
+  if (o.wind) {
+    const w = o.wind;
+    if (w.calm) out.push("Vent : calme");
+    else {
+      const from = w.variable ? "direction variable" : compassFrom(w.dir) + ` (${w.dir}°)`;
+      const v = o.windVar ? `, variant de ${o.windVar[0]}° à ${o.windVar[1]}°` : "";
+      out.push(`Vent moyen sur 10 min : ${w.kmh} km/h, ${from}${v}`);
+    }
+    if (w.gustKmh !== null) out.push(`Rafales (max. sur 10 min) : ${w.gustKmh} km/h`);
+  }
+  if (o.cavok) out.push("CAVOK : visibilité 10 km ou plus, aucun nuage sous 1 500 m (plus haut si le relief l'exige), ni cumulonimbus ni temps significatif");
+  else if (o.visM !== null) out.push(`Visibilité : ${o.visPlus ? `${fmtM(o.visM)} ou plus` : o.visM < 50 ? "moins de 50 m" : fmtM(o.visM)}`);
+  if (o.vvM !== null) out.push(o.vvM < 0 ? "Ciel invisible (visibilité verticale non mesurée)" : `Ciel invisible : visibilité verticale ${o.vvM} m`);
+  if (o.clouds.length) out.push(`Nuages (hauteur au-dessus de l'aéroport) : ${o.clouds.map((c) => `${COVER[c.cover]} à ${c.m === null ? "hauteur inconnue" : `${c.m} m`}${c.type === "CB" ? ", cumulonimbus" : c.type === "TCU" ? ", cumulus bourgeonnants" : ""}`).join(" ; ")}`);
+  else if (o.sky && !o.cavok) out.push(`Nuages : ${SKY[o.sky]}`);
+  const wx = o.wx.filter((c) => !skip.includes(c));
+  if (wx.length) out.push(`Temps présent : ${wx.map(wxText).join(" ; ")}`);
+  return out;
+}
+
+// ── Stations sur la carte (26/11/2026) ───────────────────────────────────────────────────────────────────────────────────────────
+// Toutes les stations du réseau du pays (même lecture, gardée 10 min, que la pression et les orages : pas d'appel en plus si elle
+// vient d'être faite) dont le dernier message a moins de 3 h : pression (QNH) et orage observé (message de moins d'une heure,
+// mêmes règles que le bandeau). Une station sans l'un ni l'autre n'est pas montrée ; une valeur absente reste null.
+export function stationsForMap(rows, { now = Date.now(), maxAgeMs = OBS_MAX_AGE_MS } = {}) {
+  const out = [];
+  for (const r of Array.isArray(rows) ? rows : []) {
+    if (!isNum(r?.lat) || !isNum(r?.lon) || typeof r.station !== "string") continue;
+    const at = Date.parse(r.utc_valid);
+    if (!Number.isFinite(at) || now - at > maxAgeMs || at - now > 10 * 60 * 1000) continue;
+    const hpa = qnhHpa(r), storm = now - at <= STORM_OBS_MAX_AGE_MS ? metarStorm(r.raw) : null;
+    if (hpa === null && !storm) continue;
+    out.push({ station: r.station, name: typeof r.name === "string" ? r.name : r.station, lat: r.lat, lon: r.lon, at, hpa, storm, obs: metarObs(r.raw), raw: typeof r.raw === "string" ? r.raw : null });
+  }
+  return out;
+}
+export async function fetchStationsForMap(countryCode, { fetchImpl = fetch, now = Date.now(), timeoutMs = TIMEOUTS.pressure } = {}) {
+  return stationsForMap(await networkRows(countryCode, { fetchImpl, now, timeoutMs }), { now });
+}
+// Ligne d'orage de la fenêtre d'une station (mêmes mots que le bandeau).
+export const STORM_WORDS = { ts: "Orage observé sur l'aéroport", vc: "Orage signalé à proximité de l'aéroport", recent: "Orage récent (dans l'heure passée)" };

@@ -5,12 +5,12 @@ import { loadWarnings, officialSource } from "./warnings.js?v=79a17bd6";
 import { fetchEnsemble } from "./ensemble.js?v=88c38ccc";
 import { initInfo } from "./info.js?v=0231d5ac";
 import { initBarometer, preloadDial, trendSign } from "./barometer.js?v=f58dbfb8";
-import { createSkyLayer, addDoubleTapZoom } from "./skymap.js?v=723c9939";
+import { createSkyLayer, addDoubleTapZoom, createStationLayer } from "./skymap.js?v=ec785c32";
 import { parseMapPrefs, MAP_ZOOM, maxZoomFor } from "./weathermap.js?v=df6ad046";
-import { initWalk } from "./walkui.js?v=b13afaa3";
-import { buildHome, buildHomeNow, homeSteps, homeAlerts, homeLegend, buildLegend, homeMode, HOME_KEY, PHONE_QUERY } from "./home.js?v=a3d6b797";
+import { initWalk } from "./walkui.js?v=7fb08f37";
+import { buildHome, buildHomeNow, homeSteps, homeAlerts, homeLegend, buildLegend, homeMode, HOME_KEY, PHONE_QUERY } from "./home.js?v=a5ad3673";
 import { localToMs, fetchNextHour } from "./walk.js?v=68874bb7";
-import { fetchObservedPressure, fetchPressureTrend, fetchObservedStorms, stormText, pressureDisplay, TREND_WORD } from "./observation.js?v=6922543a";
+import { fetchObservedPressure, fetchPressureTrend, fetchObservedStorms, stormText, pressureDisplay, TREND_WORD, fetchStationsForMap, distanceKm, STORM_WORDS, metarLines } from "./observation.js?v=6ad7dab4";
 import { getPosition, reverseGeocode, placeFromPosition, storedGeoPlace, formatCoords, deniedHelp, GEO_ID, GEO_MAX_AGE_MS } from "./geo.js?v=b6df63a8";
 import { shouldRefresh, STALE_MS, TRY_GAP_MS, RETRY_MS, QUIET_WAIT_MS } from "./refresh.js?v=beadd3fe";
 import { createLoader } from "./loading.js?v=956b591b";
@@ -159,7 +159,7 @@ const mapState = { map: null, layer: null, sky: null, target: null, centerBtn: n
 // { lat, lon, accuracy (m, ou null), here (vrai seulement pour la position actuelle de l'appareil), name, tz }.
 // here : point bleu plein (+ disque de précision) et « à votre position » ; sinon anneau blanc cerclé de bleu et le nom du lieu.
 const placeName = (l) => `${l.name}${l.country ? ` (${l.country})` : ""}`;
-const geoTarget = () => ({ lat: geo.coords.latitude, lon: geo.coords.longitude, accuracy: geo.coords.accuracy ?? null, here: true, name: placeName(geo.data.location), tz: geo.data.location.timezone });
+const geoTarget = () => ({ lat: geo.coords.latitude, lon: geo.coords.longitude, accuracy: geo.coords.accuracy ?? null, here: true, name: placeName(geo.data.location), tz: geo.data.location.timezone, cc: geo.cc });
 // opts.saved : réglages retenus (zoom, calques, fond) ; opts.onSave(réglages) : à chaque changement ; opts.timeline : réglette des 12 heures.
 // keepZoom : garder le zoom en cours (position mise à jour pendant que la carte est ouverte) ; sinon ouverture à l'échelle « lieu ».
 function drawMap(L, target, { saved = null, onSave = null, timeline = false, keepZoom = false } = {}) {
@@ -216,6 +216,10 @@ function drawMap(L, target, { saved = null, onSave = null, timeline = false, kee
       return bar;
     };
     base.addTo(st.map);
+    st.stations = createStationLayer(L, st.map, {
+      getTarget: () => st.target, load: (cc) => fetchStationsForMap(cc), distanceKm, stormWords: STORM_WORDS, metarLines,
+      fmtTime: (ms) => formatLocal(new Date(ms), st.target.tz, { hour: "2-digit", minute: "2-digit" }),
+    });
     // Le crédit des cartes (obligatoire) change de hauteur selon le fond et la largeur (3 lignes à 375 px avec le relief) :
     // la légende des calques, en bas à gauche, se place toujours au-dessus de lui (--attrib-h, lu par styles.css).
     st.map.attributionControl.setPrefix(false); // sans « Leaflet » ni drapeau : non exigé par sa licence (BSD), place gagnée ; Leaflet reste cité dans l'aide
@@ -318,7 +322,7 @@ async function readHere(id, onFound = () => {}) {
   const [data, observed, storms] = await Promise.all([fetchForecast(place), observedP, stormsP]);
   if (id !== geo.loadId) return false;
   setHomeFlag("ok"); // position accordée : l'écran d'accueil peut s'ouvrir au lancement
-  Object.assign(geo, { at: Date.now(), data, coords, named: Boolean(named), pressure: pressureOf(data, observed), storms, recorded: false });
+  Object.assign(geo, { at: Date.now(), data, coords, named: Boolean(named), pressure: pressureOf(data, observed), storms, recorded: false, cc: place.countryCode });
   trendP.then((t) => {
     if (!t || geo.data !== data) return; // une autre position a été chargée entre-temps
     geo.pressure = pressureOf(data, observed, t);
@@ -530,12 +534,12 @@ function pageTarget() {
   const p = state.place, d = state.data;
   if (!p || !d) return null;
   const here = p.id === GEO_ID && !state.note, c = here ? state.posCoords : null;
-  return { lat: c?.latitude ?? p.latitude, lon: c?.longitude ?? p.longitude, accuracy: c?.accuracy ?? null, here, name: placeName(d.location), tz: d.location.timezone };
+  return { lat: c?.latitude ?? p.latitude, lon: c?.longitude ?? p.longitude, accuracy: c?.accuracy ?? null, here, name: placeName(d.location), tz: d.location.timezone, cc: p.countryCode };
 }
 $("place-map-btn").addEventListener("click", () => { const t = pageTarget(); if (t) openMap($("place-map-btn"), t, (m) => setStatus(m, "err")); });
 $("home-map-close").addEventListener("click", () => homeMapDlg.close());
 // Fermer ou Échap : la lecture des heures s'arrête et les calques s'éteignent (la carte se rouvre toujours sans nuages ni pluie).
-homeMapDlg.addEventListener("close", () => { mapState.sky?.pause(); mapState.sky?.off(); });
+homeMapDlg.addEventListener("close", () => { mapState.sky?.pause(); mapState.sky?.off(); mapState.stations?.off(); });
 const homeHelpDlg = $("home-help");
 $("home-info").addEventListener("click", () => {
   const { data } = geo;

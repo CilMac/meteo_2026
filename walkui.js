@@ -1,7 +1,7 @@
 // Fenêtre « Balade dans l'heure ? » : lit la pluie, la neige et le contexte à 15 minutes à la position de l'appareil (walk.js) et affiche
 // le verdict, avec un sélecteur pour avancer le départ d'heure en heure. Tout le texte est écrit par textContent.
 import { fetchNextHour, walkAdvice, walkSources, hourlyAt, mmPerHour, MAX_OFFSET_H, STEP_MS, SNOW_CM_PER_MM, WalkError } from "./walk.js?v=68874bb7";
-import { stormText } from "./observation.js?v=6922543a";
+import { stormText } from "./observation.js?v=6ad7dab4";
 import { modelShort } from "./weather-provider.js?v=631084d1";
 import { MINI_MM_FULL, foldTip } from "./weather-render.js?v=38232aca";
 

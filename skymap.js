@@ -240,3 +240,75 @@ export function addDoubleTapZoom(L, map) {
   box.addEventListener("pointercancel", end, true);
   map.on("dblclick", (e) => zoomAt(e.latlng, e.originalEvent?.shiftKey ? -1 : 1));
 }
+
+// Stations d'aéroport sur la carte (26/11/2026) : bouton « manche à air » sous le relief ; chaque station du pays du lieu avec un
+// relevé de moins de 3 h montre sa pression mesurée (QNH, hPa) et un éclair si un orage y est observé ; la toucher ouvre son détail.
+// getTarget() → { lat, lon, cc, name } ; fmtTime(ms) → « 14:30 » (heure du lieu) ; load(cc) → stations (fetchStationsForMap).
+// Éteinte à chaque ouverture de la carte (off), comme Nuages et Pluie. Tout le texte est posé par textContent.
+export function createStationLayer(L, map, { getTarget, fmtTime, load, distanceKm, stormWords, metarLines }) {
+  let on = false, seq = 0, group = null;
+  const status = el("p", "sky-status stn-status muted small"); status.hidden = true;
+  map.getContainer().insertAdjacentElement("afterend", status);
+  const say = (t, err = false) => { status.hidden = !t; status.textContent = t ?? ""; status.classList.toggle("is-err", err); };
+  const ctl = L.control({ position: "topleft" });
+  let btn = null, bar = null;
+  const show = () => {
+    const t = on ? "Stations d'aéroport affichées : toucher pour les masquer" : "Afficher les stations d'aéroport : pression mesurée et orages observés";
+    btn.title = t; btn.setAttribute("aria-label", "Stations d'aéroport"); btn.setAttribute("aria-pressed", String(on)); bar.classList.toggle("is-on", on);
+  };
+  ctl.onAdd = () => {
+    bar = L.DomUtil.create("div", "leaflet-bar map-base map-stn"); btn = L.DomUtil.create("a", "", bar);
+    btn.href = "#"; btn.setAttribute("role", "button");
+    btn.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path d="M5 3v18"/><path d="M5 4.5 19 7v4L5 13.5z"/><path d="M10 5.4v7.2M14.5 6.2v5.6"/></svg>'; // manche à air, statique
+    show();
+    L.DomEvent.on(btn, "click", (e) => { L.DomEvent.preventDefault(e); L.DomEvent.stopPropagation(e); set(!on); });
+    return bar;
+  };
+  ctl.addTo(map);
+  const bolt = () => {
+    const svg = document.createElementNS(SVGNS, "svg");
+    svg.setAttribute("viewBox", "0 0 24 24"); svg.setAttribute("width", "13"); svg.setAttribute("height", "13"); svg.setAttribute("aria-hidden", "true"); svg.setAttribute("class", "stn-bolt");
+    svg.innerHTML = '<path d="M13 2 4 14h7l-1 8 9-12h-7z"/>';
+    return svg;
+  };
+  function marker(s, target) {
+    const pill = el("span", `stn-pill${s.storm ? " has-storm" : ""}`);
+    if (s.storm) pill.append(bolt());
+    pill.append(el("span", "", s.hpa === null ? "—" : String(s.hpa))); // « 1016 », sans espace des milliers, comme le baromètre
+    pill.title = s.name;
+    const m = L.marker([s.lat, s.lon], { icon: L.divIcon({ className: "stn-icon", html: pill, iconSize: null }), keyboard: true, title: s.name, riseOnHover: true });
+    const box = el("div", "stn-pop");
+    const km = distanceKm(target.lat, target.lon, s.lat, s.lon);
+    box.append(el("strong", "", `${s.name} (${s.station})`), el("span", "muted", `${nf0.format(km)} km de ${target.here ? "votre position" : target.name}`));
+    box.append(el("span", "", s.hpa === null ? "Pression : — (non transmise)" : `Pression mesurée : ${s.hpa} hPa (QNH, ramenée au niveau de la mer)`));
+    if (s.storm) box.append(el("span", "stn-pop-storm", `${stormWords[s.storm.kind]} (code ${s.storm.code}).`));
+    for (const t of metarLines(s.obs, { skip: s.storm ? [s.storm.code] : [] })) box.append(el("span", "", t));
+    box.append(el("span", "muted", `Relevé de ${fmtTime(s.at)} (message METAR${s.obs?.auto ? ", station automatique" : ""}).`));
+    if (s.raw) box.append(el("code", "stn-raw", s.raw));
+    // Marge en haut à gauche : la bulle ne passe pas sous les boutons (colonne de gauche ≈ 50 px) ni sous le cadre du vent (en haut).
+    m.bindPopup(box, { maxWidth: Math.max(180, Math.min(280, map.getSize().x - 114)) /* 114 = marges 58 + 12 et bords de la bulle 44 */, autoPanPaddingTopLeft: [58, 140], autoPanPaddingBottomRight: [12, 12] });
+    return m;
+  }
+  async function draw() {
+    const id = ++seq, target = getTarget();
+    say("Stations : chargement…");
+    try {
+      const list = await load(target.cc);
+      if (id !== seq || !on) return;
+      group?.remove();
+      group = L.layerGroup(list.map((s) => marker(s, target))).addTo(map);
+      const storms = list.filter((s) => s.storm).length;
+      say(list.length
+        ? `Stations d'aéroport du pays du lieu (IEM) : ${list.length} avec un relevé de moins de 3 h${storms ? `, dont ${storms} avec un orage observé` : ", aucun orage observé"}. Pression en hPa ; toucher une station pour le détail.`
+        : "Stations d'aéroport : aucun relevé de moins de 3 h dans ce pays.");
+    } catch (e) {
+      if (id !== seq) return;
+      say(`Stations indisponibles : ${e.message}`, true);
+    }
+  }
+  function set(next) {
+    on = next; show();
+    if (on) draw(); else { seq++; group?.remove(); group = null; say(""); }
+  }
+  return { off: () => { if (on) set(false); }, update: () => { if (on) draw(); } };
+}

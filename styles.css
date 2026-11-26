@@ -675,6 +675,14 @@ dialog.map-dlg[open] { display: flex; flex-direction: column; } dialog.map-dlg::
 .sky-switches { display: flex; gap: 6px; } .leaflet-bottom.leaflet-left .sky-legend { margin-bottom: calc(var(--attrib-h, 0px) + 6px); } /* toujours au-dessus du crédit des cartes, quelle que soit sa hauteur (--attrib-h, app.js) */ .sky-leg-part + .sky-leg-part { margin-top: 4px; } .sky-leg-part[hidden] { display: none; }
 .map-base a { display: flex !important; align-items: center; justify-content: center; color: var(--primary) !important; } .map-base svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linejoin: round; stroke-linecap: round; }
 .map-base.is-on a { background: var(--precip-sel) !important; } .map-base.is-on svg { fill: var(--precip-border); fill-opacity: .35; }
+/* Stations d'aéroport sur la carte (26/11/2026) : pastille de pression, éclair si orage observé */
+.stn-icon { background: none; border: 0; }
+.stn-pill { display: inline-flex; align-items: center; gap: 2px; transform: translate(-50%, -50%); padding: 1px 5px; font: 700 12px/1.3 var(--font-body); color: #fff; background: #285775; border: 1.5px solid #fff; border-radius: 9px; box-shadow: 0 1px 3px #0004; white-space: nowrap; cursor: pointer; }
+.stn-pill.has-storm { background: #a8412c; } /* fond bleu de la charte (orage : rouge brique) : ne pas ressembler aux numéros de routes, blancs */
+.stn-bolt { fill: #ffd34d; stroke: none; }
+.stn-pop { display: flex; flex-direction: column; gap: 3px; font: 13px/1.35 var(--font-body); }
+.stn-pop-storm { font-weight: 700; color: #8a4a08; } .stn-raw { font: 12px/1.35 ui-monospace, Menlo, monospace; color: #5f665d; overflow-wrap: anywhere; } .stn-pop .muted { color: #5f665d; } /* bulle de Leaflet toujours blanche, même en mode sombre */
+.map-dlg .stn-status { padding-top: 0; }
 .map-center a { display: flex !important; align-items: center; justify-content: center; color: var(--primary) !important; } .map-center svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; } .map-center .dot { fill: currentColor; stroke: none; }
 .home-when { margin: 2px 110px 0 0; /* place des deux boutons du haut (2 × 50 + 10) */ font-variant-numeric: tabular-nums; color: var(--muted); font-size: 14px; line-height: 1.35; }
 .home-now { display: flex; align-items: center; gap: 14px; margin-top: 14px; }
