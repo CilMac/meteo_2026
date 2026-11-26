@@ -446,12 +446,6 @@ dialog.baro-modal { width: min(440px, calc(100vw - 24px)); }
 .mini-svg { flex: none; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
 .mini-act.nav { border-color: var(--primary-border); }
 .mini-map-btn { background: var(--precip-bg); border-color: var(--precip-border); color: var(--ink); }
-.mini-map-btn[aria-expanded="true"] { background: var(--precip-sel); border-width: 2px; }
-.mini-map-wrap { margin: 0 0 14px; }
-.mini-map { height: min(55vh, 420px); min-height: 280px; border: 1px solid var(--line); border-radius: var(--radius-card); overflow: hidden; background: var(--note); z-index: 0; }
-.mini-map-note { margin: 6px 0 0; }
-.mini-map .leaflet-container, .mini-map.leaflet-container { font: inherit; }
-.mini-map img { max-width: none; }
 /* Calque nuages · pluie, flèche du vent */
 .sky-panel { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; font: 13px/1.25 var(--font-body); color: var(--ink); }
 .sky-switch { white-space: nowrap; display: inline-flex; align-items: center; gap: 8px; min-height: 36px; padding: 4px 6px 4px 10px; font: inherit; font-weight: 600; color: var(--ink); background: var(--surface); border: 2px solid var(--precip-border); border-radius: var(--radius-control); cursor: pointer; box-shadow: 0 1px 4px #0003; }
@@ -578,7 +572,7 @@ button.mini-hour:focus-visible { outline: 2px solid var(--ink); outline-offset: 
 #refresh, #place-baro-btn { border: 1.5px solid var(--btn-edge); } /* même trait que le marcheur (choix de l'utilisateur) ; le « i » garde le sien */
 #info-open { position: relative; width: 38px; height: 38px; font-size: 20px; } /* un peu plus petit que le marcheur (choix de l'utilisateur) */
 #info-open::after { content: ""; position: absolute; inset: -4px; border-radius: 50%; } /* zone à toucher : 44 px comme avant */
-.mini .mini-map-btn[aria-expanded="true"] { border-width: 2px; }
+
 
 /* Balade dans l'heure : icône d'imperméable discrète à côté de « Carte » ; fenêtre avec verdict, frise de pluie, détails */
 dialog.walk-modal { width: min(480px, calc(100vw - 24px)); }
@@ -663,6 +657,14 @@ dialog.map-dlg[open] { display: flex; flex-direction: column; } dialog.map-dlg::
 #home-map-close { width: 50px; min-height: 50px; padding: 0; border: 1px solid var(--home-edge); border-radius: 14px; background: color-mix(in srgb, var(--surface) 55%, transparent); font-size: 20px; }
 .map-full { flex: 1; min-height: 0; z-index: 0; background: var(--note); } .map-full img { max-width: none; } .map-full.leaflet-container { font: inherit; }
 .map-dlg .sky-status { margin: 0; padding: 6px 18px; }
+/* Curseur des 12 heures sous la carte plein écran (26/11/2026) */
+.sky-time { display: flex; align-items: center; gap: 12px; padding: 8px calc(18px + env(safe-area-inset-right)) 4px calc(18px + env(safe-area-inset-left)); border-top: 1px solid var(--home-edge); background: var(--home-top); }
+.sky-time[hidden] { display: none; }
+.sky-play { flex: none; width: 44px; height: 44px; border-radius: var(--radius-control); border: 1px solid var(--precip-border); background: var(--precip-sel); color: var(--primary); font: 18px/1 var(--font-body); cursor: pointer; }
+.sky-play:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+.sky-range { flex: 1; min-width: 0; height: 44px; margin: 0; accent-color: var(--primary); }
+.sky-when { flex: none; min-width: 108px; text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
+@media (max-width: 360px) { .sky-time { gap: 8px; } .sky-when { min-width: 92px; font-size: 14px; } }
 .sky-switches { display: flex; gap: 6px; } @media (max-width: 360px) { .leaflet-bottom.leaflet-left .sky-legend { margin-bottom: 46px; } } /* crédit des cartes sur deux lignes : la légende passe au-dessus */ .sky-leg-part + .sky-leg-part { margin-top: 4px; } .sky-leg-part[hidden] { display: none; }
 .map-center a { display: flex !important; align-items: center; justify-content: center; color: var(--primary) !important; } .map-center svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; } .map-center .dot { fill: currentColor; stroke: none; }
 .home-when { margin: 2px 110px 0 0; /* place des deux boutons du haut (2 × 50 + 10) */ font-variant-numeric: tabular-nums; color: var(--muted); font-size: 14px; line-height: 1.35; }

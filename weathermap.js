@@ -62,13 +62,41 @@ export function parseCurrent(c) {
   };
 }
 
-// Lit la grille. `here` = {lat, lon} de l'appareil (arrondie ici). Renvoie { at (ms UTC), here, nx, ny, cloud[], rain[] } (null = inconnu).
-export async function fetchSky({ here, bounds, nx, ny }, { fetchImpl = fetch, timeoutMs = TIMEOUTS.sky } = {}) {
+// Prévision heure par heure (curseur de la carte plein écran, 26/11/2026). Réponse « hourly » d'Open-Meteo, heures en UTC :
+// la série commence à l'heure en cours (vérifié : 10:00 à 10:51 UTC). On garde les `n` premières heures APRÈS `nowMs`.
+// Convention (doc Open-Meteo, la même que la vue des 12 heures) : pluie et rafales = cumul / maximum de l'heure qui se termine
+// à l'heure dite (déjà en mm par heure) ; nuages, vent et direction = valeur à l'heure dite.
+export function hourIndexes(times, nowMs, n) {
+  const out = [];
+  if (!Array.isArray(times)) return out;
+  times.forEach((s, i) => { const t = Date.parse(`${s}Z`); if (out.length < n && Number.isFinite(t) && t > nowMs) out.push({ i, at: t }); });
+  return out;
+}
+export function parseHour(h, i) {
+  const n = (v) => (isNum(v) ? v : null);
+  const at = (k) => n(h?.[k]?.[i]);
+  const cloud = at("cloud_cover"), rain = at("precipitation");
+  return { cloud: cloud === null ? null : clamp(cloud, 0, 100), rain: rain === null || rain < 0 ? null : rain, wind: at("wind_speed_10m"), dir: at("wind_direction_10m"), gust: at("wind_gusts_10m") };
+}
+// Étapes horaires de toute la grille, à partir des réponses de chaque point (le 1er = l'appareil). Une heure absente
+// ou décalée chez un point donne null pour ce point (jamais « 0 »).
+export function hourSteps(list, nowMs, n) {
+  const idx = hourIndexes(list[0]?.hourly?.time, nowMs, n);
+  return idx.map(({ i, at }) => {
+    const vals = list.map((x) => (x?.hourly?.time?.[i] === list[0].hourly.time[i] ? parseHour(x.hourly, i) : parseHour(null, 0)));
+    return { at, here: vals[0], cloud: vals.slice(1).map((v) => v.cloud), rain: vals.slice(1).map((v) => v.rain) };
+  });
+}
+
+// Lit la grille. `here` = {lat, lon} de l'appareil (arrondie ici). Renvoie { at (ms UTC), here, nx, ny, cloud[], rain[], steps[] } (null = inconnu).
+// hours > 0 : ajoute dans le même appel la prévision des `hours` heures suivantes (steps, voir hourSteps) ; sinon steps = [].
+export async function fetchSky({ here, bounds, nx, ny, hours = 0 }, { fetchImpl = fetch, timeoutMs = TIMEOUTS.sky, now = Date.now() } = {}) {
   const pts = [{ lat: r2(here.lat), lon: r2(here.lon) }, ...gridPoints(bounds, nx, ny)];
   const q = new URLSearchParams({
     latitude: pts.map((p) => p.lat).join(","), longitude: pts.map((p) => p.lon).join(","),
     current: "cloud_cover,precipitation,wind_speed_10m,wind_direction_10m,wind_gusts_10m", wind_speed_unit: "kmh",
   });
+  if (hours > 0) { q.set("hourly", "cloud_cover,precipitation,wind_speed_10m,wind_direction_10m,wind_gusts_10m"); q.set("forecast_hours", String(hours + 2)); }
   const body = await getJson(`${API}?${q}`, fetchImpl, timeoutMs);
   const list = Array.isArray(body) ? body : [body];
   if (list.length !== pts.length) throw new SkyError("format", "réponse inattendue (nombre de points)");
@@ -77,6 +105,7 @@ export async function fetchSky({ here, bounds, nx, ny }, { fetchImpl = fetch, ti
   return {
     at: Number.isFinite(t) ? t : null, here: vals[0], nx, ny,
     cloud: vals.slice(1).map((v) => v.cloud), rain: vals.slice(1).map((v) => v.rain),
+    steps: hours > 0 ? hourSteps(list, now, hours) : [],
   };
 }
 

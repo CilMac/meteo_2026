@@ -5,7 +5,7 @@ import { loadWarnings, officialSource } from "./warnings.js?v=79a17bd6";
 import { fetchEnsemble } from "./ensemble.js?v=88c38ccc";
 import { initInfo } from "./info.js?v=0231d5ac";
 import { initBarometer, preloadDial, trendSign } from "./barometer.js?v=f58dbfb8";
-import { createSkyLayer, addDoubleTapZoom } from "./skymap.js?v=2ff3bb46";
+import { createSkyLayer, addDoubleTapZoom } from "./skymap.js?v=a3cf3578";
 import { initWalk } from "./walkui.js?v=b13afaa3";
 import { buildHome, buildHomeNow, homeSteps, homeAlerts, homeLegend, buildLegend, homeMode, HOME_KEY, PHONE_QUERY } from "./home.js?v=0e873254";
 import { localToMs, fetchNextHour } from "./walk.js?v=68874bb7";
@@ -150,15 +150,11 @@ function loadLeaflet() {
   });
   return leafletP;
 }
-const mapState = { map: null, layer: null, sky: null }; // carte de la vue 🥾
-const homeMapState = { map: null, layer: null, sky: null }; // carte plein écran de l'écran d'accueil
-function setMapButton(open) { // l'icône reste : seul le libellé change
-  $("mini-map-btn").setAttribute("aria-expanded", String(open));
-  $("mini-map-label").textContent = open ? "Masquer la carte" : "Carte";
-}
-// Une carte par conteneur (vue 🥾, écran d'accueil) : mêmes tuiles, même point de position, même calque « Nuages · pluie ».
-// opts.saved : réglages retenus (zoom, calques) ; opts.onSave(réglages) : à chaque changement. Sans eux : zoom 15, calques éteints (vue 🥾).
-function drawMap(L, st = mapState, box = $("mini-map"), { saved = null, onSave = null } = {}) {
+// Une seule carte, plein écran (26/11/2026 : la carte intégrée à la vue 🥾 a été remplacée par celle-ci), ouverte par le bouton carte
+// de l'écran d'accueil et par le bouton « Carte » de la vue 🥾. Fermer ramène à l'écran d'où l'on vient.
+const mapState = { map: null, layer: null, sky: null };
+// opts.saved : réglages retenus (zoom, calques) ; opts.onSave(réglages) : à chaque changement ; opts.timeline : réglette des 12 heures.
+function drawMap(L, st = mapState, box = $("home-map"), { saved = null, onSave = null, timeline = false } = {}) {
   const { latitude, longitude, accuracy } = geo.coords;
   const here = [latitude, longitude];
   if (!st.map) {
@@ -184,6 +180,7 @@ function drawMap(L, st = mapState, box = $("mini-map"), { saved = null, onSave =
       fmtTime: (ms) => formatLocal(new Date(ms), geo.data.location.timezone, { hour: "2-digit", minute: "2-digit" }),
       show: kept,
       onShow: (s) => { Object.assign(kept, s); onSave?.(kept); },
+      timeline,
     });
     if (onSave) st.map.on("zoomend", () => { kept.zoom = st.map.getZoom(); onSave(kept); });
   } else { st.map.setView(here, st.map.getZoom()); st.sky?.update(); }
@@ -193,15 +190,6 @@ function drawMap(L, st = mapState, box = $("mini-map"), { saved = null, onSave =
     L.circleMarker(here, { radius: 8, color: "#ffffff", weight: 3, fillColor: "#285775", fillOpacity: 1 }),
   ]).addTo(st.map);
   st.map.invalidateSize();
-}
-async function toggleMap() {
-  const wrap = $("mini-map-wrap"), btn = $("mini-map-btn");
-  if (!wrap.hidden) { wrap.hidden = true; setMapButton(false); return; }
-  if (!geo.coords) return;
-  wrap.hidden = false; setMapButton(true); btn.disabled = true;
-  try { drawMap(await loadLeaflet()); }
-  catch (e) { wrap.hidden = true; setMapButton(false); miniMessage(`Carte indisponible : ${e.message}`, "err"); }
-  finally { btn.disabled = !geo.coords; }
 }
 // « sam. 21/11 17:42 » : dernière actualisation (position + météo), à l'heure de l'appareil.
 const refreshedText =(ms, tz) => formatLocal(new Date(ms), tz, { weekday: "short", day: "numeric", month: "numeric", hour: "2-digit", minute: "2-digit" });
@@ -293,7 +281,7 @@ async function locate(force = false, { quiet = false } = {}) {
     miniMessage("");
     recordHere();
     $("mini-map-btn").disabled = false;
-    if (!$("mini-map-wrap").hidden && globalThis.L) drawMap(globalThis.L); // carte ouverte : recentrée sur la nouvelle position
+    if ($("home-map-dlg").open && globalThis.L) drawMap(globalThis.L); // carte ouverte (mise à jour au retour) : recentrée sur la nouvelle position
   } catch (e) {
     if (id !== geo.loadId) return;
     if (quiet) { // l'ancien tableau reste, daté ; il n'est plus présenté comme étant « ici et maintenant »
@@ -301,7 +289,6 @@ async function locate(force = false, { quiet = false } = {}) {
       return false;
     }
     // Échec : dit pourquoi, et ne montre pas pour autant une autre ville comme si c'était la position réelle.
-    $("mini-map-wrap").hidden = true; setMapButton(false);
     miniMessage(`Position actuelle indisponible : ${e.message}${e.kind === "denied" ? ` ${deniedHelp(isIOS())}` : ""}`, "err");
     if (state.data) {
       $("mini-title").textContent = MINI_TITLE_FALLBACK;
@@ -378,7 +365,7 @@ initBarometer([
 $("mini-open").addEventListener("click", () => setMini(true));
 $("mini-close").addEventListener("click", () => setMini(false));
 $("mini-refresh").addEventListener("click", () => locate(true));
-$("mini-map-btn").addEventListener("click", toggleMap);
+$("mini-map-btn").addEventListener("click", () => openMap($("mini-map-btn"), (t) => miniMessage(t, "err")));
 $("journal-export").addEventListener("click", exportJournal);
 document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("mini").hidden) setMini(false); });
 
@@ -456,18 +443,21 @@ function readMapPrefs() {
 }
 const saveMapPrefs = (p) => { try { localStorage.setItem(MAP_KEY, JSON.stringify({ zoom: p.zoom })); } catch { /* ignoré */ } };
 const homeMapDlg = $("home-map-dlg");
-$("home-map-btn").addEventListener("click", async () => {
+// btn : bouton qui ouvre la carte (désactivé pendant le chargement) ; fail(texte) : où dire que la carte est indisponible.
+async function openMap(btn, fail) {
   if (!geo.coords) return;
-  const btn = $("home-map-btn");
   btn.disabled = true;
   try {
     const L = await loadLeaflet();
     homeMapDlg.showModal();
-    drawMap(L, homeMapState, $("home-map"), { saved: readMapPrefs(), onSave: saveMapPrefs });
-  } catch (e) { $("home-msg").textContent = `Carte indisponible : ${e.message}`; }
+    drawMap(L, mapState, $("home-map"), { saved: readMapPrefs(), onSave: saveMapPrefs, timeline: true });
+  } catch (e) { fail(`Carte indisponible : ${e.message}`); }
   finally { btn.disabled = !geo.coords; }
-});
+}
+$("home-map-btn").addEventListener("click", () => openMap($("home-map-btn"), (t) => { $("home-msg").textContent = t; }));
 $("home-map-close").addEventListener("click", () => homeMapDlg.close());
+// Fermer ou Échap : la lecture des heures s'arrête et les calques s'éteignent (la carte se rouvre toujours sans nuages ni pluie).
+homeMapDlg.addEventListener("close", () => { mapState.sky?.pause(); mapState.sky?.off(); });
 const homeHelpDlg = $("home-help");
 $("home-info").addEventListener("click", () => {
   const { data } = geo;

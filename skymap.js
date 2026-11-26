@@ -1,9 +1,11 @@
 // Commandes Leaflet des calques « Nuages » et « Pluie » : deux interrupteurs ON/OFF indépendants (26/11/2026), légende, et flèche du vent toujours affichée. Le calcul est dans weathermap.js.
 // Tout le texte affiché est écrit par textContent ; seules des valeurs numériques calculées ici sont injectées dans les styles.
-import { fetchSky, fetchHere, gridDims, skyImageUrl, windFromText, arrowAngle, cloudGradientCss, rainGradientCss, MAX_LAT, RAIN_STOPS, RAIN_MIN, isTap, isDoubleTap } from "./weathermap.js?v=42485d2b";
+import { fetchSky, fetchHere, gridDims, skyImageUrl, windFromText, arrowAngle, cloudGradientCss, rainGradientCss, MAX_LAT, RAIN_STOPS, RAIN_MIN, isTap, isDoubleTap } from "./weathermap.js?v=7a40d11c";
 
 const SKY_ZOOM = 8;      // à l'échelle d'un village, la grille des modèles n'a aucun sens : le calque s'ouvre sur une zone d'environ 200 km
-const REFETCH_MS = 700;  // délai après un déplacement de la carte avant de relire la grille
+const REFETCH_MS = 700;
+const TIMELINE_HOURS = 12; // curseur de la carte plein écran : maintenant, puis les 12 heures suivantes (comme la vue des 12 heures)
+const PLAY_MS = 1000;      // durée d'une heure pendant la lecture  // délai après un déplacement de la carte avant de relire la grille
 const nf0 = new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 });
 const nf1 = new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 1 });
 const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
@@ -19,11 +21,12 @@ function windArrow() {
 
 // getHere() → {lat, lon} de l'appareil ; fmtTime(ms) → « 16:15 » dans le fuseau du lieu.
 // show : calques allumés au départ ({ clouds, rain }) ; onShow(show) : appelé à chaque changement (pour le retenir).
-export function createSkyLayer(L, map, { getHere, fmtTime, show: start = { clouds: false, rain: false }, onShow = () => {} }) {
+// timeline : curseur « Maintenant · +1 h … +12 h » et lecture ▶ sous la carte (carte plein écran seulement), même appel enrichi.
+export function createSkyLayer(L, map, { getHere, fmtTime, show: start = { clouds: false, rain: false }, onShow = () => {}, timeline = false }) {
   const pane = map.createPane("skypane");
   pane.style.zIndex = 250; pane.style.pointerEvents = "none"; // au-dessus des tuiles, sous le point de position
   const show = { clouds: Boolean(start.clouds), rain: Boolean(start.rain) };
-  let on = false, overlay = null, last = null, timer = 0, seq = 0, restoreZoom = null, sky = null;
+  let on = false, overlay = null, last = null, timer = 0, seq = 0, restoreZoom = null, sky = null, step = 0, playing = 0;
 
   // ---- deux interrupteurs (nuages, pluie) + vent (en haut à droite)
   const panel = el("div", "sky-panel"), switches = el("div", "sky-switches");
@@ -64,15 +67,48 @@ export function createSkyLayer(L, map, { getHere, fmtTime, show: start = { cloud
   mkControl("topright", panel);
   mkControl("bottomleft", legend);
 
+  // ---- curseur dans le temps (sous la carte, au-dessus de la ligne d'état)
+  const bar = el("div", "sky-time"); bar.hidden = true;
+  const play = el("button", "sky-play"); play.type = "button";
+  const range = el("input", "sky-range"); range.type = "range"; range.min = "0"; range.max = String(TIMELINE_HOURS); range.step = "1"; range.value = "0";
+  range.setAttribute("aria-label", "Heure affichée sur la carte");
+  range.title = "Faire glisser pour voir la pluie et les nuages prévus heure par heure";
+  const when = el("output", "sky-when");
+  bar.append(play, range, when);
+  if (timeline) map.getContainer().insertAdjacentElement("afterend", bar);
+  const setPlayButton = () => {
+    play.textContent = playing ? "⏸\uFE0E" : "▶\uFE0E"; // \uFE0E : symbole texte, pas d'emoji (iOS)
+    const t = playing ? "Arrêter la lecture" : "Faire défiler les 12 prochaines heures";
+    play.title = t; play.setAttribute("aria-label", t);
+  };
+  setPlayButton();
+  const stop = () => { clearInterval(playing); playing = 0; setPlayButton(); };
+  const steps = () => sky?.data?.steps ?? [];
+  function goTo(k) {
+    step = Math.max(0, Math.min(k, steps().length));
+    range.value = String(step);
+    const s = step ? steps()[step - 1] : null;
+    const txt = s ? fmtTime(s.at) : "Maintenant"; // l'heure exacte seulement : « +3 h » serait faux de quelques minutes à presque une heure
+    when.textContent = txt; range.setAttribute("aria-valuetext", txt);
+    if (sky) { paint(); showWind(s ? s.here : sky.data.here, s ? `à ${fmtTime(s.at)}` : "à l'instant"); }
+  }
+  range.addEventListener("input", () => { stop(); goTo(Number(range.value)); });
+  play.addEventListener("click", () => {
+    if (playing) { stop(); return; }
+    if (step >= steps().length) goTo(0);
+    playing = setInterval(() => { if (step >= steps().length) stop(); else goTo(step + 1); }, PLAY_MS);
+    setPlayButton();
+  });
+
   const setStatus = (t, err = false) => { status.hidden = !t; status.textContent = t; status.classList.toggle("is-err", err); };
 
-  function showWind(h) {
+  function showWind(h, label = "à l'instant") {
     const a = arrowAngle(h.dir);
     wind.hidden = false;
     arrow.style.visibility = a === null ? "hidden" : "visible";
     if (a !== null) arrow.querySelector(".sky-arrow").style.transform = `rotate(${a}deg)`;
     windMain.textContent = windFromText(h.dir);
-    windSub.textContent = h.wind === null ? "" : `${nf0.format(h.wind)} km/h${h.gust === null ? "" : `, rafales ${nf0.format(h.gust)} km/h`} · à l'instant`;
+    windSub.textContent = h.wind === null ? "" : `${nf0.format(h.wind)} km/h${h.gust === null ? "" : `, rafales ${nf0.format(h.gust)} km/h`} · ${label}`;
   }
 
   // La flèche du vent est toujours affichée (calque ON ou OFF) ; hors calque, un appel d'un seul point.
@@ -91,30 +127,46 @@ export function createSkyLayer(L, map, { getHere, fmtTime, show: start = { cloud
     const { nx, ny } = gridDims(pw / ph);
     setStatus("Chargement…");
     try {
-      const got = await fetchSky({ here: getHere(), bounds, nx, ny });
+      const got = await fetchSky({ here: getHere(), bounds, nx, ny, hours: timeline ? TIMELINE_HOURS : 0 });
       if (id !== seq || !on) return;
       const w = 160, h = Math.max(24, Math.round((w * ph) / pw));
-      sky = { data: got, bounds: [[bounds.south, bounds.west], [bounds.north, bounds.east]], w, h };
-      paint();
+      sky = { data: got, bounds: [[bounds.south, bounds.west], [bounds.north, bounds.east]], w, h, urls: new Map() };
       last = { bounds: L.latLngBounds([bounds.south, bounds.west], [bounds.north, bounds.east]), zoom: z };
-      showWind(got.here);
-      sky.text = `Modèles Open-Meteo${got.at ? `, ${fmtTime(got.at)}` : ""}. Valeurs interpolées entre points : indicatif.`;
-      sky.dry = got.rain.length > 0 && got.rain.every((v) => typeof v === "number" && v < RAIN_MIN); // tous les points connus et secs ; un seul inconnu : rien n'est affirmé
-      tell();
+      bar.hidden = !timeline || got.steps.length === 0;
+      range.max = String(got.steps.length);
+      goTo(step); // garde l'heure choisie après un déplacement de la carte (dessine, vent, texte)
     } catch (e) {
       if (id !== seq) return;
       setStatus(`Indisponible : ${e.message}`, true);
+      stop(); bar.hidden = true;
       overlay?.remove(); overlay = null; last = null;
     }
   }
 
   // Image redessinée sans nouvel appel quand on change seulement de calque.
   // Pluie seule et rien à dessiner : on le dit, pour qu'une carte vide ne passe pas pour une panne.
-  function tell() { if (sky?.text) setStatus(`${show.rain && sky.dry ? "Pas de pluie sur la zone à cet instant. " : ""}${sky.text}`); }
+  // Image de l'étape affichée : 0 = à l'instant (« current »), k = k-ième heure suivante. Images gardées par étape et calques.
+  function frame() {
+    const d = sky.data, s = step ? d.steps[step - 1] : null;
+    return s ? { cloud: s.cloud, rain: s.rain, nx: d.nx, ny: d.ny, at: s.at, hour: true } : { cloud: d.cloud, rain: d.rain, nx: d.nx, ny: d.ny, at: d.at, hour: false };
+  }
+  function tell() {
+    if (!sky) return;
+    const f = frame();
+    const dry = f.rain.length > 0 && f.rain.every((v) => typeof v === "number" && v < RAIN_MIN); // tous les points connus et secs ; un seul inconnu : rien n'est affirmé
+    const head = f.hour
+      ? `Prévision pour ${fmtTime(f.at)} (pluie tombée de ${fmtTime(f.at - 3600e3)} à ${fmtTime(f.at)}).`
+      : `Modèles à l'instant${f.at ? ` (${fmtTime(f.at)})` : ""}.`;
+    setStatus(`${show.rain && dry ? `Pas de pluie sur la zone ${f.hour ? "pendant cette heure" : "à cet instant"}. ` : ""}${head} Open-Meteo, valeurs interpolées entre points : indicatif.`);
+  }
   function paint() {
     if (!sky) return;
     tell();
-    const next = L.imageOverlay(skyImageUrl(sky.data, sky.w, sky.h, show), sky.bounds, { pane: "skypane", interactive: false, className: "sky-img" }).addTo(map);
+    const key = `${step}|${show.clouds}|${show.rain}`;
+    let url = sky.urls.get(key);
+    if (!url) { url = skyImageUrl(frame(), sky.w, sky.h, show); sky.urls.set(key, url); }
+    if (overlay && overlay.getBounds().equals(L.latLngBounds(sky.bounds))) { overlay.setUrl(url); return; } // même zone : on change l'image seulement (pas de clignotement)
+    const next = L.imageOverlay(url, sky.bounds, { pane: "skypane", interactive: false, className: "sky-img" }).addTo(map);
     overlay?.remove(); overlay = next;
   }
   function setShow(next, { first = false } = {}) {
@@ -131,7 +183,9 @@ export function createSkyLayer(L, map, { getHere, fmtTime, show: start = { cloud
       if (!first && map.getZoom() > SKY_ZOOM + 1) { restoreZoom = map.getZoom(); map.setView([here.lat, here.lon], SKY_ZOOM, { animate: false }); } else restoreZoom = null;
       refresh();
     } else {
-      setStatus(""); seq++; overlay?.remove(); overlay = null; last = null; sky = null; loadWind();
+      stop(); step = 0; bar.hidden = true;
+      setStatus(""); seq++; overlay?.remove(); overlay = null; last = null; sky = null;
+      if (map.getContainer().offsetParent) loadWind(); // carte fermée : pas d'appel ; update() relira le vent à la réouverture
       if (restoreZoom !== null) { const here = getHere(); map.setView([here.lat, here.lon], restoreZoom, { animate: false }); restoreZoom = null; }
     }
   }
@@ -146,6 +200,7 @@ export function createSkyLayer(L, map, { getHere, fmtTime, show: start = { cloud
     isOn: () => on,
     update: () => { if (on) refresh(); else loadWind(); }, // nouvelle position : on relit
     off: () => { if (on) setShow({ clouds: false, rain: false }); },
+    pause: () => { stop(); if (step) goTo(0); }, // fermeture de la carte : la lecture s'arrête, on rouvrira sur « Maintenant »
   };
 }
 
