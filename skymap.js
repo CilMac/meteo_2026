@@ -1,6 +1,6 @@
 // Commandes Leaflet des calques « Nuages » et « Pluie » : deux interrupteurs ON/OFF indépendants (26/11/2026), légende, et flèche du vent toujours affichée. Le calcul est dans weathermap.js.
 // Tout le texte affiché est écrit par textContent ; seules des valeurs numériques calculées ici sont injectées dans les styles.
-import { fetchSky, fetchHere, gridDims, skyImageUrl, windFromText, arrowAngle, cloudGradientCss, rainGradientCss, MAX_LAT, RAIN_STOPS, RAIN_MIN } from "./weathermap.js?v=daabd986";
+import { fetchSky, fetchHere, gridDims, skyImageUrl, windFromText, arrowAngle, cloudGradientCss, rainGradientCss, MAX_LAT, RAIN_STOPS, RAIN_MIN, isTap, isDoubleTap } from "./weathermap.js?v=42485d2b";
 
 const SKY_ZOOM = 8;      // à l'échelle d'un village, la grille des modèles n'a aucun sens : le calque s'ouvre sur une zone d'environ 200 km
 const REFETCH_MS = 700;  // délai après un déplacement de la carte avant de relire la grille
@@ -147,4 +147,41 @@ export function createSkyLayer(L, map, { getHere, fmtTime, show: start = { cloud
     update: () => { if (on) refresh(); else loadWind(); }, // nouvelle position : on relit
     off: () => { if (on) setShow({ clouds: false, rain: false }); },
   };
+}
+
+// Zoom avant par double toucher (doigt ou stylet) et par double-clic (souris ; Maj = zoom arrière), autour du point touché.
+// À utiliser avec L.map(…, { doubleClickZoom: false }). Un seul zoom par geste : si le navigateur envoie aussi un « dblclick »
+// après notre détection, il est ignoré. Les touchers sur les commandes et les gestes à deux doigts (pincer) ne comptent pas.
+export function addDoubleTapZoom(L, map) {
+  const box = map.getContainer(), downs = new Map();
+  let prev = null, multi = false, lastZoom = 0;
+  const zoomAt = (latlng, delta) => {
+    const now = Date.now();
+    if (now - lastZoom < 500) return;
+    lastZoom = now;
+    map.setZoomAround(latlng, map.getZoom() + delta);
+  };
+  const pt = (e) => ({ x: e.clientX, y: e.clientY, t: Date.now() });
+  box.addEventListener("pointerdown", (e) => {
+    if (e.pointerType === "mouse") return;
+    downs.set(e.pointerId, pt(e));
+    if (downs.size > 1) { multi = true; prev = null; }
+  }, true);
+  const end = (e) => {
+    const down = downs.get(e.pointerId);
+    downs.delete(e.pointerId);
+    if (!down) return;
+    const wasMulti = multi;
+    if (!downs.size) multi = false;
+    const up = pt(e);
+    if (e.type !== "pointerup" || wasMulti || e.target.closest?.(".leaflet-control") || !isTap(down, up)) { prev = null; return; }
+    if (isDoubleTap(prev, up)) {
+      prev = null;
+      const r = box.getBoundingClientRect();
+      zoomAt(map.containerPointToLatLng(L.point(up.x - r.left, up.y - r.top)), 1);
+    } else prev = up;
+  };
+  box.addEventListener("pointerup", end, true);
+  box.addEventListener("pointercancel", end, true);
+  map.on("dblclick", (e) => zoomAt(e.latlng, e.originalEvent?.shiftKey ? -1 : 1));
 }

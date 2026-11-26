@@ -154,3 +154,11 @@ export async function fetchHere(here, { fetchImpl = fetch, timeoutMs = TIMEOUTS.
   const body = await getJson(`${API}?${q}`, fetchImpl, timeoutMs);
   return parseCurrent(Array.isArray(body) ? body[0]?.current : body?.current);
 }
+
+// Double toucher sur la carte (26/11/2026) : sur iPhone, le « dblclick » dont dépend Leaflet n'arrivait pas (quel que soit le navigateur, on ne compte pas dessus),
+// d'où une détection maison. Un toucher = appui court sans glisser ; deux touchers rapprochés dans le temps et l'espace = zoom.
+// Points : { x, y } en pixels d'écran, t en ms.
+export const TAP = { maxPressMs: 350, maxMovePx: 10, maxGapMs: 350, maxDistPx: 30 };
+const dist = (a, b) => Math.hypot(b.x - a.x, b.y - a.y);
+export const isTap = (down, up) => Boolean(down && up) && up.t - down.t >= 0 && up.t - down.t <= TAP.maxPressMs && dist(down, up) <= TAP.maxMovePx;
+export const isDoubleTap = (prev, cur) => Boolean(prev && cur) && cur.t - prev.t > 0 && cur.t - prev.t <= TAP.maxGapMs && dist(prev, cur) <= TAP.maxDistPx;

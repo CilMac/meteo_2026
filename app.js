@@ -5,7 +5,7 @@ import { loadWarnings, officialSource } from "./warnings.js?v=79a17bd6";
 import { fetchEnsemble } from "./ensemble.js?v=88c38ccc";
 import { initInfo } from "./info.js?v=0231d5ac";
 import { initBarometer, preloadDial, trendSign } from "./barometer.js?v=f58dbfb8";
-import { createSkyLayer } from "./skymap.js?v=4e82698b";
+import { createSkyLayer, addDoubleTapZoom } from "./skymap.js?v=2ff3bb46";
 import { initWalk } from "./walkui.js?v=b13afaa3";
 import { buildHome, buildHomeNow, homeSteps, homeAlerts, homeLegend, buildLegend, homeMode, HOME_KEY, PHONE_QUERY } from "./home.js?v=0e873254";
 import { localToMs, fetchNextHour } from "./walk.js?v=68874bb7";
@@ -162,7 +162,8 @@ function drawMap(L, st = mapState, box = $("mini-map"), { saved = null, onSave =
   const { latitude, longitude, accuracy } = geo.coords;
   const here = [latitude, longitude];
   if (!st.map) {
-    st.map = L.map(box, { zoomControl: false, attributionControl: true }).setView(here, saved?.zoom ?? 15);
+    st.map = L.map(box, { zoomControl: false, attributionControl: true, doubleClickZoom: false }).setView(here, saved?.zoom ?? 15);
+    addDoubleTapZoom(L, st.map); // le double toucher de Leaflet ne marche pas sur iPhone (constaté le 26/11/2026)
     L.control.zoom({ zoomInTitle: "Zoom avant", zoomOutTitle: "Zoom arrière" }).addTo(st.map);
     // Recentrer sur la position (après un déplacement de la carte), sans changer le zoom.
     const center = L.control({ position: "topleft" });
@@ -444,16 +445,16 @@ $("home-all").addEventListener("click", () => {
 $("home-mini").addEventListener("click", () => { homeDlg.close(); setMini(true, "home"); });
 $("home-refresh").addEventListener("click", () => fillHome());
 // Carte plein écran : Leaflet chargé au premier toucher, carte créée une fois (après l'ouverture : il lui faut sa taille), recentrée à chaque ouverture.
-// Réglages retenus sur l'appareil (meteo.map) : zoom et calques ; au départ, nuages et pluie allumés, zone d'environ 200 km.
-const MAP_KEY = "meteo.map", MAP_DEFAULT = { zoom: 8, clouds: true, rain: true };
+// Zoom retenu sur l'appareil (meteo.map) ; au départ, zone d'environ 200 km. Nuages et pluie éteints à chaque ouverture (demandé le 26/11/2026).
+const MAP_KEY = "meteo.map", MAP_DEFAULT = { zoom: 8, clouds: false, rain: false };
 function readMapPrefs() {
   try {
     const p = JSON.parse(localStorage.getItem(MAP_KEY));
-    if (p && Number.isInteger(p.zoom) && p.zoom >= 3 && p.zoom <= 19) return { zoom: p.zoom, clouds: p.clouds === true, rain: p.rain === true };
+    if (p && Number.isInteger(p.zoom) && p.zoom >= 3 && p.zoom <= 19) return { ...MAP_DEFAULT, zoom: p.zoom };
   } catch { /* illisible : défaut */ }
   return { ...MAP_DEFAULT };
 }
-const saveMapPrefs = (p) => { try { localStorage.setItem(MAP_KEY, JSON.stringify({ zoom: p.zoom, clouds: p.clouds, rain: p.rain })); } catch { /* ignoré */ } };
+const saveMapPrefs = (p) => { try { localStorage.setItem(MAP_KEY, JSON.stringify({ zoom: p.zoom })); } catch { /* ignoré */ } };
 const homeMapDlg = $("home-map-dlg");
 $("home-map-btn").addEventListener("click", async () => {
   if (!geo.coords) return;
