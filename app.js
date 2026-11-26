@@ -336,11 +336,17 @@ async function exportJournal() {
   setTimeout(() => URL.revokeObjectURL(url), 10000);
   showJournal(`Fichier ${name} téléchargé (${list.length} relevé${list.length > 1 ? "s" : ""}).`);
 }
-function setMini(open) {
+// Retour ramène à l'écran d'où l'on vient (26/11/2026) : la page météo, ou l'écran d'accueil (téléphone, iPad).
+let miniFrom = "page";
+function setMini(open, from = "page") {
+  if (open) {
+    miniFrom = from;
+    $("mini-close").title = from === "home" ? "Revenir à l'écran d'accueil" : "Revenir à la page météo";
+  }
   document.querySelector("main.shell").hidden = open;
   $("mini").hidden = !open;
   window.scrollTo({ top: 0 });
-  if (open) { showJournal(); locate(false); preloadDial(); $("mini-close").focus(); } else { geo.loadId++; $("mini-refresh").disabled = false; $("mini-open").focus(); autoRefresh(); } // fermer abandonne une recherche en cours ; la page principale a pu vieillir entre-temps
+  if (open) { showJournal(); locate(false); preloadDial(); $("mini-close").focus(); } else { geo.loadId++; $("mini-refresh").disabled = false; $("mini-open").focus(); autoRefresh(); if (miniFrom === "home") openHome("go", { asked: true }); } // fermer abandonne une recherche en cours ; la page principale a pu vieillir entre-temps
 }
 // Hauteur du haut de page fixe de « Lieu actuel » : les titres de colonnes se collent juste dessous.
 if (typeof ResizeObserver !== "undefined") { const top = document.querySelector(".mini-top"); new ResizeObserver(() => $("mini").style.setProperty("--mini-top-h", `${top.offsetHeight}px`)).observe(top); }
@@ -435,7 +441,7 @@ $("home-all").addEventListener("click", () => {
   if (homeDlg.classList.contains("is-ask")) setHomeFlag("no"); // invitation déclinée : elle ne revient pas
   homeDlg.close();
 });
-$("home-mini").addEventListener("click", () => { homeDlg.close(); setMini(true); });
+$("home-mini").addEventListener("click", () => { homeDlg.close(); setMini(true, "home"); });
 $("home-refresh").addEventListener("click", () => fillHome());
 // Carte plein écran : Leaflet chargé au premier toucher, carte créée une fois (après l'ouverture : il lui faut sa taille), recentrée à chaque ouverture.
 // Réglages retenus sur l'appareil (meteo.map) : zoom et calques ; au départ, nuages et pluie allumés, zone d'environ 200 km.
