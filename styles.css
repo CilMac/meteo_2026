@@ -696,7 +696,7 @@ dialog.map-dlg[open] { display: flex; flex-direction: column; } dialog.map-dlg::
 .home-src { flex: 1 0 100%; margin: 0; color: var(--muted); font-size: 11.5px; line-height: 1.5; text-align: center; } .home-src a { color: inherit; text-underline-offset: 2px; }
 .home-foot { position: sticky; bottom: 0; display: flex; flex-wrap: wrap; gap: 8px; padding: 8px var(--side) calc(8px + env(safe-area-inset-bottom)); background: var(--paper); }
 .home-foot .btn { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 50px; min-height: 50px; padding: 0; border-radius: 14px; background: var(--surface); border: 1.5px solid var(--btn-edge); color: var(--primary); }
-.home-foot .btn.go { margin-right: 10px; } .home-foot .btn.primary, .home-foot .btn.go { border-color: var(--precip-border); background: var(--precip-sel); color: var(--primary); } /* ces deux-là mènent ailleurs : bleu pâle (le bleu foncé plein était trop agressif) */
+.home-foot .btn.go { margin-right: 10px; } .home-foot .btn.primary, .home-foot .btn.go, .home-foot #home-map-btn { border-color: var(--precip-border); background: var(--precip-sel); color: var(--primary); } /* ces deux-là mènent ailleurs : bleu pâle (le bleu foncé plein était trop agressif) */
 .home-foot .btn.primary { flex: 1; width: auto; min-width: 0; padding: 4px 8px; line-height: 1.2; }
 .home-foot .ico-walk { width: 28px; height: 28px; } #home-refresh:disabled svg { animation: home-turn 1s linear infinite; }
 @keyframes home-turn { to { transform: rotate(1turn); } }
