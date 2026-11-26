@@ -5,7 +5,8 @@ import { loadWarnings, officialSource } from "./warnings.js?v=79a17bd6";
 import { fetchEnsemble } from "./ensemble.js?v=88c38ccc";
 import { initInfo } from "./info.js?v=0231d5ac";
 import { initBarometer, preloadDial, trendSign } from "./barometer.js?v=f58dbfb8";
-import { createSkyLayer, addDoubleTapZoom } from "./skymap.js?v=a3cf3578";
+import { createSkyLayer, addDoubleTapZoom } from "./skymap.js?v=723c9939";
+import { parseMapPrefs, MAP_ZOOM, maxZoomFor } from "./weathermap.js?v=df6ad046";
 import { initWalk } from "./walkui.js?v=b13afaa3";
 import { buildHome, buildHomeNow, homeSteps, homeAlerts, homeLegend, buildLegend, homeMode, HOME_KEY, PHONE_QUERY } from "./home.js?v=a3d6b797";
 import { localToMs, fetchNextHour } from "./walk.js?v=68874bb7";
@@ -160,13 +161,16 @@ const mapState = { map: null, layer: null, sky: null, target: null, centerBtn: n
 const placeName = (l) => `${l.name}${l.country ? ` (${l.country})` : ""}`;
 const geoTarget = () => ({ lat: geo.coords.latitude, lon: geo.coords.longitude, accuracy: geo.coords.accuracy ?? null, here: true, name: placeName(geo.data.location), tz: geo.data.location.timezone });
 // opts.saved : réglages retenus (zoom, calques, fond) ; opts.onSave(réglages) : à chaque changement ; opts.timeline : réglette des 12 heures.
-function drawMap(L, target, { saved = null, onSave = null, timeline = false } = {}) {
+// keepZoom : garder le zoom en cours (position mise à jour pendant que la carte est ouverte) ; sinon ouverture à l'échelle « lieu ».
+function drawMap(L, target, { saved = null, onSave = null, timeline = false, keepZoom = false } = {}) {
   const st = mapState, box = $("home-map");
   st.target = target;
   const here = [target.lat, target.lon];
   const centerTip = target.here ? "Recentrer sur votre position" : `Recentrer sur ${target.name}`;
   if (!st.map) {
-    st.map = L.map(box, { zoomControl: false, attributionControl: true, doubleClickZoom: false }).setView(here, saved?.zoom ?? 15);
+    const prefs = st.prefs = saved ?? parseMapPrefs(null);
+    st.skyOn = false;
+    st.map = L.map(box, { zoomControl: false, attributionControl: true, doubleClickZoom: false, minZoom: MAP_ZOOM.min, maxZoom: maxZoomFor({ topo: prefs.topo }) }).setView(here, prefs.zoomPlace);
     addDoubleTapZoom(L, st.map); // le double toucher de Leaflet ne marche pas sur iPhone (constaté le 26/11/2026)
     L.control.zoom({ zoomInTitle: "Zoom avant", zoomOutTitle: "Zoom arrière" }).addTo(st.map);
     // Recentrer sur la position (après un déplacement de la carte), sans changer le zoom.
@@ -186,9 +190,11 @@ function drawMap(L, target, { saved = null, onSave = null, timeline = false } = 
     const plan = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "© contributeurs <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a>" });
     // Crédit raccourci (26/11/2026, demandé : 3 lignes sur iPhone) : noms, © et licence gardés, mots « Données » / « Rendu » retirés
     // (OpenTopoMap « devrait » afficher sa formule, pas « doit » ; OpenStreetMap exige son nom et le lien vers /copyright).
-    const relief = L.tileLayer("https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png", { subdomains: "abc", maxNativeZoom: 17, maxZoom: 19,
+    const relief = L.tileLayer("https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png", { subdomains: "abc", maxZoom: MAP_ZOOM.topoMax,
       attribution: "© <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a>, SRTM · © <a href=\"https://opentopomap.org/\">OpenTopoMap</a> (<a href=\"https://creativecommons.org/licenses/by-sa/3.0/\">CC-BY-SA</a>)" });
-    let topo = Boolean(saved?.topo);
+    let topo = prefs.topo;
+    // Zoom maximal selon le mode : 10 avec Nuages ou Pluie, 17 avec le relief (le « + » se grise de lui-même).
+    const applyMax = () => st.map.setMaxZoom(maxZoomFor({ sky: st.skyOn, topo }));
     (topo ? relief : plan).addTo(st.map);
     const base = L.control({ position: "topleft" });
     base.onAdd = () => {
@@ -204,7 +210,8 @@ function drawMap(L, target, { saved = null, onSave = null, timeline = false } = 
         L.DomEvent.preventDefault(e); L.DomEvent.stopPropagation(e);
         topo = !topo;
         (topo ? relief : plan).addTo(st.map); (topo ? plan : relief).remove();
-        show(); kept.topo = topo; onSave?.(kept);
+        applyMax(); // relief au zoom 18 ou 19 : la carte recule à 17 (le zoom retenu suit)
+        show(); prefs.topo = topo; onSave?.(prefs);
       });
       return bar;
     };
@@ -215,16 +222,37 @@ function drawMap(L, target, { saved = null, onSave = null, timeline = false } = 
     const attrib = st.map.attributionControl.getContainer();
     new ResizeObserver(() => box.style.setProperty("--attrib-h", `${attrib.offsetHeight}px`)).observe(attrib);
     L.control.scale({ position: "bottomright", metric: true, imperial: false, maxWidth: 110 }).addTo(st.map); // échelle des distances, sous le crédit des cartes
-    const kept = { zoom: st.map.getZoom(), clouds: Boolean(saved?.clouds), rain: Boolean(saved?.rain), topo };
+    // Deux échelles retenues chacune de son côté (zoomPlace, zoomSky) ; en passant de l'une à l'autre, le centre regardé est gardé.
+    // Un zoom lancé juste avant (« + », « − », pincement) peut finir APRÈS le changement d'échelle et l'annuler (constaté le
+    // 26/11/2026, l'animation de Leaflet démarre à l'image suivante) : le zoom choisi est donc tenu au moins LOCK_MS et LOCK_FRAMES
+    // images (une page en arrière-plan ralentit les images : le temps seul ne suffit pas).
+    const LOCK_MS = 700, LOCK_FRAMES = 4;
+    let switching = false, lock = null;
+    const setZoomQuiet = (z) => { switching = true; st.map.setZoom(z, { animate: false }); switching = false; };
+    const toScale = (sky) => {
+      st.skyOn = sky;
+      const z = sky ? Math.min(prefs.zoomSky, maxZoomFor({ sky: true, topo })) : Math.min(prefs.zoomPlace, maxZoomFor({ topo }));
+      if (sky) { setZoomQuiet(z); switching = true; applyMax(); switching = false; } else { switching = true; applyMax(); switching = false; setZoomQuiet(z); }
+      const l = lock = { zoom: z, until: Date.now() + LOCK_MS, frames: 0 };
+      const tick = () => { if (lock === l && ++l.frames < LOCK_FRAMES) requestAnimationFrame(tick); };
+      requestAnimationFrame(tick);
+    };
     st.sky = createSkyLayer(L, st.map, {
       getHere: () => ({ lat: st.target.lat, lon: st.target.lon }),
       fmtTime: (ms) => formatLocal(new Date(ms), st.target.tz, { hour: "2-digit", minute: "2-digit" }), // heures du lieu montré
-      show: kept,
-      onShow: (s) => { Object.assign(kept, s); onSave?.(kept); },
+      show: { clouds: false, rain: false }, // toujours éteints à l'ouverture
+      onSwitch: toScale,
       timeline,
     });
-    if (onSave) st.map.on("zoomend", () => { kept.zoom = st.map.getZoom(); onSave(kept); });
-  } else { st.map.setView(here, st.map.getZoom()); st.sky?.update(); }
+    st.map.on("zoomend", () => {
+      if (switching) return;
+      const zoom = st.map.getZoom();
+      if (lock && (Date.now() < lock.until || lock.frames < LOCK_FRAMES)) { if (zoom !== lock.zoom) setZoomQuiet(lock.zoom); return; } // zoom arrivé en retard : on remet l'échelle choisie
+      lock = null;
+      if (st.skyOn) prefs.zoomSky = Math.min(zoom, MAP_ZOOM.skyMax); else prefs.zoomPlace = zoom;
+      onSave?.(prefs);
+    });
+  } else { st.map.setView(here, keepZoom ? st.map.getZoom() : st.prefs.zoomPlace); st.sky?.update(); } // calques éteints à la fermeture : ouverture à l'échelle « lieu »
   st.centerBtn.title = centerTip; st.centerBtn.setAttribute("aria-label", centerTip);
   st.layer?.remove();
   st.layer = L.layerGroup(target.here
@@ -323,7 +351,7 @@ async function locate(force = false, { quiet = false } = {}) {
     miniMessage("");
     recordHere();
     $("mini-map-btn").disabled = false;
-    if ($("home-map-dlg").open && mapState.target?.here && globalThis.L) drawMap(globalThis.L, geoTarget()); // carte de la position ouverte (mise à jour au retour) : recentrée
+    if ($("home-map-dlg").open && mapState.target?.here && globalThis.L) drawMap(globalThis.L, geoTarget(), { keepZoom: true }); // carte de la position ouverte (mise à jour au retour) : recentrée
   } catch (e) {
     if (id !== geo.loadId) return;
     if (quiet) { // l'ancien tableau reste, daté ; il n'est plus présenté comme étant « ici et maintenant »
@@ -476,15 +504,9 @@ $("home-refresh").addEventListener("click", () => fillHome());
 // Carte plein écran : Leaflet chargé au premier toucher, carte créée une fois (après l'ouverture : il lui faut sa taille), recentrée à chaque ouverture.
 // Zoom et fond (plan ou relief) retenus sur l'appareil (meteo.map) ; au départ, zone d'environ 200 km, plan.
 // Nuages et pluie éteints à chaque ouverture (demandé le 26/11/2026).
-const MAP_KEY = "meteo.map", MAP_DEFAULT = { zoom: 8, clouds: false, rain: false, topo: false };
-function readMapPrefs() {
-  try {
-    const p = JSON.parse(localStorage.getItem(MAP_KEY));
-    if (p && Number.isInteger(p.zoom) && p.zoom >= 3 && p.zoom <= 19) return { ...MAP_DEFAULT, zoom: p.zoom, topo: p.topo === true };
-  } catch { /* illisible : défaut */ }
-  return { ...MAP_DEFAULT };
-}
-const saveMapPrefs = (p) => { try { localStorage.setItem(MAP_KEY, JSON.stringify({ zoom: p.zoom, topo: p.topo === true })); } catch { /* ignoré */ } };
+const MAP_KEY = "meteo.map";
+function readMapPrefs() { try { return parseMapPrefs(localStorage.getItem(MAP_KEY)); } catch { return parseMapPrefs(null); } }
+const saveMapPrefs = (p) => { try { localStorage.setItem(MAP_KEY, JSON.stringify({ zoomPlace: p.zoomPlace, zoomSky: p.zoomSky, topo: p.topo === true })); } catch { /* ignoré */ } };
 const homeMapDlg = $("home-map-dlg");
 // btn : bouton qui ouvre la carte (désactivé pendant le chargement, puis rendu tel qu'il était) ; target : lieu montré (voir drawMap) ;
 // fail(texte) : où dire que la carte est indisponible. Titre : « à votre position » seulement pour la position actuelle, sinon le nom du lieu.

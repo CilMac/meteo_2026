@@ -1,8 +1,7 @@
 // Commandes Leaflet des calques « Nuages » et « Pluie » : deux interrupteurs ON/OFF indépendants (26/11/2026), légende, et flèche du vent toujours affichée. Le calcul est dans weathermap.js.
 // Tout le texte affiché est écrit par textContent ; seules des valeurs numériques calculées ici sont injectées dans les styles.
-import { fetchSky, fetchHere, gridDims, skyImageUrl, windFromText, arrowAngle, cloudGradientCss, rainGradientCss, MAX_LAT, RAIN_STOPS, RAIN_MIN, isTap, isDoubleTap } from "./weathermap.js?v=7a40d11c";
+import { fetchSky, fetchHere, gridDims, skyImageUrl, windFromText, arrowAngle, cloudGradientCss, rainGradientCss, MAX_LAT, RAIN_STOPS, RAIN_MIN, isTap, isDoubleTap } from "./weathermap.js?v=df6ad046";
 
-const SKY_ZOOM = 8;      // à l'échelle d'un village, la grille des modèles n'a aucun sens : le calque s'ouvre sur une zone d'environ 200 km
 const REFETCH_MS = 700;
 const TIMELINE_HOURS = 12; // curseur de la carte plein écran : maintenant, puis les 12 heures suivantes (comme la vue des 12 heures)
 const PLAY_MS = 1000;      // durée d'une heure pendant la lecture  // délai après un déplacement de la carte avant de relire la grille
@@ -22,11 +21,13 @@ function windArrow() {
 // getHere() → {lat, lon} de l'appareil ; fmtTime(ms) → « 16:15 » dans le fuseau du lieu.
 // show : calques allumés au départ ({ clouds, rain }) ; onShow(show) : appelé à chaque changement (pour le retenir).
 // timeline : curseur « Maintenant · +1 h … +12 h » et lecture ▶ sous la carte (carte plein écran seulement), même appel enrichi.
-export function createSkyLayer(L, map, { getHere, fmtTime, show: start = { clouds: false, rain: false }, onShow = () => {}, timeline = false }) {
+// onSwitch(on) : appelé quand le calque passe d'éteint à allumé ou l'inverse, AVANT la lecture de la grille : l'application y règle
+// l'échelle (zoom « météo » ou « lieu », voir MAP_ZOOM) ; le centre n'est pas touché ici.
+export function createSkyLayer(L, map, { getHere, fmtTime, show: start = { clouds: false, rain: false }, onShow = () => {}, onSwitch = () => {}, timeline = false }) {
   const pane = map.createPane("skypane");
   pane.style.zIndex = 250; pane.style.pointerEvents = "none"; // au-dessus des tuiles, sous le point de position
   const show = { clouds: Boolean(start.clouds), rain: Boolean(start.rain) };
-  let on = false, overlay = null, last = null, timer = 0, seq = 0, restoreZoom = null, sky = null, step = 0, playing = 0;
+  let on = false, overlay = null, last = null, timer = 0, seq = 0, sky = null, step = 0, playing = 0;
 
   // ---- deux interrupteurs (nuages, pluie) + vent (en haut à droite)
   const panel = el("div", "sky-panel"), switches = el("div", "sky-switches");
@@ -178,15 +179,14 @@ export function createSkyLayer(L, map, { getHere, fmtTime, show: start = { cloud
     clearTimeout(timer);
     if (on && was) { paint(); return; } // déjà lu : on redessine seulement
     if (on) {
-      const here = getHere();
-      // À l'allumage, la grille n'a pas de sens à l'échelle d'un village : zone d'environ 200 km (sauf au départ : le zoom retenu est gardé).
-      if (!first && map.getZoom() > SKY_ZOOM + 1) { restoreZoom = map.getZoom(); map.setView([here.lat, here.lon], SKY_ZOOM, { animate: false }); } else restoreZoom = null;
+      if (!first) onSwitch(true);
+      clearTimeout(timer); // le changement d'échelle a pu programmer une relecture : celle-ci suffit
       refresh();
     } else {
       stop(); step = 0; bar.hidden = true;
       setStatus(""); seq++; overlay?.remove(); overlay = null; last = null; sky = null;
       if (map.getContainer().offsetParent) loadWind(); // carte fermée : pas d'appel ; update() relira le vent à la réouverture
-      if (restoreZoom !== null) { const here = getHere(); map.setView([here.lat, here.lon], restoreZoom, { animate: false }); restoreZoom = null; }
+      if (was) onSwitch(false);
     }
   }
   map.on("moveend", () => {

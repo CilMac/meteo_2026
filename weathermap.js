@@ -191,3 +191,20 @@ export const TAP = { maxPressMs: 350, maxMovePx: 10, maxGapMs: 350, maxDistPx: 3
 const dist = (a, b) => Math.hypot(b.x - a.x, b.y - a.y);
 export const isTap = (down, up) => Boolean(down && up) && up.t - down.t >= 0 && up.t - down.t <= TAP.maxPressMs && dist(down, up) <= TAP.maxMovePx;
 export const isDoubleTap = (prev, cur) => Boolean(prev && cur) && cur.t - prev.t > 0 && cur.t - prev.t <= TAP.maxGapMs && dist(prev, cur) <= TAP.maxDistPx;
+
+// Échelles de la carte (26/11/2026, choix de l'utilisateur) : deux zooms retenus chacun de son côté.
+// « lieu » (calques éteints, ouverture) : 12 au départ (échelle 2 km, nom du lieu lisible) ; « météo » (Nuages ou Pluie allumés) :
+// 8 au départ et 10 au plus (la grille d'environ 48 points n'a plus de sens plus près) ; relief : 17 au plus (tuiles d'OpenTopoMap).
+export const MAP_ZOOM = { place: 12, sky: 8, skyMax: 10, topoMax: 17, max: 19, min: 3 };
+export const maxZoomFor = ({ sky = false, topo = false } = {}) => Math.min(sky ? MAP_ZOOM.skyMax : MAP_ZOOM.max, topo ? MAP_ZOOM.topoMax : MAP_ZOOM.max);
+// Réglages retenus (meteo.map) : { zoomPlace, zoomSky, topo } ; valeur absente ou hors bornes = défaut. L'ancien { zoom } est ignoré.
+export function parseMapPrefs(raw) {
+  let p = null;
+  try { p = typeof raw === "string" ? JSON.parse(raw) : raw; } catch { p = null; }
+  const zoomIn = (v, max) => (Number.isInteger(v) && v >= MAP_ZOOM.min && v <= max ? v : null);
+  return {
+    zoomPlace: zoomIn(p?.zoomPlace, MAP_ZOOM.max) ?? MAP_ZOOM.place,
+    zoomSky: zoomIn(p?.zoomSky, MAP_ZOOM.skyMax) ?? MAP_ZOOM.sky,
+    topo: p?.topo === true,
+  };
+}
