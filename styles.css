@@ -140,9 +140,10 @@ summary { min-height: 44px; display: flex; align-items: center; cursor: pointer;
 /* lever et coucher du soleil : icônes dessinées par masque, donc à la couleur du thème */
 .cur-note { margin-bottom: 0; } .cur-sun { margin: 0; display: flex; flex-wrap: wrap; column-gap: 16px; }
 .sun, .cur-pressure { position: relative; white-space: nowrap; font-variant-numeric: tabular-nums; } /* passe à la ligne d'un bloc, jamais coupé */
-.sun::before { content: ""; display: inline-block; width: 18px; height: 14px; margin-right: 5px; vertical-align: -2px; background: var(--attention-border); -webkit-mask: var(--sun-icon) center / contain no-repeat; mask: var(--sun-icon) center / contain no-repeat; }
-.sun-rise { --sun-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 18 14' fill='none' stroke='%23000' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M1 13h16M5 13a4 4 0 0 1 8 0M9 6V1M7 3l2-2 2 2'/%3E%3C/svg%3E"); }
-.sun-set { --sun-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 18 14' fill='none' stroke='%23000' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M1 13h16M5 13a4 4 0 0 1 8 0M9 1v5M7 4l2 2 2-2'/%3E%3C/svg%3E"); }
+/* Lever : soleil jaune qui monte ; coucher : soleil orangé, plus petit, qui descend (26/11/2026, les anciens traits fins étaient peu lisibles). Couleurs dans le dessin : mêmes en clair et en sombre. */
+.sun::before { content: ""; display: inline-block; width: 22px; height: 20px; margin-right: 5px; vertical-align: -4px; background: var(--sun-icon) center / contain no-repeat; }
+.sun-rise { --sun-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 26 24' fill='none' stroke='%23c98a1c' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M2 19h22'/%3E%3Cpath d='M7 19a6 6 0 0 1 12 0' fill='%23f2c14e'/%3E%3Cpath d='M13 5v3M5.5 9.5l2 2M20.5 9.5l-2 2M10.5 3.5 13 1l2.5 2.5'/%3E%3C/svg%3E"); }
+.sun-set { --sun-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 26 24' fill='none' stroke='%23b5552a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M2 19h22'/%3E%3Cpath d='M8.5 19a4.5 4.5 0 0 1 9 0' fill='%23e8946a'/%3E%3Cpath d='M13 2v6M10.5 5.5 13 8l2.5-2.5'/%3E%3C/svg%3E"); }
 .cur-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(135px, 1fr)); gap: 12px; margin-top: 12px; }
 .stat { padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--radius-card); }
 .stat.fam-precip { background: var(--precip-bg); } .stat.fam-temp { background: var(--temp-bg); } .stat.fam-wind { background: var(--wind-bg); }
@@ -691,7 +692,7 @@ dialog.map-dlg[open] { display: flex; flex-direction: column; } dialog.map-dlg::
 .home-baro { display: flex; align-items: center; gap: 6px; min-height: 46px; padding: 0 13px; border: 1.5px solid var(--btn-edge); border-radius: 14px; background: var(--paper); font-size: 15px; line-height: 1.6; white-space: nowrap; font-variant-numeric: tabular-nums; cursor: pointer; } .home-baro:active { filter: brightness(.94); }
 .home-baro:disabled { border-color: transparent; background: none; cursor: default; color: inherit; } /* sans valeur : plus un bouton */
 .home-baro .mini-svg { width: 23px; height: 23px; color: var(--primary); stroke-width: 1.9; }
-.home-ico { width: 22px; height: 22px; stroke-width: 1.9; color: var(--wind); vertical-align: -5px; } .home-fact .sun::before { width: 20px; height: 16px; }
+.home-ico { width: 22px; height: 22px; stroke-width: 1.9; color: var(--wind); vertical-align: -5px; } .home-fact .sun::before { width: 27px; height: 25px; vertical-align: -5px; }
 .home-src { flex: 1 0 100%; margin: 0; color: var(--muted); font-size: 11.5px; line-height: 1.5; text-align: center; } .home-src a { color: inherit; text-underline-offset: 2px; }
 .home-foot { position: sticky; bottom: 0; display: flex; flex-wrap: wrap; gap: 8px; padding: 8px var(--side) calc(8px + env(safe-area-inset-bottom)); background: var(--paper); }
 .home-foot .btn { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 50px; min-height: 50px; padding: 0; border-radius: 14px; background: var(--surface); border: 1.5px solid var(--btn-edge); color: var(--primary); }
@@ -705,7 +706,7 @@ dialog.map-dlg[open] { display: flex; flex-direction: column; } dialog.map-dlg::
 #home-legend .hl-rows { margin: 0; padding: 0; list-style: none; } #home-legend .hl-rows li { display: grid; grid-template-columns: 62px minmax(0, 1fr); align-items: center; gap: 12px; min-height: 40px; margin: 0; padding: 6px 0; line-height: 1.4; } .hl-rows li + li { border-top: 1px solid var(--line); }
 .hl-sub { display: block; color: var(--muted); font-size: 13.5px; }
 .hl-sym { display: flex; align-items: center; justify-content: center; gap: 5px; white-space: nowrap; font-variant-numeric: tabular-nums; } .hl-sym.is-text { flex-direction: column; gap: 0; font-weight: 600; } .hl-sym.is-big { font-size: 21px; font-weight: 500; } .hl-sym.is-red { color: var(--extreme-text); font-weight: 700; }
-.hl-sym .home-track { flex: none; width: 12px; height: 26px; } .hl-sym .hbar-box.home-h-bar { width: 44px; height: 5px; margin: 2px 0 0; } .hl-sym .sun::before { width: 21px; height: 17px; margin: 0; } .hl-sym .trend-arrow { width: 16px; height: 16px; margin: 0; } .hl-baro { width: 26px; height: 26px; color: var(--primary); stroke-width: 1.9; } .hl-sym .home-ico { width: 24px; height: 24px; }
+.hl-sym .home-track { flex: none; width: 12px; height: 26px; } .hl-sym .hbar-box.home-h-bar { width: 44px; height: 5px; margin: 2px 0 0; } .hl-sym .sun::before { width: 27px; height: 25px; margin: 0; } .hl-sym .trend-arrow { width: 16px; height: 16px; margin: 0; } .hl-baro { width: 26px; height: 26px; color: var(--primary); stroke-width: 1.9; } .hl-sym .home-ico { width: 24px; height: 24px; }
 .hl-frame { width: 40px; height: 20px; border: 1px solid var(--attention-border); border-radius: 6px; background: var(--attention); }
 #home-more .howto-list li { margin: 8px 0; }
 @media (min-height: 760px) { .home-bars { --bars: 58px; } .home-hours { padding-block: 13px; } }
