@@ -7,7 +7,7 @@ import { initInfo } from "./info.js?v=0231d5ac";
 import { initBarometer, preloadDial, trendSign } from "./barometer.js?v=f58dbfb8";
 import { createSkyLayer, addDoubleTapZoom } from "./skymap.js?v=a3cf3578";
 import { initWalk } from "./walkui.js?v=b13afaa3";
-import { buildHome, buildHomeNow, homeSteps, homeAlerts, homeLegend, buildLegend, homeMode, HOME_KEY, PHONE_QUERY } from "./home.js?v=0e873254";
+import { buildHome, buildHomeNow, homeSteps, homeAlerts, homeLegend, buildLegend, homeMode, HOME_KEY, PHONE_QUERY } from "./home.js?v=a3d6b797";
 import { localToMs, fetchNextHour } from "./walk.js?v=68874bb7";
 import { fetchObservedPressure, fetchPressureTrend, fetchObservedStorms, stormText, pressureDisplay, TREND_WORD } from "./observation.js?v=6922543a";
 import { getPosition, reverseGeocode, placeFromPosition, storedGeoPlace, formatCoords, deniedHelp, GEO_ID, GEO_MAX_AGE_MS } from "./geo.js?v=b6df63a8";
@@ -172,9 +172,39 @@ function drawMap(L, st = mapState, box = $("home-map"), { saved = null, onSave =
     };
     center.addTo(st.map);
     new ResizeObserver(() => st.map.invalidateSize()).observe(box); // la ligne d'état sous la carte change sa hauteur : le centre doit rester juste
-    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "© contributeurs <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a>" }).addTo(st.map);
+    // Deux fonds : « Plan » (OpenStreetMap) et « Relief » (OpenTopoMap : courbes de niveau, ombrage, sentiers ; 26/11/2026, demandé).
+    // OpenTopoMap (opentopomap.org/about, lu le 26/11/2026) : CC-BY-SA 3.0, attribution obligatoire (le texte ci-dessous),
+    // gratuit et sans garantie ; tuiles jusqu'au zoom 17 seulement (au-delà, il renvoie « max zoom layer = 17 ») : agrandies aux zooms 18 et 19.
+    const plan = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "© contributeurs <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a>" });
+    const relief = L.tileLayer("https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png", { subdomains: "abc", maxNativeZoom: 17, maxZoom: 19,
+      attribution: "Données : © contributeurs <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a>, SRTM | Rendu : © <a href=\"https://opentopomap.org/\">OpenTopoMap</a> (<a href=\"https://creativecommons.org/licenses/by-sa/3.0/\">CC-BY-SA</a>)" });
+    let topo = Boolean(saved?.topo);
+    (topo ? relief : plan).addTo(st.map);
+    const base = L.control({ position: "topleft" });
+    base.onAdd = () => {
+      const bar = L.DomUtil.create("div", "leaflet-bar map-base"), b = L.DomUtil.create("a", "", bar);
+      b.href = "#"; b.setAttribute("role", "button");
+      const show = () => {
+        const t = topo ? "Fond relief affiché (OpenTopoMap) : toucher pour revenir au plan" : "Afficher le fond relief (courbes de niveau, sentiers ; OpenTopoMap)";
+        b.title = t; b.setAttribute("aria-label", "Fond relief"); b.setAttribute("aria-pressed", String(topo)); bar.classList.toggle("is-on", topo);
+      };
+      b.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path d="M2.5 19.5 9 8.5l3.6 6 2.4-3.5 6.5 8.5z"/><path d="m7.2 11.6 1.8 1.4 1.6-1.6"/></svg>';
+      show();
+      L.DomEvent.on(b, "click", (e) => {
+        L.DomEvent.preventDefault(e); L.DomEvent.stopPropagation(e);
+        topo = !topo;
+        (topo ? relief : plan).addTo(st.map); (topo ? plan : relief).remove();
+        show(); kept.topo = topo; onSave?.(kept);
+      });
+      return bar;
+    };
+    base.addTo(st.map);
+    // Le crédit des cartes (obligatoire) change de hauteur selon le fond et la largeur (3 lignes à 375 px avec le relief) :
+    // la légende des calques, en bas à gauche, se place toujours au-dessus de lui (--attrib-h, lu par styles.css).
+    const attrib = st.map.attributionControl.getContainer();
+    new ResizeObserver(() => box.style.setProperty("--attrib-h", `${attrib.offsetHeight}px`)).observe(attrib);
     L.control.scale({ position: "bottomright", metric: true, imperial: false, maxWidth: 110 }).addTo(st.map); // échelle des distances, sous le crédit des cartes
-    const kept = { zoom: st.map.getZoom(), clouds: Boolean(saved?.clouds), rain: Boolean(saved?.rain) };
+    const kept = { zoom: st.map.getZoom(), clouds: Boolean(saved?.clouds), rain: Boolean(saved?.rain), topo };
     st.sky = createSkyLayer(L, st.map, {
       getHere: () => ({ lat: geo.coords.latitude, lon: geo.coords.longitude }),
       fmtTime: (ms) => formatLocal(new Date(ms), geo.data.location.timezone, { hour: "2-digit", minute: "2-digit" }),
@@ -432,16 +462,17 @@ $("home-all").addEventListener("click", () => {
 $("home-mini").addEventListener("click", () => { homeDlg.close(); setMini(true, "home"); });
 $("home-refresh").addEventListener("click", () => fillHome());
 // Carte plein écran : Leaflet chargé au premier toucher, carte créée une fois (après l'ouverture : il lui faut sa taille), recentrée à chaque ouverture.
-// Zoom retenu sur l'appareil (meteo.map) ; au départ, zone d'environ 200 km. Nuages et pluie éteints à chaque ouverture (demandé le 26/11/2026).
-const MAP_KEY = "meteo.map", MAP_DEFAULT = { zoom: 8, clouds: false, rain: false };
+// Zoom et fond (plan ou relief) retenus sur l'appareil (meteo.map) ; au départ, zone d'environ 200 km, plan.
+// Nuages et pluie éteints à chaque ouverture (demandé le 26/11/2026).
+const MAP_KEY = "meteo.map", MAP_DEFAULT = { zoom: 8, clouds: false, rain: false, topo: false };
 function readMapPrefs() {
   try {
     const p = JSON.parse(localStorage.getItem(MAP_KEY));
-    if (p && Number.isInteger(p.zoom) && p.zoom >= 3 && p.zoom <= 19) return { ...MAP_DEFAULT, zoom: p.zoom };
+    if (p && Number.isInteger(p.zoom) && p.zoom >= 3 && p.zoom <= 19) return { ...MAP_DEFAULT, zoom: p.zoom, topo: p.topo === true };
   } catch { /* illisible : défaut */ }
   return { ...MAP_DEFAULT };
 }
-const saveMapPrefs = (p) => { try { localStorage.setItem(MAP_KEY, JSON.stringify({ zoom: p.zoom })); } catch { /* ignoré */ } };
+const saveMapPrefs = (p) => { try { localStorage.setItem(MAP_KEY, JSON.stringify({ zoom: p.zoom, topo: p.topo === true })); } catch { /* ignoré */ } };
 const homeMapDlg = $("home-map-dlg");
 // btn : bouton qui ouvre la carte (désactivé pendant le chargement) ; fail(texte) : où dire que la carte est indisponible.
 async function openMap(btn, fail) {

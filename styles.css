@@ -471,7 +471,7 @@ dialog.baro-modal { width: min(440px, calc(100vw - 24px)); }
 .sky-status.is-err { color: var(--ink); background: var(--error); padding: 4px 8px; border-radius: 6px; }
 .leaflet-container .sky-img { max-width: none; }
 .leaflet-control-scale-line { font: 11px var(--font-body); color: #222; }
-@media (max-width: 520px) { .leaflet-bottom.leaflet-left .sky-legend { margin-bottom: 28px; } .sky-panel, .sky-wind-sub { font-size: 12px; } .sky-switch { gap: 6px; padding-left: 8px; } .sky-wind-text { max-width: 8.5em; } .sky-wind { padding-right: 8px; } .sky-legend { width: min(170px, calc(100vw - 90px)); } }
+@media (max-width: 520px) { .sky-panel, .sky-wind-sub { font-size: 12px; } .sky-switch { gap: 6px; padding-left: 8px; } .sky-wind-text { max-width: 8.5em; } .sky-wind { padding-right: 8px; } .sky-legend { width: min(170px, calc(100vw - 90px)); } }
 .mini-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
 .mini-top h2 { margin: 0; min-width: 0; font-family: var(--font-title); font-size: 24px; font-weight: 700; line-height: 1.25; text-wrap: balance; }
 .mini-side { display: flex; gap: 8px; flex: none; }
@@ -665,7 +665,9 @@ dialog.map-dlg[open] { display: flex; flex-direction: column; } dialog.map-dlg::
 .sky-range { flex: 1; min-width: 0; height: 44px; margin: 0; accent-color: var(--primary); }
 .sky-when { flex: none; min-width: 108px; text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
 @media (max-width: 360px) { .sky-time { gap: 8px; } .sky-when { min-width: 92px; font-size: 14px; } }
-.sky-switches { display: flex; gap: 6px; } @media (max-width: 360px) { .leaflet-bottom.leaflet-left .sky-legend { margin-bottom: 46px; } } /* crédit des cartes sur deux lignes : la légende passe au-dessus */ .sky-leg-part + .sky-leg-part { margin-top: 4px; } .sky-leg-part[hidden] { display: none; }
+.sky-switches { display: flex; gap: 6px; } .leaflet-bottom.leaflet-left .sky-legend { margin-bottom: calc(var(--attrib-h, 0px) + 6px); } /* toujours au-dessus du crédit des cartes, quelle que soit sa hauteur (--attrib-h, app.js) */ .sky-leg-part + .sky-leg-part { margin-top: 4px; } .sky-leg-part[hidden] { display: none; }
+.map-base a { display: flex !important; align-items: center; justify-content: center; color: var(--primary) !important; } .map-base svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linejoin: round; stroke-linecap: round; }
+.map-base.is-on a { background: var(--precip-sel) !important; } .map-base.is-on svg { fill: var(--precip-border); fill-opacity: .35; }
 .map-center a { display: flex !important; align-items: center; justify-content: center; color: var(--primary) !important; } .map-center svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; } .map-center .dot { fill: currentColor; stroke: none; }
 .home-when { margin: 2px 110px 0 0; /* place des deux boutons du haut (2 × 50 + 10) */ font-variant-numeric: tabular-nums; color: var(--muted); font-size: 14px; line-height: 1.35; }
 .home-now { display: flex; align-items: center; gap: 14px; margin-top: 14px; }
