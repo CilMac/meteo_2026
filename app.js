@@ -8,7 +8,7 @@ import { initBarometer, preloadDial, trendSign } from "./barometer.js?v=f58dbfb8
 import { createSkyLayer, addDoubleTapZoom, createStationLayer } from "./skymap.js?v=1dd4b71e";
 import { parseMapPrefs, MAP_ZOOM, maxZoomFor } from "./weathermap.js?v=32549e56";
 import { initWalk } from "./walkui.js?v=fbdaa9a1";
-import { buildHome, buildHomeNow, buildDaySun, homeTomorrow, homeSteps, homeAlerts, homeLegend, buildLegend, homeMode, HOME_KEY, PHONE_QUERY } from "./home.js?v=cbdac994";
+import { buildHome, buildHomeNow, homeSteps, homeAlerts, homeLegend, buildLegend, homeMode, HOME_KEY, PHONE_QUERY } from "./home.js?v=f2387d23";
 import { localToMs, fetchNextHour } from "./walk.js?v=dbfc9474";
 import { fetchObservedPressure, fetchPressureTrend, fetchObservedStorms, stormText, fetchObservedPrecip, precipText, pressureDisplay, TREND_WORD, fetchStationsForMap, distanceKm, STORM_WORDS, metarLines } from "./observation.js?v=9b23b237";
 import { getPosition, reverseGeocode, placeFromPosition, storedGeoPlace, formatCoords, deniedHelp, GEO_ID, GEO_MAX_AGE_MS } from "./geo.js?v=b6df63a8";
@@ -566,22 +566,6 @@ homeHelpDlg.addEventListener("click", (e) => { // clic sur le voile seulement (m
   if (e.target !== homeHelpDlg) return;
   const r = homeHelpDlg.getBoundingClientRect();
   if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) homeHelpDlg.close();
-});
-
-// « Demain » de l'écran d'accueil : lever, coucher et durée du jour de demain (données de l'écran affiché).
-const homeSunDlg = $("home-sun");
-$("home-body").addEventListener("click", (e) => {
-  if (!e.target.closest(".home-tm-more")) return;
-  const sun = geo.data && homeTomorrow(geo.data)?.sun; // valeurs de l'écran affiché
-  if (!sun) return;
-  $("home-sun-lines").replaceChildren(...buildDaySun(sun));
-  homeSunDlg.showModal();
-});
-$("home-sun-close").addEventListener("click", () => homeSunDlg.close());
-homeSunDlg.addEventListener("click", (e) => { // clic sur le voile seulement (même règle que les autres fenêtres)
-  if (e.target !== homeSunDlg) return;
-  const r = homeSunDlg.getBoundingClientRect();
-  if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) homeSunDlg.close();
 });
 
 // Pastille rouge d'un jour : fenêtre d'explication (un seul écouteur, les lignes étant redessinées à chaque changement d'onglet).
