@@ -283,6 +283,7 @@ body:has(dialog.modal[open]) { overflow: hidden; }
 .modal-head h2 { flex: 1 1 auto; min-width: 0; }
 .modal-head .btn { flex: none; white-space: nowrap; }
 .m-tabs { display: flex; gap: 8px; padding: 4px 20px 12px; border-bottom: 1px solid var(--line); }
+@media (max-width: 380px) { .m-tabs { flex-wrap: wrap; } } /* 4 onglets sur téléphone (avec « Accueil ») : une rangée à 402 px, deux sur petit écran (débordement de 33 px à 320 px sinon) */
 .m-tab { flex: 1; min-height: 44px; padding: 9px 12px; border: 1px solid var(--help-border); border-radius: var(--radius-control); background: var(--help); color: var(--ink); font: inherit; cursor: pointer; }
 .m-tab:hover { filter: brightness(.96); }
 .m-tab[aria-selected="true"] { background: var(--help-active); border: 2px solid var(--help-active-border); font-weight: 700; text-decoration: underline; text-underline-offset: 4px; }

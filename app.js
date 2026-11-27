@@ -3,7 +3,7 @@ import { FAVORITES, DEFAULT_PLACE, CUSTOM_ID, searchPlaces, validatePlace, place
 import { fetchForecast, localDateISO } from "./weather-provider.js?v=afd8726c";
 import { loadWarnings, officialSource } from "./warnings.js?v=79a17bd6";
 import { fetchEnsemble } from "./ensemble.js?v=88c38ccc";
-import { initInfo } from "./info.js?v=0231d5ac";
+import { initInfo } from "./info.js?v=ab3b754d";
 import { initBarometer, preloadDial, trendSign } from "./barometer.js?v=f58dbfb8";
 import { createSkyLayer, addDoubleTapZoom, createStationLayer } from "./skymap.js?v=8cd1dc38";
 import { parseMapPrefs, MAP_ZOOM, maxZoomFor } from "./weathermap.js?v=c631804d";
@@ -578,26 +578,19 @@ $("place-map-btn").addEventListener("click", () => { const t = pageTarget(); if 
 $("home-map-close").addEventListener("click", () => homeMapDlg.close());
 // Fermer ou Échap : la lecture des heures s'arrête et les calques s'éteignent (la carte se rouvre toujours sans nuages ni pluie).
 homeMapDlg.addEventListener("close", () => { mapState.sky?.pause(); mapState.sky?.off(); mapState.stations?.off(); });
-const homeHelpDlg = $("home-help");
-$("home-info").addEventListener("click", () => {
+// Légende de l'écran d'accueil : onglet « Accueil » de l'aide (27/11/2026), rempli chaque fois qu'il est montré, avec les modèles du moment.
+function fillHomeLegend() {
   const { data } = geo;
-  const { sections, notes } = homeLegend(data, home.data === data ? home.steps : null);
+  const { sections, notes } = homeLegend(data, data && home.data === data ? home.steps : null);
   $("home-legend").replaceChildren(buildLegend(sections));
   $("home-notes").replaceChildren(...notes.map(([what, text]) => {
     const li = document.createElement("li"), b = document.createElement("strong");
     b.textContent = what; li.append(b, ` : ${text}`);
     return li;
   }));
-  $("home-more").open = false; // toujours replié à l'ouverture
-  homeHelpDlg.showModal();
-  homeHelpDlg.querySelector(".modal-body").scrollTop = 0;
-});
-$("home-help-close").addEventListener("click", () => homeHelpDlg.close());
-homeHelpDlg.addEventListener("click", (e) => { // clic sur le voile seulement (même règle que les autres fenêtres)
-  if (e.target !== homeHelpDlg) return;
-  const r = homeHelpDlg.getBoundingClientRect();
-  if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) homeHelpDlg.close();
-});
+}
+let info = null; // aide (info.js), créée au démarrage
+$("home-info").addEventListener("click", () => info?.openHome($("home-info")));
 
 // Pastille rouge d'un jour : fenêtre d'explication (un seul écouteur, les lignes étant redessinées à chaque changement d'onglet).
 const extremeDlg = $("extreme");
@@ -915,12 +908,11 @@ $("compact-info-btn").addEventListener("click", () => {
 applyView();
 
 try { localStorage.removeItem("meteo.theme"); } catch { /* ignoré */ }
-initInfo();
-
 {
   let flag = null;
   try { flag = localStorage.getItem(HOME_KEY); } catch { /* stockage indisponible */ }
   const forced = new URLSearchParams(location.search).has("accueil"), mobile = matchMedia(PHONE_QUERY).matches || isIOS();
+  info = initInfo({ homeTab: mobile || forced, fillHome: fillHomeLegend }); // onglet « Accueil » là où l'écran d'accueil existe
   $("home-open").hidden = !mobile && !forced;
   const mode = homeMode({
     forced, mobile, flag,

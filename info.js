@@ -6,12 +6,17 @@ const $ = (id) => {
   return el;
 };
 
-export function initInfo() {
-  const dlg = $("info"), openBtn = $("info-open");
-  const tabs = [...dlg.querySelectorAll(".m-tab")];
+// homeTab : afficher l'onglet « Accueil » (légende de l'écran d'accueil), seulement là où cet écran existe ;
+// fillHome : remplit cet onglet (appelé à chaque fois qu'il est montré). Renvoie openHome(bouton) : ouvrir l'aide sur cet onglet.
+export function initInfo({ homeTab = false, fillHome = () => {} } = {}) {
+  const dlg = $("info"), openBtn = $("info-open"), homeT = $("m-tab-home");
+  homeT.hidden = !homeTab;
+  const tabs = [...dlg.querySelectorAll(".m-tab")].filter((t) => !t.hidden);
+  let returnTo = openBtn; // le focus revient au bouton « i » qui a ouvert la fenêtre
 
   function selectTab(tab, focus = false) {
-    for (const t of tabs) {
+    if (tab === homeT) fillHome();
+    for (const t of [...dlg.querySelectorAll(".m-tab")]) {
       const on = t === tab;
       t.setAttribute("aria-selected", String(on));
       t.tabIndex = on ? 0 : -1;
@@ -29,13 +34,11 @@ export function initInfo() {
       selectTab(tabs[(next + tabs.length) % tabs.length], true);
     });
   });
+  const open = (tab, from) => { returnTo = from; selectTab(tab); dlg.showModal(); };
 
-  openBtn.addEventListener("click", () => {
-    selectTab(tabs[0]);
-    dlg.showModal();
-  });
+  openBtn.addEventListener("click", () => open($("m-tab-how"), openBtn)); // page principale : « Fonctionnement », comme avant
   $("info-close").addEventListener("click", () => dlg.close());
-  dlg.addEventListener("close", () => openBtn.focus()); // le focus revient toujours au bouton « i »
+  dlg.addEventListener("close", () => returnTo.focus());
   // Clic sur le voile : fermeture. Seule la cible « le dialogue lui-même » compte : un bouton activé au clavier envoie
   // un clic de coordonnées (0, 0) qui ne doit surtout pas fermer la fenêtre.
   dlg.addEventListener("click", (e) => {
@@ -44,4 +47,5 @@ export function initInfo() {
     const outside = e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom;
     if (outside) dlg.close();
   });
+  return { openHome: (from) => { $("home-more").open = false; open(homeT, from); } }; // « Modèles et sources » toujours replié à l'ouverture
 }
