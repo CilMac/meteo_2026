@@ -188,10 +188,9 @@ function vane(dir, small = false) {
 }
 
 // Légende des bâtons : ce qu'ils mesurent, et ce que vaut un bâton plein (ou le rouge, dès qu'il y en a un).
-function barsCaption(steps, n, pages) {
+function barsCaption(steps) {
   const full = `${num2(MINI_MM_FULL / 4)}\u00a0mm`, over = steps?.some((s) => isNum(s.mm) && mmPerHour(s.mm) > MINI_MM_FULL);
-  return el("div", "home-cap", el("span", "", "Pluie en mm par quart d'heure"), el("span", "", hidden(el("i", over ? "is-over" : "")), over ? `plus de ${full}` : `plein\u00a0: ${full}`,
-    pages > 1 ? el("b", "home-page-n", said("Page "), `${n + 1}/${pages}`) : null));
+  return el("div", "home-cap", el("span", "", "Pluie en mm par quart d'heure"), el("span", "", hidden(el("i", over ? "is-over" : "")), over ? `plus de ${full}` : `plein\u00a0: ${full}`));
 }
 // Bâtons sur fond gris (le maximum dessiné) : même échelle que « Balade ? » et le tableau 🥾 (plein à 3 mm dans l'heure, rouge au-delà).
 function bars(steps, fmtTime) {
@@ -273,13 +272,15 @@ const hourCol = (x, first) => el("div", "home-hour",
   hourBtn(x, first), hidden(el("span", "home-h-icon", x.icon)), el("span", "sr-only", x.sky), el("span", `home-h-temp${x.tempRed ? " is-extreme" : ""}`, x.tempRed ? RED() : null, x.temp),
   el("span", `home-h-mm${x.wet ? " is-wet" : ""}`, x.mm),
   el("span", "home-h-prob", said("Probabilité de pluie : "), x.prob), probBar(x.pct), el("span", `home-h-gust${x.gustRed ? " is-extreme" : ""}`, vane(x.dir, true), x.dir === null ? null : said(`vent ${windFrom(x.dir)}, `), x.gustRed ? RED() : null, "raf. ", x.gust));
-// Chevron < ou > au bord de la tuile des heures (dessin, pas un caractère) ; on peut aussi le toucher.
+// Chevron < ou > au bord de la tuile des heures (dessin, pas un caractère) : simple repère, pas un bouton
+// (27/11/2026, demandé : pas de conflit avec le toucher des heures).
 function chevron(dir) {
-  const b = el("button", `home-chev is-${dir}`), label = dir === "prev" ? "4 heures précédentes" : "4 heures suivantes";
-  b.type = "button"; b.dataset.dir = dir; b.title = label; b.setAttribute("aria-label", label);
+  const b = hidden(el("span", `home-chev is-${dir}`));
+  b.dataset.dir = dir;
   b.innerHTML = `<svg viewBox="0 0 10 18" aria-hidden="true" focusable="false"><path d="${dir === "prev" ? "M8 2 2 9l6 7" : "M2 2l6 7-6 7"}"/></svg>`;
   return b;
 }
+const pageMark = (page, pages) => el("span", "home-page-n", said("Page "), `${page + 1}/${pages}`);
 // Pages côte à côte dans une piste ; seule la page affichée est lisible et atteignable (les autres sont inertes).
 function pager(pages, page) {
   const slide = el("div", "home-slide", ...pages.map((p, n) => { const box = el("div", "home-page", ...p); if (n !== page) box.inert = true; return box; }));
@@ -299,10 +300,13 @@ export function buildHome({ data, steps, alerts, fmtTime, page = 0 }) {
     const st = steps ? steps.slice(n * HOME_STEPS, (n + 1) * HOME_STEPS) : steps;
     const phrase = st ? rainPhrase(st, fmtTime, n === 0 ? data.current.weatherCode : null, homeRisk(data, n)) : { tone: "unknown", title: st === undefined ? "Lecture de la pluie…" : "Pluie par quart d'heure indisponible", detail: st === undefined ? "Par quart d'heure, sur 4 heures." : "Les heures ci-dessous restent valables." };
     return [el("h2", `is-${phrase.tone}`, phrase.title), el("p", "", phrase.detail),
-      st === null ? null : barsCaption(st, n, pages), st === null ? null : st ? bars(st, fmtTime) : el("div", "home-bars is-wait")]; // pendant la lecture, la place est gardée : rien ne saute
+      st === null ? null : barsCaption(st), st === null ? null : st ? bars(st, fmtTime) : el("div", "home-bars is-wait")]; // pendant la lecture, la place est gardée : rien ne saute
   };
   const range = Array.from({ length: pages }, (_, n) => n);
-  out.append(el("section", "home-zone home-rain home-swipe", pager(range.map(rainPage), page)));
+  // Numéro de page en haut à droite de la tuile de pluie (27/11/2026, demandé) ; il ne glisse pas, il change au calage.
+  const rain = pager(range.map(rainPage), page);
+  if (pages > 1) rain.append(pageMark(page, pages)); // dans la fenêtre des pages (coin haut droit du contenu, quels que soient les retraits de la tuile)
+  out.append(el("section", "home-zone home-rain home-swipe", rain));
   if (hours.length) {
     const zone = el("section", "home-zone home-hours home-swipe", pager(range.map((n) => [el("div", "home-hgrid", ...hours.slice(n * HOME_HOURS, (n + 1) * HOME_HOURS).map((x, i) => hourCol(x, n === 0 && i === 0)))]), page));
     if (pages > 1) { const prev = chevron("prev"), next = chevron("next"); prev.hidden = page === 0; next.hidden = page === pages - 1; zone.append(prev, next); }
@@ -325,6 +329,7 @@ export function wireHomePages(root, page, onPage) {
     cur = Math.max(0, Math.min(pages - 1, n)); place(0, true);
     slides.forEach((s) => [...s.children].forEach((p, i) => { p.inert = i !== cur; }));
     root.querySelectorAll(".home-chev").forEach((b) => { b.hidden = b.dataset.dir === "prev" ? cur === 0 : cur === pages - 1; });
+    root.querySelector(".home-page-n")?.replaceWith(pageMark(cur, pages));
     onPage(cur);
   };
   boxes.forEach((b) => {
@@ -356,10 +361,9 @@ export function wireHomePages(root, page, onPage) {
       if (Math.abs(wheelSum) > 40) { go(cur + Math.sign(wheelSum)); wheelSum = 0; wheelLock = performance.now() + 600; }
     }, { passive: false });
   });
-  root.querySelectorAll(".home-chev").forEach((b) => b.addEventListener("click", () => go(cur + (b.dataset.dir === "prev" ? -1 : 1))));
-  // Chevrons à la hauteur de la température (mesurée : elle dépend des paliers d'écran).
-  const zone = root.querySelector(".home-hours.home-swipe"), temp = zone?.querySelector(".home-page:not([inert]) .home-h-temp");
-  if (temp) zone.style.setProperty("--chev-y", `${temp.getBoundingClientRect().top + temp.offsetHeight / 2 - zone.getBoundingClientRect().top}px`);
+  // Chevrons à la hauteur de la ligne des heures (mesurée : elle dépend des paliers d'écran ; 27/11/2026, demandé, avant : température).
+  const zone = root.querySelector(".home-hours.home-swipe"), ref = zone?.querySelector(".home-page:not([inert]) .home-h-hour");
+  if (ref) zone.style.setProperty("--chev-y", `${ref.getBoundingClientRect().top + ref.offsetHeight / 2 - zone.getBoundingClientRect().top}px`);
 }
 
 // Fenêtre « i » : légende technique. Rubriques { title, note, rows: [{ sym, text, sub }] } (sym : clé de SYMBOLS), puis notes [sujet, texte] de l'accordéon.
@@ -376,7 +380,7 @@ export function homeLegend(data, steps) {
         { sym: "bars", text: `Échelle fixe\u00a0: barre pleine = ${full}, soit ${MINI_MM_FULL}\u00a0mm/h`, sub: "Grise\u00a0: 0\u00a0mm. Rouge\u00a0: échelle dépassée. «\u00a0—\u00a0»\u00a0: donnée absente." },
         { sym: "risk", text: `«\u00a0Sec, mais pluie possible\u00a0»\u00a0: cumul prévu nul, probabilité d'au moins ${RISK_PCT}\u00a0% dans l'une des 4\u00a0heures de la page` }] },
       { title: "Prévision horaire", note: "12 prochaines heures, 4 par page", rows: [
-        { sym: "swipe", text: "Glisser la pluie ou les heures vers la gauche\u00a0: 4 heures suivantes (3 pages)", sub: "Les deux tuiles glissent ensemble. Chevrons\u00a0: il y a une page de ce côté\u00a0; on peut aussi les toucher. «\u00a01/3\u00a0»\u00a0: numéro de la page." },
+        { sym: "swipe", text: "Glisser la pluie ou les heures vers la gauche\u00a0: 4 heures suivantes (3 pages)", sub: "Les deux tuiles glissent ensemble. Chevrons\u00a0: il y a une page de ce côté. «\u00a01/3\u00a0», en haut à droite de la pluie\u00a0: numéro de la page." },
         { sym: "hour", text: "Température et ciel à 16\u00a0h\u00a0; précipitations et rafales de 15\u00a0h à\u00a016\u00a0h", sub: "Heure soulignée\u00a0: la toucher ouvre «\u00a0Balade\u00a0?\u00a0» pour un départ à cette heure-là (première colonne\u00a0: dans l'heure)." },
         { sym: "mm", text: "Cumul de précipitations" },
         { sym: "prob", text: "Probabilité de précipitations", sub: "Seuil\u00a0: plus de 0,1\u00a0mm dans l'heure" },
