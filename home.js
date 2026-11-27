@@ -274,8 +274,8 @@ const hourCol = (x, first) => el("div", "home-hour",
   hourBtn(x, first), hidden(el("span", "home-h-icon", x.icon)), el("span", "sr-only", x.sky), el("span", `home-h-temp${x.tempRed ? " is-extreme" : ""}`, x.tempRed ? RED() : null, x.temp),
   el("span", `home-h-mm${x.wet ? " is-wet" : ""}`, x.mm),
   el("span", "home-h-prob", said("Probabilité de pluie : "), x.prob), probBar(x.pct), el("span", `home-h-gust${x.gustRed ? " is-extreme" : ""}`, vane(x.dir, true), x.dir === null ? null : said(`vent ${windFrom(x.dir)}, `), x.gustRed ? RED() : null, "raf. ", x.gust));
-// Chevrons < et > de part et d'autre du « 1/3 », en haut à droite de la tuile de pluie (27/11/2026, demandés là et cliquables ;
-// avant : simples repères au bord de la tuile des heures). Dessins, pas des caractères (emoji possibles sur iOS).
+// Chevrons < et > sur la ligne du titre de la tuile de pluie, < au bord gauche, > au bord droit, après le « 1/3 » (27/11/2026,
+// demandés là et cliquables ; avant : simples repères au bord de la tuile des heures). Dessins, pas des caractères (emoji possibles sur iOS).
 // Au bout, le chevron est désactivé et invisible, mais garde sa place : le « 1/3 » ne bouge pas.
 function chevron(dir, off) {
   const b = el("button", `home-chev is-${dir}`);
@@ -311,7 +311,7 @@ export function buildHome({ data, steps, alerts, fmtTime, page = 0 }) {
   // Numéro de page en haut à droite de la tuile de pluie (27/11/2026, demandé) ; il ne glisse pas, il change au calage.
   // Hors de la piste (qui coupe ce qui dépasse) : la zone de toucher des chevrons peut déborder dans le retrait de la tuile.
   const rain = el("div", "home-rain-in", pager(range.map(rainPage), page));
-  if (pages > 1) rain.append(el("div", "home-pnav", chevron("prev", page === 0), pageMark(page, pages), chevron("next", page === pages - 1)));
+  if (pages > 1) rain.append(pageMark(page, pages), chevron("prev", page === 0), chevron("next", page === pages - 1));
   out.append(el("section", "home-zone home-rain home-swipe", rain));
   if (hours.length) {
     out.append(el("section", "home-zone home-hours home-swipe", pager(range.map((n) => [el("div", "home-hgrid", ...hours.slice(n * HOME_HOURS, (n + 1) * HOME_HOURS).map((x, i) => hourCol(x, n === 0 && i === 0)))]), page)));
@@ -386,7 +386,7 @@ export function homeLegend(data, steps) {
         { sym: "bars", text: `Échelle fixe\u00a0: barre pleine = ${full}, soit ${MINI_MM_FULL}\u00a0mm/h`, sub: "Grise\u00a0: 0\u00a0mm. Rouge\u00a0: échelle dépassée. «\u00a0—\u00a0»\u00a0: donnée absente." },
         { sym: "risk", text: `«\u00a0Sec, mais pluie possible\u00a0»\u00a0: cumul prévu nul, probabilité d'au moins ${RISK_PCT}\u00a0% dans l'une des 4\u00a0heures de la page` }] },
       { title: "Prévision horaire", note: "12 prochaines heures, 4 par page", rows: [
-        { sym: "swipe", text: "Glisser la pluie ou les heures vers la gauche\u00a0: 4 heures suivantes (3 pages)", sub: "Les deux tuiles glissent ensemble. En haut à droite de la pluie\u00a0: «\u00a01/3\u00a0» = numéro de la page\u00a0; les chevrons, quand il y a une page de ce côté, y mènent au toucher." },
+        { sym: "swipe", text: "Glisser la pluie ou les heures vers la gauche\u00a0: 4 heures suivantes (3 pages)", sub: "Les deux tuiles glissent ensemble. «\u00a01/3\u00a0», en haut à droite de la pluie\u00a0: numéro de la page. Chevrons aux deux bords de cette ligne, quand il y a une page de ce côté\u00a0: y mènent au toucher." },
         { sym: "hour", text: "Température et ciel à 16\u00a0h\u00a0; précipitations et rafales de 15\u00a0h à\u00a016\u00a0h", sub: "Heure soulignée\u00a0: la toucher ouvre «\u00a0Balade\u00a0?\u00a0» pour un départ à cette heure-là (première colonne\u00a0: dans l'heure)." },
         { sym: "mm", text: "Cumul de précipitations" },
         { sym: "prob", text: "Probabilité de précipitations", sub: "Seuil\u00a0: plus de 0,1\u00a0mm dans l'heure" },
