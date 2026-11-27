@@ -134,18 +134,20 @@ export function hourSun(time, daily) {
   return null;
 }
 
-// Soleil d'aujourd'hui (date locale de la prévision), pour la carte du bas.
-export function todaySun(data) {
-  const today = data.current.time ? data.current.time.slice(0, 10) : data.daily[0]?.date, d = data.daily.find((x) => x.date === today);
-  return d ? daySun(d, data.daily) : null;
-}
-
-// Soleil d'un jour : lever, coucher, durée du jour « 8 h 43 » ; nuit polaire / soleil de minuit en toutes lettres.
-export function daySun(d, daily) {
-  const sun = sunTimes(d.date, daily);
+// Soleil de la carte du bas, selon l'heure de la prévision (date et heure locales) : avant le lever « à 08:05 » et « à 16:48 » ;
+// dans la journée « depuis 08:05 » et « à 16:48 » ; après le coucher, prochain lever « demain 08:06 » (« à » s'il tombe le même jour) et « depuis 16:48 ».
+// Heure absente = « — » sans mot ; nuit polaire / soleil de minuit en toutes lettres.
+export function sunNow(data) {
+  const now = data.current.time, today = now ? now.slice(0, 10) : data.daily[0]?.date, i = data.daily.findIndex((x) => x.date === today);
+  if (i < 0) return null;
+  const d = data.daily[i], sun = sunTimes(d.date, data.daily);
   if (sun.polar) return { polar: sun.polar };
-  const r = d.sunrise?.value, s = d.sunset?.value, min = r && s ? Math.round((Date.parse(`${s}:00Z`) - Date.parse(`${r}:00Z`)) / 60000) : null;
-  return { polar: null, rise: sun.rise, set: sun.set, length: isNum(min) && min > 0 ? `${Math.floor(min / 60)} h ${String(min % 60).padStart(2, "0")}` : "—" };
+  const r = d.sunrise?.value, s = d.sunset?.value, item = (word, time) => (time && time !== "—" ? { word, time } : { word: "", time: "—" });
+  if (now && s && now >= s) { // prochain lever : le premier après maintenant (hors du fuseau du lieu, Open-Meteo le range parfois sous un autre jour : vérifié, Sydney vu de Paris)
+    const next = data.daily.filter((x) => !sunTimes(x.date, data.daily).polar).map((x) => x.sunrise?.value).filter((t) => t && t > now).sort()[0];
+    return { polar: null, rise: next ? item(next.slice(0, 10) > today ? "demain" : "à", next.slice(11, 16)) : item("", null), set: item("depuis", sun.set) };
+  }
+  return { polar: null, rise: item(now && r && now >= r ? "depuis" : "à", sun.rise), set: item("à", sun.set) };
 }
 
 // « Heures : Météo-France. Probabilité : ECMWF. Quarts d'heure : Météo-France. »
@@ -228,14 +230,14 @@ export function buildHomeNow(data, pressureEl) {
   return out;
 }
 
-// Carte du bas : le soleil d'aujourd'hui (lever, coucher, durée du jour), même après le coucher.
+// Carte du bas : lever et coucher, précédés de « à », « depuis » ou « demain » (sunNow).
 function sunBand(data) {
-  const sun = todaySun(data);
+  const sun = sunNow(data);
   if (!sun) return null;
+  const part = (kind, word, x) => el("span", `sun sun-${kind}`, said(`${word} : `), x.word ? el("span", "home-sun-w", x.word) : null, x.time);
   return el("section", "home-zone home-today",
-    el("div", "home-tm-row", el("span", "home-tm-lab", "Aujourd'hui"),
-      ...(sun.polar ? [el("span", "home-tm-val", sun.polar)]
-        : [el("span", "sun sun-rise", said("Lever : "), sun.rise), el("span", "sun sun-set", said("Coucher : "), sun.set), el("span", "home-tm-len", said("Durée du jour : "), sun.length)])));
+    el("div", "home-tm-row", ...(sun.polar ? [el("span", "home-tm-val", sun.polar)]
+      : [part("rise", "Lever du soleil", sun.rise), part("set", "Coucher du soleil", sun.set)])));
 }
 
 // Pastille de la colonne où tombe le lever (☀️) ou le coucher (🌙, début de la nuit), à la place de l'heure de la colonne.
@@ -281,8 +283,8 @@ export function homeLegend(data, steps) {
         { sym: "prob", text: "Probabilité de précipitations", sub: "Seuil\u00a0: plus de 0,1\u00a0mm dans l'heure" },
         { sym: "gust", text: "Rafale maximale, en km/h" },
         { sym: "sun", text: "Lever (☀️) ou coucher (🌙) du soleil, à la place de l'heure de la colonne", sub: "Seulement s'il tombe dans les 4\u00a0heures\u00a0: un coucher à 16:48 va dans la colonne «\u00a017\u00a0h\u00a0» (de 16\u00a0h à 17\u00a0h)." }] },
-      { title: "Aujourd'hui", rows: [
-        { sym: "sunday", text: "Lever, coucher et durée du jour" }] },
+      { title: "Soleil", rows: [
+        { sym: "sunday", text: "Lever et coucher du soleil", sub: "«\u00a0à\u00a0»\u00a0: à venir\u00a0; «\u00a0depuis\u00a0»\u00a0: déjà passé\u00a0; après le coucher, lever de «\u00a0demain\u00a0». Mis à jour à chaque actualisation de l'écran." }] },
       { title: "Boutons", rows: [
         { sym: "map", text: "Carte plein écran", sub: "Point bleu\u00a0: position\u00a0; disque\u00a0: précision. «\u00a0Nuages\u00a0» et «\u00a0Pluie\u00a0»\u00a0: valeurs de modèles à l'instant ou heure par heure (réglette), interpolées. Cible\u00a0: recentrer. Montagne\u00a0: fond relief (OpenTopoMap). Manche à air\u00a0: stations d'aéroport (pression mesurée, éclair si orage observé ; toucher une station : son dernier relevé décodé). Radar\u00a0: pluie observée des 2 dernières heures (RainViewer)." }] },
       { title: "Valeurs signalées", note: "hors vigilance officielle", rows: [
