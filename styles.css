@@ -706,7 +706,22 @@ dialog.map-dlg[open] { display: flex; flex-direction: column; } dialog.map-dlg::
 .home-track { display: flex; flex: 1 1 0; align-items: flex-end; min-width: 0; border-radius: 3px; overflow: hidden; background: color-mix(in srgb, var(--line) 70%, transparent); } .home-bar { flex: 1; border-radius: 3px; background: var(--rain); }
 .home-track.is-missing { justify-content: center; background: none; color: var(--muted); font-size: 11px; line-height: 1; text-align: center; }
 .home-axis { display: flex; justify-content: space-between; margin-top: 4px; color: var(--muted); font-size: 12px; line-height: 17px; font-variant-numeric: tabular-nums; }
-.home-hours { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); padding: 12px 4px; }
+.home-hours { padding: 12px 4px; }
+.home-hgrid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+/* 12 heures en 3 pages (27/11/2026) : la piste glisse sous le doigt, puis se cale sur une page ; le défilement vertical reste au navigateur. */
+.home-swipe { position: relative; }
+.home-pager { overflow: hidden; touch-action: pan-y; user-select: none; -webkit-user-select: none; }
+.home-slide { display: flex; will-change: transform; }
+.home-slide.is-snapping { transition: transform 0.28s ease-out; }
+.home-page { flex: 1 1 0; min-width: 0; overflow: hidden; } /* rien d'une page ne déborde sur sa voisine */
+.home-page-n { margin-left: 6px; color: var(--ink); font-weight: 600; }
+@media (max-width: 350px) { .home-swipe .home-cap { gap: 4px; font-size: 10.5px; } .home-page-n { margin-left: 4px; } } /* « 1/3 » en plus : la légende tient à 320 px */
+.home-chev { position: absolute; top: var(--chev-y, 50%); width: 22px; height: 44px; margin-top: -22px; padding: 0; border: 0; background: none; color: var(--muted); cursor: pointer; display: grid; place-items: center; }
+.home-chev[hidden] { display: none; }
+.home-chev.is-prev { left: -3px; } .home-chev.is-next { right: -3px; }
+.hl-chev { width: 10px; height: 18px; margin: 0 4px; fill: none; stroke: var(--muted); stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+.home-chev svg { width: 10px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+@media (prefers-reduced-motion: reduce) { .home-slide.is-snapping { transition: none; } }
 .home-hour { display: flex; flex-direction: column; align-items: center; min-width: 0; line-height: 1.35; font-variant-numeric: tabular-nums; } .home-hour + .home-hour { border-left: 1px solid var(--line); }
 .home-h-hour { color: var(--muted); font-size: 14px; }
 .home-sun-pill { display: inline-flex; align-items: center; gap: 3px; padding: 0 7px; border-radius: 999px; background: var(--sun-pill); box-shadow: inset 0 0 0 1px var(--sun-pill-edge); color: var(--ink); font-size: 13.5px; line-height: 19px; white-space: nowrap; font-variant-numeric: tabular-nums; } .home-sun-emo { font-size: 1.2em; line-height: 1; } .home-h-icon { margin: 3px 0; font-size: 27px; line-height: 1.2; } .home-h-temp { font-size: 21px; font-weight: 500; line-height: 1.25; }

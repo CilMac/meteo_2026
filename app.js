@@ -8,7 +8,7 @@ import { initBarometer, preloadDial, trendSign } from "./barometer.js?v=f58dbfb8
 import { createSkyLayer, addDoubleTapZoom, createStationLayer } from "./skymap.js?v=1dd4b71e";
 import { parseMapPrefs, MAP_ZOOM, maxZoomFor } from "./weathermap.js?v=32549e56";
 import { initWalk } from "./walkui.js?v=fbdaa9a1";
-import { buildHome, buildHomeNow, homeSteps, homeAlerts, homeLegend, buildLegend, homeMode, HOME_KEY, PHONE_QUERY } from "./home.js?v=c05970a4";
+import { buildHome, buildHomeNow, wireHomePages, homeSteps, homeAlerts, HOME_STEPS, HOME_PAGES, homeLegend, buildLegend, homeMode, HOME_KEY, PHONE_QUERY } from "./home.js?v=df6d6470";
 import { localToMs, fetchNextHour } from "./walk.js?v=dbfc9474";
 import { fetchObservedPressure, fetchPressureTrend, fetchObservedStorms, stormText, fetchObservedPrecip, precipText, pressureDisplay, TREND_WORD, fetchStationsForMap, distanceKm, STORM_WORDS, metarLines } from "./observation.js?v=9b23b237";
 import { getPosition, reverseGeocode, placeFromPosition, storedGeoPlace, formatCoords, deniedHelp, GEO_ID, GEO_MAX_AGE_MS } from "./geo.js?v=b6df63a8";
@@ -452,7 +452,7 @@ document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("mini
 // Écran d'accueil (25/11/2026) : les 4 heures à venir à la position de l'appareil, au lancement sur téléphone.
 // « Toutes les prévisions » marche tout de suite : la page se charge dessous.
 const homeDlg = $("home");
-const home = { steps: undefined, data: null }; // steps : undefined = en cours de lecture, null = illisible ; data : prévision à laquelle ils se rapportent
+const home = { steps: undefined, data: null, page: 0, pageOf: null }; // steps : undefined = en cours de lecture, null = illisible ; data : prévision à laquelle ils se rapportent ; page : page des 12 heures affichée (pageOf : pour quelle prévision)
 const homeTime = (ms) => formatLocal(new Date(ms), geo.data.location.timezone, { hour: "2-digit", minute: "2-digit" });
 function renderHome() {
   const { data } = geo;
@@ -466,7 +466,10 @@ function renderHome() {
   const storm = stormText(geo.storms, homeTime);
   const precip = precipText(geo.precip, homeTime);
   $("home-now").replaceChildren(buildHomeNow(data, homeBaroBtn)); // bouton « icône, valeur, tendance » : ouvre le baromètre
-  $("home-body").replaceChildren(buildHome({ data, steps, fmtTime: homeTime, alerts: [storm, precip && `${precip} C'est une observation, pas une prévision.`, ...homeAlerts(data, steps ?? [], homeTime)].filter(Boolean) }));
+  if (home.pageOf !== data) Object.assign(home, { page: 0, pageOf: data }); // nouvelles valeurs : retour aux 4 premières heures
+  // Avertissements : les 4 premières heures seulement (leurs textes disent « dans les 4 heures »).
+  $("home-body").replaceChildren(buildHome({ data, steps, page: home.page, fmtTime: homeTime, alerts: [storm, precip && `${precip} C'est une observation, pas une prévision.`, ...homeAlerts(data, (steps ?? []).slice(0, HOME_STEPS), homeTime)].filter(Boolean) }));
+  wireHomePages($("home-body"), home.page, (n) => { home.page = n; });
   if (baroHadFocus) homeBaroBtn.focus();
 }
 // force = false : une position lue il y a moins de 10 minutes (écran d'accueil ou vue 🥾) sert telle quelle.
@@ -485,7 +488,7 @@ async function fillHome({ force = true, asked = false } = {}) {
     let steps = null;
     try {
       const { rows } = await fetchNextHour({ lat: coords.latitude, lon: coords.longitude, models: data.metadata.modelsRequested });
-      steps = homeSteps(rows, at);
+      steps = homeSteps(rows, at, HOME_STEPS * HOME_PAGES);
     } catch { /* « indisponible » affiché */ }
     if (geo.data !== data) return;
     Object.assign(home, { data, steps });
@@ -499,6 +502,7 @@ async function fillHome({ force = true, asked = false } = {}) {
 }
 function openHome(mode, { asked = false } = {}) {
   homeDlg.showModal();
+  home.page = 0; // chaque ouverture repart des 4 premières heures
   document.documentElement.classList.remove("home-boot"); // la page était masquée le temps d'ouvrir l'écran (index.html)
   $("home-ask").hidden = mode !== "ask"; homeDlg.classList.toggle("is-ask", mode === "ask");
   if (mode !== "ask") fillHome({ force: false, asked }); // aucun bouton n'est mis au premier plan (autofocus sur le conteneur) : Safari l'entourerait d'un gros contour
