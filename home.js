@@ -274,11 +274,14 @@ const hourCol = (x, first) => el("div", "home-hour",
   hourBtn(x, first), hidden(el("span", "home-h-icon", x.icon)), el("span", "sr-only", x.sky), el("span", `home-h-temp${x.tempRed ? " is-extreme" : ""}`, x.tempRed ? RED() : null, x.temp),
   el("span", `home-h-mm${x.wet ? " is-wet" : ""}`, x.mm),
   el("span", "home-h-prob", said("Probabilité de pluie : "), x.prob), probBar(x.pct), el("span", `home-h-gust${x.gustRed ? " is-extreme" : ""}`, vane(x.dir, true), x.dir === null ? null : said(`vent ${windFrom(x.dir)}, `), x.gustRed ? RED() : null, "raf. ", x.gust));
-// Chevron < ou > au bord de la tuile des heures (dessin, pas un caractère) : simple repère, pas un bouton
-// (27/11/2026, demandé : pas de conflit avec le toucher des heures).
-function chevron(dir) {
-  const b = hidden(el("span", `home-chev is-${dir}`));
-  b.dataset.dir = dir;
+// Chevrons < et > de part et d'autre du « 1/3 », en haut à droite de la tuile de pluie (27/11/2026, demandés là et cliquables ;
+// avant : simples repères au bord de la tuile des heures). Dessins, pas des caractères (emoji possibles sur iOS).
+// Au bout, le chevron est désactivé et invisible, mais garde sa place : le « 1/3 » ne bouge pas.
+function chevron(dir, off) {
+  const b = el("button", `home-chev is-${dir}`);
+  b.type = "button"; b.dataset.dir = dir; b.disabled = off;
+  const t = dir === "prev" ? "Page précédente (4 heures plus tôt)" : "Page suivante (4 heures plus tard)";
+  b.title = t; b.setAttribute("aria-label", t);
   b.innerHTML = `<svg viewBox="0 0 10 18" aria-hidden="true" focusable="false"><path d="${dir === "prev" ? "M8 2 2 9l6 7" : "M2 2l6 7-6 7"}"/></svg>`;
   return b;
 }
@@ -306,13 +309,12 @@ export function buildHome({ data, steps, alerts, fmtTime, page = 0 }) {
   };
   const range = Array.from({ length: pages }, (_, n) => n);
   // Numéro de page en haut à droite de la tuile de pluie (27/11/2026, demandé) ; il ne glisse pas, il change au calage.
-  const rain = pager(range.map(rainPage), page);
-  if (pages > 1) rain.append(pageMark(page, pages)); // dans la fenêtre des pages (coin haut droit du contenu, quels que soient les retraits de la tuile)
+  // Hors de la piste (qui coupe ce qui dépasse) : la zone de toucher des chevrons peut déborder dans le retrait de la tuile.
+  const rain = el("div", "home-rain-in", pager(range.map(rainPage), page));
+  if (pages > 1) rain.append(el("div", "home-pnav", chevron("prev", page === 0), pageMark(page, pages), chevron("next", page === pages - 1)));
   out.append(el("section", "home-zone home-rain home-swipe", rain));
   if (hours.length) {
-    const zone = el("section", "home-zone home-hours home-swipe", pager(range.map((n) => [el("div", "home-hgrid", ...hours.slice(n * HOME_HOURS, (n + 1) * HOME_HOURS).map((x, i) => hourCol(x, n === 0 && i === 0)))]), page));
-    if (pages > 1) { const prev = chevron("prev"), next = chevron("next"); prev.hidden = page === 0; next.hidden = page === pages - 1; zone.append(prev, next); }
-    out.append(zone);
+    out.append(el("section", "home-zone home-hours home-swipe", pager(range.map((n) => [el("div", "home-hgrid", ...hours.slice(n * HOME_HOURS, (n + 1) * HOME_HOURS).map((x, i) => hourCol(x, n === 0 && i === 0)))]), page)));
   } else out.append(el("p", "home-zone muted", "Données horaires indisponibles."));
   const band = sunBand(data);
   if (band) out.append(band);
@@ -330,7 +332,11 @@ export function wireHomePages(root, page, onPage) {
   const go = (n) => {
     cur = Math.max(0, Math.min(pages - 1, n)); place(0, true);
     slides.forEach((s) => [...s.children].forEach((p, i) => { p.inert = i !== cur; }));
-    root.querySelectorAll(".home-chev").forEach((b) => { b.hidden = b.dataset.dir === "prev" ? cur === 0 : cur === pages - 1; });
+    root.querySelectorAll(".home-chev").forEach((b) => {
+      const off = b.dataset.dir === "prev" ? cur === 0 : cur === pages - 1;
+      if (off && b === document.activeElement) root.querySelector(`.home-chev:not([data-dir="${b.dataset.dir}"])`)?.focus(); // clavier : le focus ne se perd pas
+      b.disabled = off;
+    });
     root.querySelector(".home-page-n")?.replaceWith(pageMark(cur, pages));
     onPage(cur);
   };
@@ -363,9 +369,7 @@ export function wireHomePages(root, page, onPage) {
       if (Math.abs(wheelSum) > 40) { go(cur + Math.sign(wheelSum)); wheelSum = 0; wheelLock = performance.now() + 600; }
     }, { passive: false });
   });
-  // Chevrons à la hauteur de la ligne des heures (mesurée : elle dépend des paliers d'écran ; 27/11/2026, demandé, avant : température).
-  const zone = root.querySelector(".home-hours.home-swipe"), ref = zone?.querySelector(".home-page:not([inert]) .home-h-hour");
-  if (ref) zone.style.setProperty("--chev-y", `${ref.getBoundingClientRect().top + ref.offsetHeight / 2 - zone.getBoundingClientRect().top}px`);
+  root.querySelectorAll(".home-chev").forEach((b) => b.addEventListener("click", () => go(cur + (b.dataset.dir === "prev" ? -1 : 1))));
 }
 
 // Fenêtre « i » : légende technique. Rubriques { title, note, rows: [{ sym, text, sub }] } (sym : clé de SYMBOLS), puis notes [sujet, texte] de l'accordéon.
@@ -382,7 +386,7 @@ export function homeLegend(data, steps) {
         { sym: "bars", text: `Échelle fixe\u00a0: barre pleine = ${full}, soit ${MINI_MM_FULL}\u00a0mm/h`, sub: "Grise\u00a0: 0\u00a0mm. Rouge\u00a0: échelle dépassée. «\u00a0—\u00a0»\u00a0: donnée absente." },
         { sym: "risk", text: `«\u00a0Sec, mais pluie possible\u00a0»\u00a0: cumul prévu nul, probabilité d'au moins ${RISK_PCT}\u00a0% dans l'une des 4\u00a0heures de la page` }] },
       { title: "Prévision horaire", note: "12 prochaines heures, 4 par page", rows: [
-        { sym: "swipe", text: "Glisser la pluie ou les heures vers la gauche\u00a0: 4 heures suivantes (3 pages)", sub: "Les deux tuiles glissent ensemble. Chevrons\u00a0: il y a une page de ce côté. «\u00a01/3\u00a0», en haut à droite de la pluie\u00a0: numéro de la page." },
+        { sym: "swipe", text: "Glisser la pluie ou les heures vers la gauche\u00a0: 4 heures suivantes (3 pages)", sub: "Les deux tuiles glissent ensemble. En haut à droite de la pluie\u00a0: «\u00a01/3\u00a0» = numéro de la page\u00a0; les chevrons, quand il y a une page de ce côté, y mènent au toucher." },
         { sym: "hour", text: "Température et ciel à 16\u00a0h\u00a0; précipitations et rafales de 15\u00a0h à\u00a016\u00a0h", sub: "Heure soulignée\u00a0: la toucher ouvre «\u00a0Balade\u00a0?\u00a0» pour un départ à cette heure-là (première colonne\u00a0: dans l'heure)." },
         { sym: "mm", text: "Cumul de précipitations" },
         { sym: "prob", text: "Probabilité de précipitations", sub: "Seuil\u00a0: plus de 0,1\u00a0mm dans l'heure" },
