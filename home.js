@@ -251,9 +251,9 @@ function sunBand(data) {
       : [part("rise", "Lever du soleil", sun.rise), part("set", "Coucher du soleil", sun.set)])));
 }
 
-// Pastille de la colonne où tombe le lever (☀️) ou le coucher (🌙, début de la nuit), à la place de l'heure de la colonne.
+// Pastille de la colonne où tombe le lever (fond jaune paille) ou le coucher (fond bleu ciel), à la place de l'heure de la colonne ; sans icône (27/11/2026).
 function sunPill(sun, hour) {
-  const word = sun.kind === "rise" ? "Lever" : "Coucher", p = el("span", `home-h-hour home-sun-pill is-${sun.kind}`, said(`${hour}, `), hidden(el("span", "home-sun-emo", sun.kind === "rise" ? "☀️" : "🌙")), said(`${word} du soleil à `), sun.time);
+  const word = sun.kind === "rise" ? "Lever" : "Coucher", p = el("span", `home-h-hour home-sun-pill is-${sun.kind}`, said(`${hour}, `), said(`${word} du soleil à `), sun.time);
   p.title = `${word} du soleil à ${sun.time}`;
   return p;
 }
@@ -381,7 +381,7 @@ export function homeLegend(data, steps) {
         { sym: "mm", text: "Cumul de précipitations" },
         { sym: "prob", text: "Probabilité de précipitations", sub: "Seuil\u00a0: plus de 0,1\u00a0mm dans l'heure" },
         { sym: "gust", text: "Rafale maximale, en km/h" },
-        { sym: "sun", text: "Lever (☀️) ou coucher (🌙) du soleil, à la place de l'heure de la colonne", sub: "Seulement s'il tombe dans les heures affichées\u00a0: un coucher à 16:48 va dans la colonne «\u00a017\u00a0h\u00a0» (de 16\u00a0h à 17\u00a0h)." }] },
+        { sym: "sun", text: "Heure du lever (fond jaune paille) ou du coucher du soleil (fond bleu ciel), à la place de l'heure de la colonne", sub: "Seulement s'il tombe dans les heures affichées\u00a0: un coucher à 16:48 va dans la colonne «\u00a017\u00a0h\u00a0» (de 16\u00a0h à 17\u00a0h)." }] },
       { title: "Soleil", rows: [
         { sym: "sunday", text: "Lever et coucher du soleil", sub: "«\u00a0à\u00a0»\u00a0: à venir\u00a0; «\u00a0depuis\u00a0»\u00a0: déjà passé\u00a0; après le coucher, lever de «\u00a0demain\u00a0». Mis à jour à chaque actualisation de l'écran." }] },
       { title: "Boutons", rows: [

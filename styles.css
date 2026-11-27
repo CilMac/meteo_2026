@@ -17,7 +17,8 @@
   --information: #edf2f7; --information-border: #9aafbf;
   --attention: #fff4df; --attention-border: #a97930; --attention-ink: #5e4010;
   --night: #e4e8f3; --night-edge: #a3aec8; --night-ink: #2f3a52; /* pastilles d'heure après le coucher du soleil : bleu nuit pâle */
-  --sun-pill: #d3e9fa; --sun-pill-edge: #9fc6e4; /* pastille lever / coucher de l'écran d'accueil : bleu ciel, pour que ☀️ et 🌙 se voient */
+  --sun-pill: #d3e9fa; --sun-pill-edge: #9fc6e4; /* pastille de l'heure du coucher (écran d'accueil) : bleu ciel */
+  --rise-pill: #f3e6b3; --rise-pill-edge: #d8c27a; /* pastille de l'heure du lever : jaune paille, doux */
 
   --note: #f1f3ed; --home-top: #ece4d1; --home-edge: #d9d0ba; /* écran d'accueil : crème plus soutenu */
   --btn-edge: #6f7d73; /* contour commun des boutons de « Lieu actuel » : assez foncé pour se voir sur le papier clair */
@@ -57,7 +58,7 @@
     --information: #263039; --information-border: #86a0b3;
     --attention: #3a3120; --attention-border: #d0a65c; --attention-ink: #f0d7a0;
     --night: #2b3246; --night-edge: #5f6b8e; --night-ink: #dde3f3;
-    --sun-pill: #2d4c69; --sun-pill-edge: #4f7aa0;
+    --sun-pill: #2d4c69; --sun-pill-edge: #4f7aa0; --rise-pill: #5a4c25; --rise-pill-edge: #8c7640;
     --note: #2b312c; --home-top: #2b2f28; --home-edge: #454b41;
     --precip-bg: #27313a; --precip-sel: #33485a; --precip-border: #86a9c0;
     --temp-bg: #342e22; --temp-sel: #4a3f28; --temp-border: #cdab6e;
@@ -728,7 +729,7 @@ dialog.map-dlg[open] { display: flex; flex-direction: column; } dialog.map-dlg::
 .home-h-walk { display: flex; justify-content: center; margin: -8px -6px; padding: 8px 6px; border: 0; background: none; color: inherit; font: inherit; line-height: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .home-h-walk .home-h-hour, .home-h-walk .home-sun-pill, .hl-sym.is-walk { text-decoration: underline 1px; text-decoration-color: var(--muted); text-underline-offset: 3px; }
 .home-h-walk:active .home-h-hour { color: var(--ink); }
-.home-sun-pill { display: inline-flex; align-items: center; gap: 3px; padding: 0 7px; border-radius: 999px; background: var(--sun-pill); box-shadow: inset 0 0 0 1px var(--sun-pill-edge); color: var(--ink); font-size: 13.5px; line-height: 19px; white-space: nowrap; font-variant-numeric: tabular-nums; } .home-sun-emo { font-size: 1.2em; line-height: 1; } .home-h-icon { margin: 3px 0; font-size: 27px; line-height: 1.2; } .home-h-temp { font-size: 21px; font-weight: 500; line-height: 1.25; }
+.home-sun-pill { display: inline-flex; align-items: center; gap: 3px; padding: 0 7px; border-radius: 999px; background: var(--sun-pill); box-shadow: inset 0 0 0 1px var(--sun-pill-edge); color: var(--ink); font-size: 13.5px; line-height: 19px; white-space: nowrap; font-variant-numeric: tabular-nums; } .home-sun-pill.is-rise { background: var(--rise-pill); box-shadow: inset 0 0 0 1px var(--rise-pill-edge); } .home-h-icon { margin: 3px 0; font-size: 27px; line-height: 1.2; } .home-h-temp { font-size: 21px; font-weight: 500; line-height: 1.25; }
 .home-h-mm { margin-top: 2px; color: var(--muted); font-size: 14px; } .home-h-mm.is-wet { color: var(--ink); font-weight: 600; } .home-h-gust { color: var(--muted); font-size: 13px; white-space: nowrap; }
 .home-h-temp.is-extreme, .home-h-gust.is-extreme { color: var(--extreme-text); font-weight: 700; } .home-temp.is-extreme { color: var(--extreme-text); } @media (max-width: 699px) { .home-h-gust.is-extreme { font-size: 14px; } }
 .home-h-prob { margin-top: 5px; font-size: 15px; font-weight: 600; line-height: 1.25; } .hbar-box.home-h-bar { width: min(52px, 74%); height: 6px; margin: 3px 0 5px; } .home-h-bar .hbar { background: var(--rain); }
