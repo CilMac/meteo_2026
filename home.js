@@ -118,7 +118,7 @@ export function homeHours(data, count = HOME_HOURS) {
   return next24h(data).slice(0, count).map((x) => {
     const w = weatherInfo(x.weatherCode.value, isNight(x.time, data.daily));
     return {
-      hour: hourLabel(x.time), icon: w.icon, sky: w.label, temp: deg(x.temp.value),
+      time: x.time, hour: hourLabel(x.time), icon: w.icon, sky: w.label, temp: deg(x.temp.value),
       mm: isNum(x.precip.value) ? `${num1(x.precip.value)} mm` : "— mm", wet: isNum(x.precip.value) && x.precip.value > 0,
       pct: isNum(x.precipProb?.value) ? x.precipProb.value : null, prob: isNum(x.precipProb?.value) ? `${num0(x.precipProb.value)}\u00a0%` : "—\u00a0%",
       gust: isNum(x.gust.value) ? num0(x.gust.value) : "—", dir: isNum(x.windDir?.value) ? x.windDir.value : null,
@@ -258,9 +258,19 @@ function sunPill(sun, hour) {
   return p;
 }
 
+// L'heure en tête de colonne, bouton souligné d'un trait fin (27/11/2026) : même action que dans la vue 🥾, « Balade ? » pour un départ
+// à cette heure-là ; la toute première colonne (heure en cours) = « Dans l'heure ». Le clic est traité dans app.js (data-time, data-now).
+function hourBtn(x, first) {
+  const label = first ? "Départ maintenant" : `Départ à ${x.hour}`;
+  const b = el("button", "home-h-walk", x.sun ? sunPill(x.sun, x.hour) : el("span", "home-h-hour", x.hour));
+  b.type = "button"; b.dataset.time = x.time; if (first) b.dataset.now = "1";
+  b.title = `Balade ? ${label}${x.sun ? ` (${x.sun.kind === "rise" ? "lever" : "coucher"} du soleil à ${x.sun.time})` : ""}`;
+  b.setAttribute("aria-label", `${x.hour} : balade ? ${label.toLowerCase()}${x.sun ? `, ${x.sun.kind === "rise" ? "lever" : "coucher"} du soleil à ${x.sun.time}` : ""}`);
+  return b;
+}
 // Une heure du tableau (colonne).
-const hourCol = (x) => el("div", "home-hour",
-  x.sun ? sunPill(x.sun, x.hour) : el("span", "home-h-hour", x.hour), hidden(el("span", "home-h-icon", x.icon)), el("span", "sr-only", x.sky), el("span", `home-h-temp${x.tempRed ? " is-extreme" : ""}`, x.tempRed ? RED() : null, x.temp),
+const hourCol = (x, first) => el("div", "home-hour",
+  hourBtn(x, first), hidden(el("span", "home-h-icon", x.icon)), el("span", "sr-only", x.sky), el("span", `home-h-temp${x.tempRed ? " is-extreme" : ""}`, x.tempRed ? RED() : null, x.temp),
   el("span", `home-h-mm${x.wet ? " is-wet" : ""}`, x.mm),
   el("span", "home-h-prob", said("Probabilité de pluie : "), x.prob), probBar(x.pct), el("span", `home-h-gust${x.gustRed ? " is-extreme" : ""}`, vane(x.dir, true), x.dir === null ? null : said(`vent ${windFrom(x.dir)}, `), x.gustRed ? RED() : null, "raf. ", x.gust));
 // Chevron < ou > au bord de la tuile des heures (dessin, pas un caractère) ; on peut aussi le toucher.
@@ -294,7 +304,7 @@ export function buildHome({ data, steps, alerts, fmtTime, page = 0 }) {
   const range = Array.from({ length: pages }, (_, n) => n);
   out.append(el("section", "home-zone home-rain home-swipe", pager(range.map(rainPage), page)));
   if (hours.length) {
-    const zone = el("section", "home-zone home-hours home-swipe", pager(range.map((n) => [el("div", "home-hgrid", ...hours.slice(n * HOME_HOURS, (n + 1) * HOME_HOURS).map(hourCol))]), page));
+    const zone = el("section", "home-zone home-hours home-swipe", pager(range.map((n) => [el("div", "home-hgrid", ...hours.slice(n * HOME_HOURS, (n + 1) * HOME_HOURS).map((x, i) => hourCol(x, n === 0 && i === 0)))]), page));
     if (pages > 1) { const prev = chevron("prev"), next = chevron("next"); prev.hidden = page === 0; next.hidden = page === pages - 1; zone.append(prev, next); }
     out.append(zone);
   } else out.append(el("p", "home-zone muted", "Données horaires indisponibles."));
@@ -309,7 +319,7 @@ export function wireHomePages(root, page, onPage) {
   const slides = [...root.querySelectorAll(".home-slide")], boxes = slides.map((s) => s.parentElement);
   const pages = slides[0]?.children.length ?? 1;
   if (pages < 2) return;
-  let cur = page, drag = null, wheelSum = 0, wheelLock = 0;
+  let cur = page, drag = null, wheelSum = 0, wheelLock = 0, dragEnd = 0;
   const place = (frac, snap) => slides.forEach((s) => { s.classList.toggle("is-snapping", snap); s.style.transform = `translateX(${(-(cur + frac) * 100) / pages}%)`; });
   const go = (n) => {
     cur = Math.max(0, Math.min(pages - 1, n)); place(0, true);
@@ -334,9 +344,10 @@ export function wireHomePages(root, page, onPage) {
     const end = () => {
       if (!drag) return;
       const { dx, w, t, on } = drag; drag = null;
-      if (on) go(swipeTarget(cur, dx, w, performance.now() - t, pages));
+      if (on) { dragEnd = performance.now(); go(swipeTarget(cur, dx, w, performance.now() - t, pages)); }
     };
     b.addEventListener("pointerup", end); b.addEventListener("pointercancel", end);
+    b.addEventListener("click", (e) => { if (performance.now() - dragEnd < 400) { e.stopPropagation(); e.preventDefault(); } }, true); // un glissement n'ouvre pas « Balade ? »
     b.addEventListener("wheel", (e) => {
       if (Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return;
       e.preventDefault();
@@ -366,7 +377,7 @@ export function homeLegend(data, steps) {
         { sym: "risk", text: `«\u00a0Sec, mais pluie possible\u00a0»\u00a0: cumul prévu nul, probabilité d'au moins ${RISK_PCT}\u00a0% dans l'une des 4\u00a0heures de la page` }] },
       { title: "Prévision horaire", note: "12 prochaines heures, 4 par page", rows: [
         { sym: "swipe", text: "Glisser la pluie ou les heures vers la gauche\u00a0: 4 heures suivantes (3 pages)", sub: "Les deux tuiles glissent ensemble. Chevrons\u00a0: il y a une page de ce côté\u00a0; on peut aussi les toucher. «\u00a01/3\u00a0»\u00a0: numéro de la page." },
-        { sym: "hour", text: "Température et ciel à 16\u00a0h\u00a0; précipitations et rafales de 15\u00a0h à\u00a016\u00a0h" },
+        { sym: "hour", text: "Température et ciel à 16\u00a0h\u00a0; précipitations et rafales de 15\u00a0h à\u00a016\u00a0h", sub: "Heure soulignée\u00a0: la toucher ouvre «\u00a0Balade\u00a0?\u00a0» pour un départ à cette heure-là (première colonne\u00a0: dans l'heure)." },
         { sym: "mm", text: "Cumul de précipitations" },
         { sym: "prob", text: "Probabilité de précipitations", sub: "Seuil\u00a0: plus de 0,1\u00a0mm dans l'heure" },
         { sym: "gust", text: "Rafale maximale, en km/h" },
@@ -395,7 +406,7 @@ const SYMBOLS = {
   temp: () => { const s = text("4°"); s.classList.add("is-big"); return s; },
   bars: () => draw(track(0), track(45), track(100, true)),
   risk: () => { const s = draw("?"); s.classList.add("is-big"); return s; },
-  hour: () => text("16\u00a0h"), mm: () => text("1,1\u00a0mm"), gust: () => text("raf.\u00a035"),
+  hour: () => { const s = text("16\u00a0h"); s.classList.add("is-walk"); return s; }, mm: () => text("1,1\u00a0mm"), gust: () => text("raf.\u00a035"),
   prob: () => { const s = text("88\u00a0%"); s.append(probBar(88)); return s; },
   sun: () => { const s = draw(sunPill({ kind: "rise", time: "08:05" }, "9\u00a0h"), sunPill({ kind: "set", time: "16:48" }, "17\u00a0h")); s.classList.add("is-stack"); return s; },
   baro: () => { const s = draw(); s.innerHTML = '<svg class="mini-svg hl-baro" viewBox="0 0 24 24" focusable="false"><use href="#ico-baro"/></svg>'; return s; },

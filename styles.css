@@ -724,6 +724,10 @@ dialog.map-dlg[open] { display: flex; flex-direction: column; } dialog.map-dlg::
 @media (prefers-reduced-motion: reduce) { .home-slide.is-snapping { transition: none; } }
 .home-hour { display: flex; flex-direction: column; align-items: center; min-width: 0; line-height: 1.35; font-variant-numeric: tabular-nums; } .home-hour + .home-hour { border-left: 1px solid var(--line); }
 .home-h-hour { color: var(--muted); font-size: 14px; }
+/* Heure = bouton « Balade ? » (27/11/2026) : seulement un trait fin dessous ; zone de toucher agrandie sans changer la mise en page. */
+.home-h-walk { display: flex; justify-content: center; margin: -8px -6px; padding: 8px 6px; border: 0; background: none; color: inherit; font: inherit; line-height: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.home-h-walk .home-h-hour, .home-h-walk .home-sun-pill, .hl-sym.is-walk { text-decoration: underline 1px; text-decoration-color: var(--muted); text-underline-offset: 3px; }
+.home-h-walk:active .home-h-hour { color: var(--ink); }
 .home-sun-pill { display: inline-flex; align-items: center; gap: 3px; padding: 0 7px; border-radius: 999px; background: var(--sun-pill); box-shadow: inset 0 0 0 1px var(--sun-pill-edge); color: var(--ink); font-size: 13.5px; line-height: 19px; white-space: nowrap; font-variant-numeric: tabular-nums; } .home-sun-emo { font-size: 1.2em; line-height: 1; } .home-h-icon { margin: 3px 0; font-size: 27px; line-height: 1.2; } .home-h-temp { font-size: 21px; font-weight: 500; line-height: 1.25; }
 .home-h-mm { margin-top: 2px; color: var(--muted); font-size: 14px; } .home-h-mm.is-wet { color: var(--ink); font-weight: 600; } .home-h-gust { color: var(--muted); font-size: 13px; white-space: nowrap; }
 .home-h-temp.is-extreme, .home-h-gust.is-extreme { color: var(--extreme-text); font-weight: 700; } .home-temp.is-extreme { color: var(--extreme-text); } @media (max-width: 699px) { .home-h-gust.is-extreme { font-size: 14px; } }

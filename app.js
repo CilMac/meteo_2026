@@ -8,7 +8,7 @@ import { initBarometer, preloadDial, trendSign } from "./barometer.js?v=f58dbfb8
 import { createSkyLayer, addDoubleTapZoom, createStationLayer } from "./skymap.js?v=1dd4b71e";
 import { parseMapPrefs, MAP_ZOOM, maxZoomFor } from "./weathermap.js?v=32549e56";
 import { initWalk } from "./walkui.js?v=fbdaa9a1";
-import { buildHome, buildHomeNow, wireHomePages, homeSteps, homeAlerts, HOME_STEPS, HOME_PAGES, homeLegend, buildLegend, homeMode, HOME_KEY, PHONE_QUERY } from "./home.js?v=df6d6470";
+import { buildHome, buildHomeNow, wireHomePages, homeSteps, homeAlerts, HOME_STEPS, HOME_PAGES, homeLegend, buildLegend, homeMode, HOME_KEY, PHONE_QUERY } from "./home.js?v=de7ae596";
 import { localToMs, fetchNextHour } from "./walk.js?v=dbfc9474";
 import { fetchObservedPressure, fetchPressureTrend, fetchObservedStorms, stormText, fetchObservedPrecip, precipText, pressureDisplay, TREND_WORD, fetchStationsForMap, distanceKm, STORM_WORDS, metarLines } from "./observation.js?v=9b23b237";
 import { getPosition, reverseGeocode, placeFromPosition, storedGeoPlace, formatCoords, deniedHelp, GEO_ID, GEO_MAX_AGE_MS } from "./geo.js?v=b6df63a8";
@@ -418,7 +418,7 @@ function setMini(open, from = "page") {
 // Hauteur du haut de page fixe de « Lieu actuel » : les titres de colonnes se collent juste dessous.
 if (typeof ResizeObserver !== "undefined") { const top = document.querySelector(".mini-top"); new ResizeObserver(() => $("mini").style.setProperty("--mini-top-h", `${top.offsetHeight}px`)).observe(top); }
 const walk = initWalk({
-  fallbackFocus: () => $("mini-close"), // si l'heure touchée n'existe plus (tableau redessiné), le curseur revient sur Retour
+  fallbackFocus: () => (homeDlg.open ? $("home-refresh") : $("mini-close")), // si l'heure touchée n'existe plus (tableau ou écran d'accueil redessiné), le curseur revient sur Actualiser ou Retour
   // mêmes modèles que le tableau « Lieu actuel » (selon le pays de la position)
   getHere: () => (geo.coords ? { lat: geo.coords.latitude, lon: geo.coords.longitude, models: geo.data?.metadata?.modelsRequested ?? [] } : null),
   getStorms: () => geo.storms, // orages observés par les stations (repris en tête de « Balade ? »)
@@ -430,6 +430,14 @@ $("mini-body").addEventListener("click", (e) => {
   const b = e.target.closest("button.mini-walk");
   if (!b || !geo.coords || !geo.data) return; // les heures ne sont cliquables qu'avec la vraie position (buildMini … { walk: true })
   if (b.dataset.now) { walk.openAt(null, b); return; } // première ligne (heure en cours) : « Dans l'heure »
+  const at = localToMs(b.dataset.time, geo.data.location.timezone);
+  if (at !== null) walk.openAt(at, b);
+});
+// Écran d'accueil : toucher une heure fait de même (27/11/2026) ; la première colonne est l'heure en cours.
+$("home-body").addEventListener("click", (e) => {
+  const b = e.target.closest("button.home-h-walk");
+  if (!b || !geo.coords || !geo.data) return;
+  if (b.dataset.now) { walk.openAt(null, b); return; }
   const at = localToMs(b.dataset.time, geo.data.location.timezone);
   if (at !== null) walk.openAt(at, b);
 });
