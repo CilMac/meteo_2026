@@ -1,6 +1,6 @@
-// Commandes Leaflet des calques « Nuages » et « Pluie » : deux interrupteurs ON/OFF indépendants (26/11/2026), légende, et flèche du vent toujours affichée. Le calcul est dans weathermap.js.
+// Commandes Leaflet des calques « Nuages », « Pluie », « Vent » (barbules) et « Radar » : interrupteurs ON/OFF (26-27/11/2026), légendes, et flèche du vent (masquée quand le calque Vent est allumé). Le calcul est dans weathermap.js.
 // Tout le texte affiché est écrit par textContent ; seules des valeurs numériques calculées ici sont injectées dans les styles.
-import { fetchSky, fetchHere, gridDims, skyImageUrl, windFromText, arrowAngle, cloudGradientCss, rainGradientCss, MAX_LAT, RAIN_STOPS, RAIN_MIN, isTap, isDoubleTap, fetchRadarFrames, RADAR, RADAR_COVERAGE_URL, RADAR_RAIN, radarTicks, radarGradientCss, snowGradientCss, filterRadarPixels } from "./weathermap.js?v=32549e56";
+import { fetchSky, fetchHere, gridDims, skyImageUrl, windFromText, arrowAngle, cloudGradientCss, rainGradientCss, MAX_LAT, RAIN_STOPS, RAIN_MIN, isTap, isDoubleTap, fetchRadarFrames, RADAR, RADAR_COVERAGE_URL, RADAR_RAIN, radarTicks, radarGradientCss, snowGradientCss, filterRadarPixels, barbSvg, WIND_GRID } from "./weathermap.js?v=c631804d";
 
 const REFETCH_MS = 700;
 const TIMELINE_HOURS = 12; // curseur de la carte plein écran : maintenant, puis les 12 heures suivantes (comme la vue des 12 heures)
@@ -26,10 +26,13 @@ function windArrow() {
 // l'échelle (zoom « météo » ou « lieu », voir MAP_ZOOM) ; le centre n'est pas touché ici.
 // radar : interrupteur « Radar » (pluie OBSERVÉE, RainViewer, 26/11/2026), seul à l'écran : l'allumer éteint Nuages et Pluie, et
 // l'inverse (passé observé et futur prévu ne se mélangent pas). Sa propre réglette : de −2 h à la dernière image, par pas de 20 min.
+// Vent (27/11/2026) : interrupteur « Vent », barbules en km/h sur une grille plus serrée (WIND_GRID), qui suivent la réglette des heures ;
+// se combine avec Nuages et Pluie, pas avec le Radar (même règle). Tant qu'il est allumé, la grande flèche du vent est masquée
+// (elle pointe vers où va le vent, la hampe des barbules vers d'où il vient : les deux ensemble se contrediraient à l'œil).
 export function createSkyLayer(L, map, { getHere, fmtTime, show: start = { clouds: false, rain: false }, onShow = () => {}, onSwitch = () => {}, timeline = false, radar = false }) {
   const pane = map.createPane("skypane");
   pane.style.zIndex = 250; pane.style.pointerEvents = "none"; // au-dessus des tuiles, sous le point de position
-  const show = { clouds: Boolean(start.clouds), rain: Boolean(start.rain), radar: false };
+  const show = { clouds: Boolean(start.clouds), rain: Boolean(start.rain), wind: false, radar: false };
   let radarOn = false;
   let on = false, overlay = null, last = null, timer = 0, seq = 0, sky = null, step = 0, playing = 0;
 
@@ -41,13 +44,14 @@ export function createSkyLayer(L, map, { getHere, fmtTime, show: start = { cloud
     b.append(el("span", "sky-switch-label", label), el("span", "sky-switch-state", "OFF"));
     b.addEventListener("click", () => {
       const v = !show[key];
-      setShow(key === "radar" ? { clouds: false, rain: false, radar: v } : { ...show, [key]: v, radar: v ? false : show.radar });
+      setShow(key === "radar" ? { clouds: false, rain: false, wind: false, radar: v } : { ...show, [key]: v, radar: v ? false : show.radar });
     });
     switches.append(b);
     return b;
   };
   const swCloud = makeSwitch("clouds", "Nuages", "Afficher ou masquer la couverture nuageuse à cet instant (valeurs des modèles)");
   const swRain = makeSwitch("rain", "Pluie", "Afficher ou masquer la pluie à cet instant (valeurs des modèles)");
+  const swWind = makeSwitch("wind", "Vent", "Afficher ou masquer le vent en barbules (km/h, valeurs des modèles)");
   const swRadar = radar ? makeSwitch("radar", "Radar", "Afficher ou masquer la pluie observée par les radars (2 dernières heures, RainViewer)") : null;
   const wind = el("div", "sky-wind"); wind.hidden = true;
   const arrow = windArrow(), windText = el("div", "sky-wind-text");
@@ -81,12 +85,38 @@ export function createSkyLayer(L, map, { getHere, fmtTime, show: start = { cloud
   mkControl("topright", panel);
   mkControl("bottomleft", legend);
 
+  // ---- légende du vent (en bas à gauche, au-dessus de l'autre) : deux barbules repères et un « i » qui explique la lecture
+  const windKey = el("div", "sky-wind-key"); windKey.hidden = true;
+  const keyBarb = (kmh, size = 34) => { const s = el("span", "sky-barb-ico"); s.innerHTML = barbSvg(kmh, 270, size); return s; }; // SVG calculé ici, sans donnée externe
+  const windInfo = el("button", "mini-info-btn sky-wind-i", "i");
+  windInfo.type = "button"; windInfo.title = "Lire une barbule"; windInfo.setAttribute("aria-label", "Lire une barbule");
+  windInfo.setAttribute("aria-expanded", "false"); windInfo.setAttribute("aria-controls", "sky-wind-help");
+  const windHelp = el("div", "sky-wind-help"); windHelp.id = "sky-wind-help"; windHelp.hidden = true;
+  windHelp.append(el("p", "sky-wh-title", "Lire une barbule"));
+  for (const [v, t] of [[5, "demi-trait : 5 km/h"], [10, "trait : 10 km/h"], [50, "triangle : 50 km/h"], [25, "2 traits et demi : 25 km/h"], [0, "cercle : calme (moins de 2,5 km/h)"]]) {
+    const row = el("div", "sky-wh-row"); row.append(keyBarb(v), el("span", "", t)); windHelp.append(row);
+  }
+  windHelp.append(
+    el("p", "", "Les traits s'additionnent (vitesse arrondie aux 5 km/h). La hampe part vers l'endroit d'où vient le vent : ci-dessus, vent d'ouest."),
+    el("p", "", "Vent à 10 m, hors rafales ; celles du point marqué sont dans la ligne sous la carte. Sur une carte marine, ces traits valent des nœuds ; ici, des km/h. Point sans valeur : rien n'est dessiné."));
+  windInfo.addEventListener("click", () => {
+    windHelp.hidden = !windHelp.hidden; windInfo.setAttribute("aria-expanded", String(!windHelp.hidden));
+    // Petit écran, légende des nuages en plus : le panneau ne doit pas sortir de la carte par le haut (il défile alors).
+    if (!windHelp.hidden) windHelp.style.maxHeight = `${Math.max(120, windKey.getBoundingClientRect().top - map.getContainer().getBoundingClientRect().top - 16)}px`;
+  });
+  const closeWindHelp = () => { windHelp.hidden = true; windInfo.setAttribute("aria-expanded", "false"); };
+  windKey.append(keyBarb(10), el("span", "", "10 km/h"), keyBarb(50), el("span", "", "50 km/h"), windInfo, windHelp);
+  mkControl("bottomleft", windKey);
+  const barbPane = map.createPane("barbpane");
+  barbPane.style.zIndex = 255; barbPane.style.pointerEvents = "none"; // au-dessus des nuages et de la pluie, sous le point de position
+  const barbs = L.layerGroup().addTo(map);
+
   // ---- curseur dans le temps (sous la carte, au-dessus de la ligne d'état)
   const bar = el("div", "sky-time"); bar.hidden = true;
   const play = el("button", "sky-play"); play.type = "button";
   const range = el("input", "sky-range"); range.type = "range"; range.min = "0"; range.max = String(TIMELINE_HOURS); range.step = "1"; range.value = "0";
   range.setAttribute("aria-label", "Heure affichée sur la carte");
-  range.title = "Faire glisser pour voir la pluie et les nuages prévus heure par heure";
+  range.title = "Faire glisser pour voir la pluie, les nuages et le vent prévus heure par heure";
   const when = el("output", "sky-when");
   bar.append(play, range, when);
   if (timeline) map.getContainer().insertAdjacentElement("afterend", bar);
@@ -138,13 +168,13 @@ export function createSkyLayer(L, map, { getHere, fmtTime, show: start = { cloud
     const bounds = { south: Math.max(-MAX_LAT, padded.getSouth()), north: Math.min(MAX_LAT, padded.getNorth()), west: Math.max(-180, padded.getWest()), east: Math.min(180, padded.getEast()) };
     const sw0 = map.project([bounds.south, bounds.west], z), ne0 = map.project([bounds.north, bounds.east], z);
     const pw = Math.abs(ne0.x - sw0.x), ph = Math.abs(sw0.y - ne0.y);
-    const { nx, ny } = gridDims(pw / ph);
+    const dense = show.wind, { nx, ny } = dense ? gridDims(pw / ph, WIND_GRID.total, WIND_GRID.max) : gridDims(pw / ph);
     setStatus("Chargement…");
     try {
       const got = await fetchSky({ here: getHere(), bounds, nx, ny, hours: timeline ? TIMELINE_HOURS : 0 });
       if (id !== seq || !on) return;
       const w = 160, h = Math.max(24, Math.round((w * ph) / pw));
-      sky = { data: got, bounds: [[bounds.south, bounds.west], [bounds.north, bounds.east]], w, h, urls: new Map() };
+      sky = { data: got, bounds: [[bounds.south, bounds.west], [bounds.north, bounds.east]], w, h, urls: new Map(), dense };
       last = { bounds: L.latLngBounds([bounds.south, bounds.west], [bounds.north, bounds.east]), zoom: z };
       bar.hidden = !timeline || got.steps.length === 0;
       range.max = String(got.steps.length);
@@ -153,7 +183,7 @@ export function createSkyLayer(L, map, { getHere, fmtTime, show: start = { cloud
       if (id !== seq) return;
       setStatus(`Indisponible : ${e.message}`, true);
       stop(); bar.hidden = true;
-      overlay?.remove(); overlay = null; last = null;
+      overlay?.remove(); overlay = null; last = null; barbs.clearLayers();
     }
   }
 
@@ -162,20 +192,42 @@ export function createSkyLayer(L, map, { getHere, fmtTime, show: start = { cloud
   // Image de l'étape affichée : 0 = à l'instant (« current »), k = k-ième heure suivante. Images gardées par étape et calques.
   function frame() {
     const d = sky.data, s = step ? d.steps[step - 1] : null;
-    return s ? { cloud: s.cloud, rain: s.rain, nx: d.nx, ny: d.ny, at: s.at, hour: true } : { cloud: d.cloud, rain: d.rain, nx: d.nx, ny: d.ny, at: d.at, hour: false };
+    return s ? { cloud: s.cloud, rain: s.rain, wind: s.wind, dir: s.dir, here: s.here, nx: d.nx, ny: d.ny, at: s.at, hour: true }
+      : { cloud: d.cloud, rain: d.rain, wind: d.wind, dir: d.dir, here: d.here, nx: d.nx, ny: d.ny, at: d.at, hour: false };
   }
   function tell() {
     if (!sky) return;
     const f = frame();
     const dry = f.rain.length > 0 && f.rain.every((v) => typeof v === "number" && v < RAIN_MIN); // tous les points connus et secs ; un seul inconnu : rien n'est affirmé
     const head = f.hour
-      ? `Prévision pour ${fmtTime(f.at)} (pluie tombée de ${fmtTime(f.at - 3600e3)} à ${fmtTime(f.at)}).`
+      ? `Prévision pour ${fmtTime(f.at)}${show.rain ? ` (pluie tombée de ${fmtTime(f.at - 3600e3)} à ${fmtTime(f.at)})` : ""}.`
       : `Modèles à l'instant${f.at ? ` (${fmtTime(f.at)})` : ""}.`;
-    setStatus(`${show.rain && dry ? `Pas de pluie sur la zone ${f.hour ? "pendant cette heure" : "à cet instant"}. ` : ""}${head} Open-Meteo, valeurs interpolées entre points : indicatif.`);
+    // Vent du point marqué (les rafales n'ont pas de barbule) : même texte que la grande flèche, masquée tant que le calque Vent est allumé.
+    const h = f.here, kmh = (v) => (v === null ? "—" : `${nf0.format(v)} km/h`);
+    // Heure par heure, les rafales sont le maximum de l'heure qui s'achève (même convention que la pluie) : on le dit.
+    const from = h.dir === null ? "" : ` (${windFromText(h.dir).replace(/^Vent/, "vent")})`;
+    const gusts = f.hour ? `rafales jusqu'à ${kmh(h.gust)} entre ${fmtTime(f.at - 3600e3)} et ${fmtTime(f.at)}` : `rafales ${kmh(h.gust)}`;
+    const windTxt = show.wind ? ` Vent au point marqué : ${kmh(h.wind)}${from}, ${gusts}.` : "";
+    const image = show.clouds || show.rain ? " Open-Meteo, valeurs interpolées entre points : indicatif." : " Open-Meteo : une barbule par point de grille, sans interpolation.";
+    setStatus(`${show.rain && dry ? `Pas de pluie sur la zone ${f.hour ? "pendant cette heure" : "à cet instant"}. ` : ""}${head}${windTxt}${image}`);
+  }
+  // Barbules de l'étape affichée, une par point de la grille (y compris dans la marge hors de l'écran, prête pour un déplacement).
+  function drawBarbs() {
+    barbs.clearLayers();
+    if (!sky || !show.wind) return;
+    const f = frame(), pts = sky.data.pts;
+    pts.forEach((p, k) => {
+      const svg = barbSvg(f.wind[k], f.dir[k]);
+      if (!svg) return; // inconnu : rien dessiné
+      L.marker([p.lat, p.lon], { pane: "barbpane", interactive: false, keyboard: false,
+        icon: L.divIcon({ className: "sky-barb", html: svg, iconSize: [44, 44], iconAnchor: [22, 22] }) }).addTo(barbs);
+    });
   }
   function paint() {
     if (!sky) return;
     tell();
+    drawBarbs();
+    if (!show.clouds && !show.rain) { overlay?.remove(); overlay = null; return; } // vent seul : pas d'image
     const key = `${step}|${show.clouds}|${show.rain}`;
     let url = sky.urls.get(key);
     if (!url) { url = skyImageUrl(frame(), sky.w, sky.h, show); sky.urls.set(key, url); }
@@ -278,22 +330,24 @@ export function createSkyLayer(L, map, { getHere, fmtTime, show: start = { cloud
 
   function setShow(next, { first = false } = {}) {
     const wasModel = on, wasRadar = radarOn, wasAny = wasModel || wasRadar;
-    show.clouds = Boolean(next.clouds); show.rain = Boolean(next.rain); show.radar = radar && Boolean(next.radar);
-    on = show.clouds || show.rain; radarOn = show.radar;
+    show.clouds = Boolean(next.clouds); show.rain = Boolean(next.rain); show.wind = Boolean(next.wind); show.radar = radar && Boolean(next.radar);
+    on = show.clouds || show.rain || show.wind; radarOn = show.radar;
     const any = on || radarOn;
-    for (const [b, v] of [[swCloud, show.clouds], [swRain, show.rain], [swRadar, show.radar]]) {
+    for (const [b, v] of [[swCloud, show.clouds], [swRain, show.rain], [swWind, show.wind], [swRadar, show.radar]]) {
       if (!b) continue;
       b.setAttribute("aria-checked", String(v)); b.lastElementChild.textContent = v ? "ON" : "OFF"; b.classList.toggle("is-on", v);
     }
-    legend.hidden = !any; legCloud.hidden = !show.clouds; legRain.hidden = !show.rain; legRadar.hidden = !show.radar;
+    legend.hidden = !(show.clouds || show.rain || show.radar); legCloud.hidden = !show.clouds; legRain.hidden = !show.rain; legRadar.hidden = !show.radar;
     if (!first) onShow({ ...show });
     clearTimeout(timer);
     if (!first && any !== wasAny) onSwitch(any); // échelle « météo » ou « lieu », AVANT la lecture
     clearTimeout(timer); // le changement d'échelle a pu programmer une relecture : celle qui suit suffit
     if (wasRadar && !radarOn) stopRadar();
-    if (on && wasModel) paint(); // déjà lu : on redessine seulement
+    windKey.hidden = !show.wind; if (!show.wind) closeWindHelp();
+    panel.classList.toggle("is-barbs", show.wind); // grande flèche masquée (voir plus haut)
+    if (on && wasModel && (!show.wind || sky?.dense)) paint(); // déjà lu : on redessine seulement (le vent demande la grille serrée)
     else if (on) refresh();
-    else if (wasModel) { stop(); step = 0; bar.hidden = true; seq++; overlay?.remove(); overlay = null; last = null; sky = null; }
+    else if (wasModel) { stop(); step = 0; bar.hidden = true; seq++; overlay?.remove(); overlay = null; last = null; sky = null; barbs.clearLayers(); }
     if (radarOn && !wasRadar) startRadar();
     if (!any) setStatus("");
     if (!on && wasModel && map.getContainer().offsetParent) loadWind(); // carte fermée : pas d'appel ; update() relira le vent à la réouverture
@@ -308,7 +362,8 @@ export function createSkyLayer(L, map, { getHere, fmtTime, show: start = { cloud
   return {
     isOn: () => on,
     update: () => { if (on) refresh(); else loadWind(); }, // nouvelle position : on relit
-    off: () => { if (on || radarOn) setShow({ clouds: false, rain: false, radar: false }); },
+    off: () => { if (on || radarOn) setShow({ clouds: false, rain: false, wind: false, radar: false }); },
+    turnOn: (key) => { if (!show[key]) setShow(key === "radar" ? { clouds: false, rain: false, wind: false, radar: true } : { ...show, [key]: true, radar: false }); }, // comme un toucher sur l'interrupteur
     pause: () => { stop(); if (step) goTo(0); }, // fermeture de la carte : la lecture s'arrête, on rouvrira sur « Maintenant »
   };
 }

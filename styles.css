@@ -480,6 +480,19 @@ dialog.baro-modal { width: min(440px, calc(100vw - 24px)); }
 .sky-status[hidden] { display: none; }
 .sky-status.is-err { color: var(--ink); background: var(--error); padding: 4px 8px; border-radius: 6px; }
 .leaflet-container .sky-img { max-width: none; }
+/* Calque « Vent » : barbules (27/11/2026) ; grande flèche masquée tant qu'il est allumé ; légende « 10 · 50 km/h » + « i » */
+.sky-panel.is-barbs .sky-wind { display: none; }
+.leaflet-container .sky-barb { background: none; border: 0; pointer-events: none; }
+.sky-barb svg, .sky-barb-ico svg { display: block; }
+.sky-wind-key { position: relative; display: flex; align-items: center; gap: 4px; padding: 4px 8px 4px 4px; font: 12px/1.2 var(--font-body); color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-control); box-shadow: 0 1px 4px #0003; }
+.sky-wind-key[hidden], .sky-wind-help[hidden] { display: none; }
+.leaflet-bottom.leaflet-left .sky-wind-key { margin-bottom: 6px; }
+.leaflet-bottom.leaflet-left .sky-wind-key:has(+ .sky-legend[hidden]), .leaflet-bottom.leaflet-left .sky-wind-key:last-child { /* seule visible en bas : au-dessus du crédit */ margin-bottom: calc(var(--attrib-h, 0px) + 6px); }
+.sky-wind-key .mini-info-btn { margin-left: 4px; }
+.sky-wind-help { overflow-y: auto; overscroll-behavior: contain; position: absolute; left: 0; bottom: calc(100% + 8px); width: min(300px, calc(100vw - 40px)); padding: 10px 12px; font: 13px/1.35 var(--font-body); color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 2px 10px #0004; }
+.sky-wind-help p { margin: 6px 0 0; }
+.sky-wind-help .sky-wh-title { margin: 0 0 4px; font-weight: 700; font-size: 14px; }
+.sky-wh-row { display: flex; align-items: center; gap: 8px; }
 .leaflet-control-scale-line { font: 11px var(--font-body); color: #222; }
 @media (max-width: 520px) { .sky-panel, .sky-wind-sub { font-size: 12px; } .sky-switch { gap: 6px; padding-left: 8px; } .sky-wind-text { max-width: 8.5em; } .sky-wind { padding-right: 8px; } .sky-legend { width: min(170px, calc(100vw - 90px)); } }
 .mini-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
@@ -737,6 +750,7 @@ dialog.map-dlg[open] { display: flex; flex-direction: column; } dialog.map-dlg::
 .home-chips { display: grid; grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr); gap: 8px; margin-top: 14px; }
 .home-chips .home-baro { justify-content: center; min-width: 0; min-height: 50px; padding-inline: 6px; gap: 4px; border-color: var(--home-edge); background: color-mix(in srgb, var(--surface) 55%, transparent); }
 .home-wind { display: flex; align-items: center; justify-content: center; gap: 12px; min-width: 0; min-height: 50px; padding: 4px 12px; border: 1px solid var(--home-edge); border-radius: 14px; background: color-mix(in srgb, var(--surface) 30%, transparent); font-size: 15px; line-height: 1.2; font-variant-numeric: tabular-nums; }
+button.home-wind { width: 100%; font-family: inherit; color: inherit; text-align: start; cursor: pointer; } button.home-wind:active { filter: brightness(.94); }
 .home-wind b { font-weight: 600; white-space: nowrap; } .home-wind small { color: var(--muted); font-size: 13px; white-space: nowrap; } .home-wind small.is-extreme { color: var(--extreme-text); font-weight: 700; }
 /* Girouette : la flèche est tournée en ligne (style) autour du centre du dessin. */
 .vane { flex: none; width: 30px; height: 30px; fill: none; stroke: var(--wind); stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; } .vane path { transform-origin: 12px 12px; }

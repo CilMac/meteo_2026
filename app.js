@@ -5,10 +5,10 @@ import { loadWarnings, officialSource } from "./warnings.js?v=79a17bd6";
 import { fetchEnsemble } from "./ensemble.js?v=88c38ccc";
 import { initInfo } from "./info.js?v=0231d5ac";
 import { initBarometer, preloadDial, trendSign } from "./barometer.js?v=f58dbfb8";
-import { createSkyLayer, addDoubleTapZoom, createStationLayer } from "./skymap.js?v=1dd4b71e";
-import { parseMapPrefs, MAP_ZOOM, maxZoomFor } from "./weathermap.js?v=32549e56";
+import { createSkyLayer, addDoubleTapZoom, createStationLayer } from "./skymap.js?v=8cd1dc38";
+import { parseMapPrefs, MAP_ZOOM, maxZoomFor } from "./weathermap.js?v=c631804d";
 import { initWalk } from "./walkui.js?v=fbdaa9a1";
-import { buildHome, buildHomeNow, wireHomePages, homeSteps, homeAlerts, HOME_STEPS, HOME_PAGES, homeLegend, buildLegend, homeMode, HOME_KEY, PHONE_QUERY } from "./home.js?v=e7060b6b";
+import { buildHome, buildHomeNow, wireHomePages, homeSteps, homeAlerts, HOME_STEPS, HOME_PAGES, homeLegend, buildLegend, homeMode, HOME_KEY, PHONE_QUERY } from "./home.js?v=8f15629d";
 import { localToMs, fetchNextHour } from "./walk.js?v=dbfc9474";
 import { fetchObservedPressure, fetchPressureTrend, fetchObservedStorms, stormText, fetchObservedPrecip, precipText, pressureDisplay, TREND_WORD, fetchStationsForMap, distanceKm, STORM_WORDS, metarLines } from "./observation.js?v=9b23b237";
 import { getPosition, reverseGeocode, placeFromPosition, storedGeoPlace, formatCoords, deniedHelp, GEO_ID, GEO_MAX_AGE_MS } from "./geo.js?v=b6df63a8";
@@ -533,7 +533,8 @@ const saveMapPrefs = (p) => { try { localStorage.setItem(MAP_KEY, JSON.stringify
 const homeMapDlg = $("home-map-dlg");
 // btn : bouton qui ouvre la carte (désactivé pendant le chargement, puis rendu tel qu'il était) ; target : lieu montré (voir drawMap) ;
 // fail(texte) : où dire que la carte est indisponible. Titre : « à votre position » seulement pour la position actuelle, sinon le nom du lieu.
-async function openMap(btn, target, fail) {
+// layer : calque allumé dès l'ouverture (« wind » depuis la pastille du vent de l'écran d'accueil), échelle « météo » comme au toucher.
+async function openMap(btn, target, fail, layer = null) {
   const was = btn.disabled;
   btn.disabled = true;
   try {
@@ -543,10 +544,16 @@ async function openMap(btn, target, fail) {
     $("home-map").setAttribute("aria-label", target.here ? "Carte de votre position" : `Carte : ${target.name}`);
     homeMapDlg.showModal();
     drawMap(L, target, { saved: readMapPrefs(), onSave: saveMapPrefs, timeline: true });
+    if (layer) mapState.sky.turnOn(layer);
   } catch (e) { fail(`Carte indisponible : ${e.message}`); }
   finally { btn.disabled = was; }
 }
 $("home-map-btn").addEventListener("click", () => { if (geo.coords) openMap($("home-map-btn"), geoTarget(), (t) => { $("home-msg").textContent = t; }); });
+// Pastille du vent (refaite à chaque dessin de l'écran) : la même carte, calque « Vent » allumé.
+$("home-now").addEventListener("click", (e) => {
+  const b = e.target.closest("button.home-wind");
+  if (b && geo.coords) openMap(b, geoTarget(), (t) => { $("home-msg").textContent = t; }, "wind");
+});
 // Page principale : carte du lieu affiché. « Ma position » réellement trouvée (comme l'épingle rouge : sans « dernière position
 // connue ») = votre position, avec les coordonnées précises gardées en mémoire (state.posCoords, jamais stockées) ; sinon le lieu.
 function pageTarget() {

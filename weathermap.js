@@ -27,10 +27,11 @@ function getJson(url, fetchImpl, timeoutMs) {
 }
 
 // Nombre de colonnes × lignes pour environ `total` points, selon la forme (largeur / hauteur) de la zone.
-export function gridDims(aspect, total = 48) {
+// max : nombre maximal de points par côté (10 ; 14 pour la grille plus serrée du calque « Vent », WIND_GRID).
+export function gridDims(aspect, total = 48, max = 10) {
   const a = isNum(aspect) && aspect > 0 ? aspect : 1;
-  const ny = clamp(Math.round(Math.sqrt(total / a)), 4, 10);
-  const nx = clamp(Math.round(total / ny), 4, 10);
+  const ny = clamp(Math.round(Math.sqrt(total / a)), 4, max);
+  const nx = clamp(Math.round(total / ny), 4, max);
   return { nx, ny };
 }
 
@@ -84,11 +85,13 @@ export function hourSteps(list, nowMs, n) {
   const idx = hourIndexes(list[0]?.hourly?.time, nowMs, n);
   return idx.map(({ i, at }) => {
     const vals = list.map((x) => (x?.hourly?.time?.[i] === list[0].hourly.time[i] ? parseHour(x.hourly, i) : parseHour(null, 0)));
-    return { at, here: vals[0], cloud: vals.slice(1).map((v) => v.cloud), rain: vals.slice(1).map((v) => v.rain) };
+    const g = vals.slice(1);
+    return { at, here: vals[0], cloud: g.map((v) => v.cloud), rain: g.map((v) => v.rain), wind: g.map((v) => v.wind), dir: g.map((v) => v.dir) };
   });
 }
 
-// Lit la grille. `here` = {lat, lon} de l'appareil (arrondie ici). Renvoie { at (ms UTC), here, nx, ny, cloud[], rain[], steps[] } (null = inconnu).
+// Lit la grille. `here` = {lat, lon} de l'appareil (arrondie ici). Renvoie { at (ms UTC), here, nx, ny, pts[] (points de la grille),
+// cloud[], rain[], wind[] (km/h), dir[] (degrés, d'où vient le vent), steps[] } (null = inconnu).
 // hours > 0 : ajoute dans le même appel la prévision des `hours` heures suivantes (steps, voir hourSteps) ; sinon steps = [].
 export async function fetchSky({ here, bounds, nx, ny, hours = 0 }, { fetchImpl = fetch, timeoutMs = TIMEOUTS.sky, now = Date.now() } = {}) {
   const pts = [{ lat: r2(here.lat), lon: r2(here.lon) }, ...gridPoints(bounds, nx, ny)];
@@ -100,13 +103,44 @@ export async function fetchSky({ here, bounds, nx, ny, hours = 0 }, { fetchImpl 
   const body = await getJson(`${API}?${q}`, fetchImpl, timeoutMs);
   const list = Array.isArray(body) ? body : [body];
   if (list.length !== pts.length) throw new SkyError("format", "réponse inattendue (nombre de points)");
-  const vals = list.map((x) => parseCurrent(x?.current));
+  const vals = list.map((x) => parseCurrent(x?.current)), g = vals.slice(1);
   const t = Date.parse(`${list[0]?.current?.time}Z`); // sans fuseau demandé, l'heure est en UTC
   return {
-    at: Number.isFinite(t) ? t : null, here: vals[0], nx, ny,
-    cloud: vals.slice(1).map((v) => v.cloud), rain: vals.slice(1).map((v) => v.rain),
+    at: Number.isFinite(t) ? t : null, here: vals[0], nx, ny, pts: pts.slice(1),
+    cloud: g.map((v) => v.cloud), rain: g.map((v) => v.rain), wind: g.map((v) => v.wind), dir: g.map((v) => v.dir),
     steps: hours > 0 ? hourSteps(list, now, hours) : [],
   };
+}
+
+// ---- Calque « Vent » (27/11/2026) : barbules, convention choisie par l'utilisateur, en km/h (et non en nœuds comme sur les
+// cartes marines) : demi-trait = 5 km/h, trait = 10, triangle = 50, vitesse arrondie aux 5 km/h ; moins de 2,5 km/h = calme (cercle).
+// La hampe part du point vers la direction D'OÙ VIENT le vent (direction météo d'Open-Meteo), traits à sa droite vue du point.
+// Une valeur absente ne donne rien (jamais « calme » deviné). Une barbule par point de la grille : pas d'interpolation.
+export const WIND_GRID = { total: 140, max: 16 }; // grille plus serrée que pour les nuages (48 points) : une barbule tous les 85 px environ sur téléphone (densité de la maquette validée)
+export function barbParts(kmh) {
+  if (!isNum(kmh) || kmh < 0) return null;
+  const s = Math.round(kmh / 5) * 5;
+  if (s === 0) return { calm: true, n50: 0, n10: 0, n5: 0, kmh: 0 };
+  const n50 = Math.floor(s / 50), rest = s - n50 * 50, n10 = Math.floor(rest / 10);
+  return { calm: false, n50, n10, n5: rest - n10 * 10 >= 5 ? 1 : 0, kmh: s };
+}
+// Barbule en SVG (texte, nombres calculés seulement) ; trait sombre et liseré blanc, lisible sur le plan comme sur le relief.
+const BARB_INK = "#1f2a24";
+export function barbSvg(kmh, dir, size = 44) {
+  const p = barbParts(kmh);
+  if (!p || (!p.calm && !isNum(dir))) return "";
+  const head = `<svg width="${size}" height="${size}" viewBox="-22 -22 44 44" aria-hidden="true" focusable="false">`;
+  if (p.calm) return `${head}<circle r="5" fill="none" stroke="#fff" stroke-width="4"/><circle r="5" fill="none" stroke="${BARB_INK}" stroke-width="1.6"/><circle r="1.6" fill="${BARB_INK}"/></svg>`;
+  const L = 20, gap = 4;
+  let y = -L, lines = `M0 0V${-L}`;
+  const tris = [];
+  for (let i = 0; i < p.n50; i++) { tris.push(`M0 ${y}L11 ${y - 4}L0 ${y + 7}Z`); y += 10; }
+  for (let i = 0; i < p.n10; i++) { lines += `M0 ${y}L10 ${y - 5}`; y += gap; }
+  if (p.n5) { if (!p.n50 && !p.n10) y += gap; lines += `M0 ${y}L5 ${y - 2.5}`; } // demi-trait seul : un peu en retrait du bout, comme sur les cartes
+  const rot = Math.round(((dir % 360) + 360) % 360);
+  return `${head}<g transform="rotate(${rot})"><path d="${lines}${tris.join("")}" stroke="#fff" stroke-width="4.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`
+    + `<path d="${lines}" stroke="${BARB_INK}" stroke-width="2" fill="none" stroke-linecap="round"/>${tris.map((t) => `<path d="${t}" fill="${BARB_INK}"/>`).join("")}`
+    + `<circle r="2.2" fill="${BARB_INK}" stroke="#fff" stroke-width="1"/></g></svg>`;
 }
 
 // Interpolation bilinéaire dans une grille nx × ny (fx, fy en coordonnées de grille) ; NaN si un des 4 voisins est inconnu.

@@ -231,11 +231,13 @@ export function buildHomeNow(data, pressureEl) {
     hidden(el("span", "home-icon", info.icon)),
     el("span", `home-temp${isExtremeTemp(c.temp) ? " is-extreme" : ""}`, isExtremeTemp(c.temp) ? RED() : null, deg(c.temp)),
     el("div", "home-desc", el("strong", "", info.label), el("span", "", `Ressenti ${deg(c.apparent)}`))));
-  const wind = el("div", "home-wind", vane(c.windDir),
+  // Bouton (27/11/2026) : ouvre la carte plein écran, calque « Vent » (barbules) allumé (écouteur délégué dans app.js).
+  const wind = el("button", "home-wind", vane(c.windDir),
     el("span", "", said("Vent : "), el("b", "", isNum(c.wind) ? `${num0(c.wind)}\u00a0km/h` : "—\u00a0km/h"), " ",
       el("small", isExtremeGust(c.gust) ? "is-extreme" : "", isExtremeGust(c.gust) ? RED() : null, "raf.\u00a0", isNum(c.gust) ? num0(c.gust) : "—"),
       el("br"), el("small", "", from ? `vent ${from}` : "direction —")));
-  wind.title = "Vent actuel : vitesse, rafales et direction d'où il vient (la flèche pointe vers où il va, nord en haut)";
+  wind.type = "button";
+  wind.title = "Vent actuel (la flèche pointe vers où il va, nord en haut) : toucher pour ouvrir la carte du vent";
   out.append(el("div", "home-chips", pressureEl, wind));
   return out;
 }
@@ -375,7 +377,7 @@ export function homeLegend(data, steps) {
         { sym: "temp", text: "Température de l'air et ressenti, à votre position" },
         { sym: "baro", text: "Pression au niveau de la mer, station la plus proche", sub: "«\u00a0≈\u00a0»\u00a0: valeur de modèle. Ouvre le baromètre." },
         { sym: "trend", text: "Tendance sur 3\u00a0h environ\u00a0: hausse, stabilité, baisse" },
-        { sym: "wind", text: "Vent actuel\u00a0: vitesse, rafales, direction d'où il vient", sub: "Girouette\u00a0: pointe vers où va le vent, nord en haut. Petite girouette des heures\u00a0: direction à l'heure dite." } ] },
+        { sym: "wind", text: "Vent actuel\u00a0: vitesse, rafales, direction d'où il vient", sub: "Girouette\u00a0: pointe vers où va le vent, nord en haut. Petite girouette des heures\u00a0: direction à l'heure dite. Toucher la pastille du vent\u00a0: carte, calque «\u00a0Vent\u00a0» allumé." } ] },
       { title: "Pluie par quart d'heure", note: "12 heures, 4 par page, en mm", rows: [
         { sym: "bars", text: `Échelle fixe\u00a0: barre pleine = ${full}, soit ${MINI_MM_FULL}\u00a0mm/h`, sub: "Grise\u00a0: 0\u00a0mm. Rouge\u00a0: échelle dépassée. «\u00a0—\u00a0»\u00a0: donnée absente." },
         { sym: "risk", text: `«\u00a0Sec, mais pluie possible\u00a0»\u00a0: cumul prévu nul, probabilité d'au moins ${RISK_PCT}\u00a0% dans l'une des 4\u00a0heures de la page` }] },
@@ -389,7 +391,7 @@ export function homeLegend(data, steps) {
       { title: "Soleil", rows: [
         { sym: "sunday", text: "Lever et coucher du soleil", sub: "«\u00a0à\u00a0»\u00a0: à venir\u00a0; «\u00a0depuis\u00a0»\u00a0: déjà passé\u00a0; après le coucher, lever de «\u00a0demain\u00a0». Mis à jour à chaque actualisation de l'écran." }] },
       { title: "Boutons", rows: [
-        { sym: "map", text: "Carte plein écran", sub: "Point bleu\u00a0: position\u00a0; disque\u00a0: précision. «\u00a0Nuages\u00a0» et «\u00a0Pluie\u00a0»\u00a0: valeurs de modèles à l'instant ou heure par heure (réglette), interpolées. Cible\u00a0: recentrer. Montagne\u00a0: fond relief (OpenTopoMap). Manche à air\u00a0: stations d'aéroport (pression mesurée, éclair si orage observé ; toucher une station : son dernier relevé décodé). Radar\u00a0: pluie observée des 2 dernières heures (RainViewer)." }] },
+        { sym: "map", text: "Carte plein écran", sub: "Point bleu\u00a0: position\u00a0; disque\u00a0: précision. «\u00a0Nuages\u00a0» et «\u00a0Pluie\u00a0»\u00a0: valeurs de modèles à l'instant ou heure par heure (réglette), interpolées. «\u00a0Vent\u00a0»\u00a0: barbules en km/h (demi-trait 5, trait 10, triangle 50\u00a0; hampe vers d'où vient le vent\u00a0; «\u00a0i\u00a0» de la carte pour les lire), qui suivent la réglette. Cible\u00a0: recentrer. Montagne\u00a0: fond relief (OpenTopoMap). Manche à air\u00a0: stations d'aéroport (pression mesurée, éclair si orage observé ; toucher une station : son dernier relevé décodé). Radar\u00a0: pluie observée des 2 dernières heures (RainViewer), seul à l'écran." }] },
       { title: "Valeurs signalées", note: "hors vigilance officielle", rows: [
         { sym: "red", text: `Hors du commun\u00a0: ≥\u00a0${EXTREME.hot}\u00a0°C, ≤\u00a0−${num0(-EXTREME.cold)}\u00a0°C, rafales ≥\u00a0${EXTREME.gust}\u00a0km/h` },
         { sym: "alert", text: `Orage, rafales ≥\u00a0${GUST_WARN}\u00a0km/h ou jour hors du commun` }] },
