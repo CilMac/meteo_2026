@@ -8,7 +8,7 @@ import { initBarometer, preloadDial, trendSign } from "./barometer.js?v=f58dbfb8
 import { createSkyLayer, addDoubleTapZoom, createStationLayer } from "./skymap.js?v=8cd1dc38";
 import { parseMapPrefs, MAP_ZOOM, maxZoomFor } from "./weathermap.js?v=c631804d";
 import { initWalk } from "./walkui.js?v=fbdaa9a1";
-import { buildHome, buildHomeNow, wireHomePages, homeSteps, homeAlerts, HOME_STEPS, HOME_PAGES, homeLegend, buildLegend, homeMode, HOME_KEY, PHONE_QUERY } from "./home.js?v=493c1c13";
+import { buildHome, buildHomeNow, buildSunBand, wireHomePages, homeSteps, homeAlerts, HOME_STEPS, HOME_PAGES, homeLegend, buildLegend, homeMode, HOME_KEY, PHONE_QUERY } from "./home.js?v=1efdcf6f";
 import { localToMs, fetchNextHour } from "./walk.js?v=dbfc9474";
 import { fetchObservedPressure, fetchPressureTrend, fetchObservedStorms, stormText, fetchObservedPrecip, precipText, pressureDisplay, TREND_WORD, fetchStationsForMap, distanceKm, STORM_WORDS, metarLines } from "./observation.js?v=9b23b237";
 import { getPosition, reverseGeocode, placeFromPosition, storedGeoPlace, formatCoords, deniedHelp, GEO_ID, GEO_MAX_AGE_MS } from "./geo.js?v=b6df63a8";
@@ -479,7 +479,19 @@ function renderHome() {
   $("home-body").replaceChildren(buildHome({ data, steps, page: home.page, fmtTime: homeTime, alerts: [storm, precip && `${precip} C'est une observation, pas une prévision.`, ...homeAlerts(data, (steps ?? []).slice(0, HOME_STEPS), homeTime)].filter(Boolean) }));
   wireHomePages($("home-body"), home.page, (n) => { home.page = n; });
   if (baroHadFocus) homeBaroBtn.focus();
+  tickSun();
 }
+// Carte du soleil (27/11/2026) : compte à rebours et barre du jour à l'heure réelle, recalculés à chaque minute tant que l'écran
+// d'accueil est ouvert (seule cette carte est remplacée : la page des 12 heures et le focus ne bougent pas).
+let sunTick = 0;
+function tickSun() {
+  clearTimeout(sunTick);
+  if (!homeDlg.open || !geo.data) return;
+  const old = $("home-body").querySelector(".home-today"), band = buildSunBand(geo.data, Date.now());
+  if (old) { if (band) old.replaceWith(band); else old.remove(); }
+  sunTick = setTimeout(tickSun, 60000 - (Date.now() % 60000) + 50); // juste après le changement de minute
+}
+homeDlg.addEventListener("close", () => clearTimeout(sunTick));
 // force = false : une position lue il y a moins de 10 minutes (écran d'accueil ou vue 🥾) sert telle quelle.
 // asked : ouvert par la maison ; un refus de position est alors expliqué, au lieu de fermer l'écran sans un mot.
 async function fillHome({ force = true, asked = false } = {}) {
@@ -831,6 +843,7 @@ const lastAutoTry = { page: null, mini: null };
 async function autoRefresh({ retry = true } = {}) {
   if (document.hidden) return;
   if (homeDlg.open && geo.data && Date.now() - geo.at >= GEO_MAX_AGE_MS) fillHome(); // écran d'accueil resté ouvert : relu lui aussi
+  if (homeDlg.open) tickSun(); // minuteur suspendu pendant l'absence : le compte à rebours est remis à l'heure tout de suite
   const now = Date.now(), view = $("mini").hidden ? "page" : "mini", lastTryMs = retry ? lastAutoTry[view] : null;
   let ok;
   if (view === "mini") {

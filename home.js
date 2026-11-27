@@ -1,6 +1,6 @@
 // Écran d'accueil (25/11/2026) : l'essentiel des 4 heures à venir à la position de l'appareil. Calculs (testés) puis construction de l'écran.
 // Tout le texte est écrit par textContent ; une donnée absente est « — », jamais 0.
-import { STEP_MS, stepKind, mmPerHour, GUST_WARN, LEVEL_WORD } from "./walk.js?v=dbfc9474";
+import { STEP_MS, stepKind, mmPerHour, GUST_WARN, LEVEL_WORD, localToMs } from "./walk.js?v=dbfc9474";
 import { trendSign } from "./barometer.js?v=f58dbfb8";
 import { next24h, modelShort } from "./weather-provider.js?v=afd8726c";
 import { EXTREME, MINI_MM_FULL, RISK_PCT, minVisible, outlookSpan, isNum, num0, num1, deg, weatherInfo, isNight, sunTimes, hourLabel, extremeOf, modelsOf } from "./weather-render.js?v=8a4c0223";
@@ -144,20 +144,45 @@ export function hourSun(time, daily) {
   return null;
 }
 
-// Soleil de la carte du bas, selon l'heure de la prévision (date et heure locales) : avant le lever « à 08:05 » et « à 16:48 » ;
-// dans la journée « depuis 08:05 » et « à 16:48 » ; après le coucher, prochain lever « demain 08:06 » (« à » s'il tombe le même jour) et « depuis 16:48 ».
-// Heure absente = « — » sans mot ; nuit polaire / soleil de minuit en toutes lettres.
-export function sunNow(data) {
-  const now = data.current.time, today = now ? now.slice(0, 10) : data.daily[0]?.date, i = data.daily.findIndex((x) => x.date === today);
+// Heure locale « AAAA-MM-JJTHH:MM » d'un instant dans un fuseau IANA (fuseau illisible : null). Inverse de localToMs (walk.js).
+export function localIso(ms, tz) {
+  try {
+    const p = Object.fromEntries(new Intl.DateTimeFormat("en-US", { timeZone: tz, hourCycle: "h23", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" })
+      .formatToParts(new Date(ms)).map((x) => [x.type, x.value]));
+    return `${p.year}-${p.month}-${p.day}T${String(+p.hour % 24).padStart(2, "0")}:${p.minute}`;
+  } catch { return null; }
+}
+
+// Durée en minutes → « 43 min », « 3 h » (heure pile), « 5 h 08 min » (27/11/2026).
+export function durationText(min) {
+  if (!Number.isFinite(min) || min < 0) return "—";
+  const h = Math.floor(min / 60), m = min % 60;
+  return h ? `${h}\u00a0h${m ? `\u00a0${String(m).padStart(2, "0")}\u00a0min` : ""}` : `${m}\u00a0min`;
+}
+
+// Soleil de la carte du bas à l'heure réelle `now` (« AAAA-MM-JJTHH:MM », heure locale du fuseau `data.location.timezone`), 27/11/2026 :
+// - avant le lever : « à 08:05 » + `left` (minutes jusqu'au lever) et « à 16:48 » ;
+// - dans la journée : « depuis 08:05 » et « à 16:48 » + `left` (minutes jusqu'au coucher), `day` = part du jour écoulée (0 à 1) ;
+// - après le coucher, jusqu'à minuit : prochain lever « demain 08:06 » (« à » s'il tombe le même jour), sans compte à rebours,
+//   et `night` = minutes depuis le coucher (le coucher lui-même n'est plus affiché). Après minuit, c'est « avant le lever ».
+// Heure absente = « — » sans mot ; nuit polaire / soleil de minuit en toutes lettres. Minutes comptées d'instant à instant (changement d'heure compris).
+export function sunNow(data, now) {
+  const today = now ? now.slice(0, 10) : data.daily[0]?.date, i = data.daily.findIndex((x) => x.date === today);
   if (i < 0) return null;
   const d = data.daily[i], sun = sunTimes(d.date, data.daily);
   if (sun.polar) return { polar: sun.polar };
+  const tz = data.location?.timezone;
+  const mins = (a, b) => { const x = localToMs(a, tz), y = localToMs(b, tz); return x === null || y === null ? null : Math.round((y - x) / 60000); };
   const r = d.sunrise?.value, s = d.sunset?.value, item = (word, time) => (time && time !== "—" ? { word, time } : { word: "", time: "—" });
   if (now && s && now >= s) { // prochain lever : le premier après maintenant (hors du fuseau du lieu, Open-Meteo le range parfois sous un autre jour : vérifié, Sydney vu de Paris)
     const next = data.daily.filter((x) => !sunTimes(x.date, data.daily).polar).map((x) => x.sunrise?.value).filter((t) => t && t > now).sort()[0];
-    return { polar: null, rise: next ? item(next.slice(0, 10) > today ? "demain" : "à", next.slice(11, 16)) : item("", null), set: item("depuis", sun.set) };
+    return { polar: null, rise: next ? item(next.slice(0, 10) > today ? "demain" : "à", next.slice(11, 16)) : item("", null), night: mins(s, now) };
   }
-  return { polar: null, rise: item(now && r && now >= r ? "depuis" : "à", sun.rise), set: item("à", sun.set) };
+  if (now && r && now >= r) {
+    const span = s ? mins(r, s) : null, gone = mins(r, now);
+    return { polar: null, rise: item("depuis", sun.rise), set: { ...item("à", sun.set), left: s ? mins(now, s) : null }, day: span > 0 && gone !== null ? Math.min(1, gone / span) : null };
+  }
+  return { polar: null, rise: { ...item("à", sun.rise), left: now && r ? mins(now, r) : null }, set: item("à", sun.set) };
 }
 
 // « Heures : Météo-France. Probabilité : ECMWF. Quarts d'heure : Météo-France. » (les 12 heures des 3 pages)
@@ -242,14 +267,23 @@ export function buildHomeNow(data, pressureEl) {
   return out;
 }
 
-// Carte du bas : lever et coucher, précédés de « à », « depuis » ou « demain » (sunNow).
-function sunBand(data) {
-  const sun = sunNow(data);
+// Carte du bas (27/11/2026) : lever et coucher précédés de « à », « depuis » ou « demain », compte à rebours vers le prochain
+// événement (« - dans 5 h 48 min », en gras orangé la dernière heure avant le coucher), barre du jour du lever au coucher ;
+// le soir, croissant bleu et « depuis 2 h 42 min » à la place du coucher. `nowMs` : heure réelle (minuteur dans app.js).
+export const DUSK_SOON_MIN = 60;
+const MOON = '<svg class="home-moon" viewBox="0 0 26 24" focusable="false"><path d="M16.5 3.2a9 9 0 1 0 6.3 13.9A7.3 7.3 0 0 1 16.5 3.2z"/></svg>';
+export function buildSunBand(data, nowMs) {
+  const sun = sunNow(data, localIso(nowMs, data.location?.timezone) ?? data.current.time);
   if (!sun) return null;
-  const part = (kind, word, x) => el("span", `sun sun-${kind}`, said(`${word} : `), x.word ? el("span", "home-sun-w", x.word) : null, x.time);
-  return el("section", "home-zone home-today",
-    el("div", "home-tm-row", ...(sun.polar ? [el("span", "home-tm-val", sun.polar)]
-      : [part("rise", "Lever du soleil", sun.rise), part("set", "Coucher du soleil", sun.set)])));
+  const left = (min, soon) => (Number.isFinite(min) && min >= 0 ? el("span", `home-sun-left${soon ? " is-soon" : ""}`, " -\u00a0", `dans ${durationText(min)}`) : null);
+  const part = (kind, word, x, soon) => el("span", "home-sun-item", el("span", `sun sun-${kind}`, said(`${word} : `), x.word ? el("span", "home-sun-w", x.word) : null, x.time), left(x.left, soon));
+  if (sun.polar) return el("section", "home-zone home-today", el("div", "home-tm-row", el("span", "home-tm-val", sun.polar)));
+  const items = [part("rise", "Lever du soleil", sun.rise, false)];
+  if (sun.set) items.push(part("set", "Coucher du soleil", sun.set, sun.set.left <= DUSK_SOON_MIN));
+  else if (Number.isFinite(sun.night) && sun.night >= 0) { const moon = hidden(el("span", "home-moon-box")); moon.innerHTML = MOON; items.push(el("span", "home-sun-item", moon, el("span", "home-sun-w", said("Soleil couché "), `depuis ${durationText(sun.night)}`))); }
+  const out = el("section", "home-zone home-today", el("div", "home-tm-row", ...items));
+  if (Number.isFinite(sun.day)) { const fill = el("span", ""); fill.style.width = `${(sun.day * 100).toFixed(1)}%`; out.append(hidden(el("div", "home-day", fill))); out.classList.add("has-day"); }
+  return out;
 }
 
 // Pastille de la colonne où tombe le lever (fond jaune paille) ou le coucher (fond bleu ciel), à la place de l'heure de la colonne ; sans icône (27/11/2026).
@@ -296,7 +330,7 @@ function pager(pages, page) {
 
 // Zones : avertissements s'il y en a, pluie, heures (3 pages de 4 heures qui glissent ensemble), soleil du jour.
 // steps : undefined = en cours de lecture, null = illisibles. page : page affichée (0 à 2).
-export function buildHome({ data, steps, alerts, fmtTime, page = 0 }) {
+export function buildHome({ data, steps, alerts, fmtTime, page = 0, now = Date.now() }) {
   const hours = homeHours(data, HOME_HOURS * HOME_PAGES), out = document.createDocumentFragment();
   const pages = Math.max(1, Math.min(HOME_PAGES, Math.ceil(hours.length / HOME_HOURS)));
   page = Math.max(0, Math.min(pages - 1, page));
@@ -316,7 +350,7 @@ export function buildHome({ data, steps, alerts, fmtTime, page = 0 }) {
   if (hours.length) {
     out.append(el("section", "home-zone home-hours home-swipe", pager(range.map((n) => [el("div", "home-hgrid", ...hours.slice(n * HOME_HOURS, (n + 1) * HOME_HOURS).map((x, i) => hourCol(x, n === 0 && i === 0)))]), page)));
   } else out.append(el("p", "home-zone muted", "Données horaires indisponibles."));
-  const band = sunBand(data);
+  const band = buildSunBand(data, now);
   if (band) out.append(band);
   return out;
 }
@@ -393,7 +427,9 @@ export function homeLegend(data, steps) {
         { sym: "gust", text: "Rafale maximale, en km/h" },
         { sym: "sun", text: "Heure du lever (fond jaune paille) ou du coucher du soleil (fond bleu ciel), à la place de l'heure de la colonne", sub: "Seulement s'il tombe dans les heures affichées\u00a0: un coucher à 16:48 va dans la colonne «\u00a017\u00a0h\u00a0» (de 16\u00a0h à 17\u00a0h)." }] },
       { title: "Soleil", rows: [
-        { sym: "sunday", text: "Lever et coucher du soleil", sub: "«\u00a0à\u00a0»\u00a0: à venir\u00a0; «\u00a0depuis\u00a0»\u00a0: déjà passé\u00a0; après le coucher, lever de «\u00a0demain\u00a0». Mis à jour à chaque actualisation de l'écran." }] },
+        { sym: "sunday", text: "Lever et coucher du soleil", sub: "«\u00a0à\u00a0»\u00a0: à venir\u00a0; «\u00a0depuis\u00a0»\u00a0: déjà passé\u00a0; «\u00a0- dans\u00a0…\u00a0»\u00a0: temps restant avant le prochain, à l'heure réelle, mis à jour chaque minute." },
+        { sym: "dusk", text: "Dernière heure avant le coucher", sub: "Barre\u00a0: part du jour écoulée, du lever au coucher." },
+        { sym: "moon", text: "Nuit\u00a0: temps écoulé depuis le coucher, jusqu'à minuit", sub: "Le croissant ne montre pas la phase de la lune. Après minuit\u00a0: compte à rebours du lever." }] },
       { title: "Boutons", rows: [
         { sym: "map", text: "Carte plein écran", sub: "Point bleu\u00a0: position\u00a0; disque\u00a0: précision. «\u00a0Nuages\u00a0» et «\u00a0Pluie\u00a0»\u00a0: valeurs de modèles à l'instant ou heure par heure (réglette), interpolées. «\u00a0Vent\u00a0»\u00a0: barbules en km/h (demi-trait 5, trait 10, triangle 50\u00a0; hampe vers d'où vient le vent\u00a0; «\u00a0i\u00a0» de la carte pour les lire), qui suivent la réglette. Cible\u00a0: recentrer. Montagne\u00a0: fond relief (OpenTopoMap). Manche à air\u00a0: stations d'aéroport (pression mesurée, éclair si orage observé ; toucher une station : son dernier relevé décodé). Radar\u00a0: pluie observée des 2 dernières heures (RainViewer), seul à l'écran." }] },
       { title: "Valeurs signalées", note: "hors vigilance officielle", rows: [
@@ -424,6 +460,8 @@ const SYMBOLS = {
   wind: () => draw(vane(250)),
   swipe: () => { const s = draw(); s.innerHTML = '<svg class="hl-chev" viewBox="0 0 10 18" focusable="false"><path d="M8 2 2 9l6 7"/></svg><svg class="hl-chev" viewBox="0 0 10 18" focusable="false"><path d="M2 2l6 7-6 7"/></svg>'; return s; },
   sunday: () => draw(el("span", "sun sun-rise"), el("span", "sun sun-set")),
+  dusk: () => { const s = text("43\u00a0min"); s.classList.add("is-dusk"); return s; },
+  moon: () => { const s = draw(); s.innerHTML = MOON; s.classList.add("is-moon"); return s; },
   map: () => { const s = draw(); s.innerHTML = '<svg class="mini-svg hl-baro" viewBox="0 0 24 24" focusable="false"><path d="M9 4 3.5 6v14L9 18l6 2 5.5-2V4L15 6 9 4zM9 4v14M15 6v14"/></svg>'; return s; },
   red: () => { const s = text("105"); s.classList.add("is-red"); s.prepend(said("En rouge, comme ")); return s; },
   alert: () => { const s = el("span", "hl-sym", el("span", "hl-frame", said("Encadré jaune"))); return s; },

@@ -19,6 +19,7 @@
   --night: #e4e8f3; --night-edge: #a3aec8; --night-ink: #2f3a52; /* pastilles d'heure après le coucher du soleil : bleu nuit pâle */
   --sun-pill: #d3e9fa; --sun-pill-edge: #9fc6e4; /* pastille de l'heure du coucher (écran d'accueil) : bleu ciel */
   --rise-pill: #f3e6b3; --rise-pill-edge: #d8c27a; /* pastille de l'heure du lever : jaune paille, doux */
+  --dusk-text: #a8482a; --day-track: #e9e3d3; --day-from: #f2c14e; --day-to: #e8946a; /* carte du soleil : dernière heure avant le coucher (orangé de l'icône), barre du jour */
 
   --note: #f1f3ed; --home-top: #ece4d1; --home-edge: #d9d0ba; /* écran d'accueil : crème plus soutenu */
   --btn-edge: #6f7d73; /* contour commun des boutons de « Lieu actuel » : assez foncé pour se voir sur le papier clair */
@@ -59,6 +60,7 @@
     --attention: #3a3120; --attention-border: #d0a65c; --attention-ink: #f0d7a0;
     --night: #2b3246; --night-edge: #5f6b8e; --night-ink: #dde3f3;
     --sun-pill: #2d4c69; --sun-pill-edge: #4f7aa0; --rise-pill: #5a4c25; --rise-pill-edge: #8c7640;
+    --dusk-text: #f3a27e; --day-track: #3a3f36; --day-from: #d9a838; --day-to: #d97c52;
     --note: #2b312c; --home-top: #2b2f28; --home-edge: #454b41;
     --precip-bg: #27313a; --precip-sel: #33485a; --precip-border: #86a9c0;
     --temp-bg: #342e22; --temp-sel: #4a3f28; --temp-border: #cdab6e;
@@ -763,6 +765,14 @@ button.home-wind { width: 100%; font-family: inherit; color: inherit; text-align
 .home-today { font-size: 15px; font-variant-numeric: tabular-nums; } /* carte du bas : lever et coucher, « à / depuis / demain » */
 .home-tm-row { display: flex; justify-content: space-around; align-items: center; gap: 10px; } .home-tm-val { text-align: center; } /* nuit polaire, soleil de minuit : une phrase */
 .home-sun-w { margin-right: 5px; color: var(--muted); font-size: 14px; } .home-today .sun { white-space: nowrap; } .home-today .sun::before { width: 27px; height: 25px; vertical-align: -5px; }
+/* Compte à rebours, croissant du soir et barre du jour (27/11/2026) ; une ligne à 402 px, deux sur petit écran (accepté). */
+.home-today .home-tm-row { flex-wrap: wrap; row-gap: 2px; } .home-sun-item { white-space: nowrap; }
+.home-sun-left { color: var(--muted); font-size: 14px; } .home-sun-left.is-soon { color: var(--dusk-text); font-weight: 700; }
+.home-moon-box svg { width: 27px; height: 25px; margin-right: 5px; vertical-align: -5px; fill: var(--primary); }
+/* Avec la barre, la tuile garde la hauteur qu'elle avait sans (téléphones : l'écran d'accueil tient au pixel près) : 14 + 14 de marges → 10 + 6 + 4 + 8. */
+@media (max-width: 699px) { .home-today.has-day { padding-block: 10px 8px; } }
+.home-day { height: 4px; margin: 6px 4px 0; border-radius: 2px; background: var(--day-track); overflow: hidden; } .hl-sym.is-dusk { color: var(--dusk-text); font-weight: 700; } .hl-sym.is-moon svg { width: 27px; height: 25px; fill: var(--primary); }
+.home-day span { display: block; height: 100%; border-radius: 2px; background: linear-gradient(90deg, var(--day-from), var(--day-to)); }
 @media (max-width: 390px) { .home-chips .home-baro { font-size: 14px; gap: 2px; padding-inline: 4px; } }
 @media (max-width: 350px) { .home-wind { gap: 7px; padding-inline: 4px; font-size: 14px; } .home-chips .home-baro .mini-svg { display: none; } .home-today { font-size: 14px; } .home-tm-lab { font-size: 13px; } }
 .home-baro { display: flex; align-items: center; gap: 6px; min-height: 46px; padding: 0 13px; border: 1.5px solid var(--btn-edge); border-radius: 14px; background: var(--paper); font-size: 15px; line-height: 1.6; white-space: nowrap; font-variant-numeric: tabular-nums; cursor: pointer; } .home-baro:active { filter: brightness(.94); }
@@ -807,7 +817,7 @@ html.home-boot body > main { visibility: hidden; }
   .home-icon { font-size: 74px; } .home-temp { font-size: 90px; } .home-desc strong { font-size: 23px; } .home-desc span { font-size: 18px; }
   .home-body { max-height: 900px; } .home-zone { padding: 20px 24px; } .home-rain h2 { font-size: 22px; } .home-rain p { font-size: 17px; } .home-bars { --bars: 108px; } .home-cols { gap: 6px; } .home-cap { margin-top: 12px; font-size: 15px; line-height: 20px; } .home-axis { font-size: 14px; }
   .home-hours { padding: 20px 8px; } .home-h-hour { font-size: 17px; } .home-h-icon { font-size: 36px; } .home-h-temp { font-size: 27px; } .home-h-mm { font-size: 17px; } .home-h-gust { font-size: 15px; } .home-h-prob { font-size: 18px; } .hbar-box.home-h-bar { width: 72px; height: 8px; }
-  .home-wind, .home-baro, .home-today { font-size: 18px; } .home-wind small, .home-sun-w { font-size: 15px; } .vane:not(.is-small) { width: 36px; height: 36px; } .home-baro .mini-svg { width: 27px; height: 27px; } .home-alerts { font-size: 17px; } .home-src { font-size: 13px; }
+  .home-wind, .home-baro, .home-today { font-size: 18px; } .home-wind small, .home-sun-w, .home-sun-left { font-size: 15px; } .vane:not(.is-small) { width: 36px; height: 36px; } .home-baro .mini-svg { width: 27px; height: 27px; } .home-alerts { font-size: 17px; } .home-src { font-size: 13px; }
 }
 @media (min-width: 700px) and (min-height: 700px) and (max-height: 900px) { .home-bars { --bars: 38px; } .home-zone { padding-block: 8px; } .home-hours { padding-block: 6px; } .home-cap { margin-top: 8px; } .home-h-icon { margin: 0; font-size: 30px; } .home-temp { font-size: 70px; } .home-icon { font-size: 62px; } #home-now { min-height: 72px; } .home-now { margin-top: 4px; } }
 @media (min-width: 700px) and (min-height: 1000px) { .home-top { padding-block: calc(30px + env(safe-area-inset-top)) 30px; } .home-temp { font-size: 108px; } .home-icon { font-size: 88px; } #home-now { min-height: 128px; } .home-bars { --bars: 116px; } .home-alerts ~ .home-rain .home-bars { --bars: 70px; } .home-zone { padding: 28px; } .home-rain h2 { font-size: 25px; } .home-hours { padding: 32px 8px; } .home-h-hour, .home-h-mm { font-size: 19px; } .home-h-icon { font-size: 44px; } .home-h-temp { font-size: 33px; } .home-h-gust { font-size: 17px; } .home-h-prob { font-size: 20px; } .hbar-box.home-h-bar { width: 84px; height: 9px; margin: 5px 0 7px; } .home-wind, .home-baro, .home-today { font-size: 20px; } }
