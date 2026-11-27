@@ -165,6 +165,7 @@ export function durationText(min) {
 // - dans la journée : « depuis 08:05 » et « à 16:48 » + `left` (minutes jusqu'au coucher), `day` = part du jour écoulée (0 à 1) ;
 // - après le coucher, jusqu'à minuit : prochain lever « demain 08:06 » (« à » s'il tombe le même jour), sans compte à rebours,
 //   et `night` = minutes depuis le coucher (le coucher lui-même n'est plus affiché). Après minuit, c'est « avant le lever ».
+// `nightBar` (soir et avant le lever) : part de la nuit qui reste, du coucher au lever (1 au coucher, 0 au lever).
 // Heure absente = « — » sans mot ; nuit polaire / soleil de minuit en toutes lettres. Minutes comptées d'instant à instant (changement d'heure compris).
 export function sunNow(data, now) {
   const today = now ? now.slice(0, 10) : data.daily[0]?.date, i = data.daily.findIndex((x) => x.date === today);
@@ -176,14 +177,28 @@ export function sunNow(data, now) {
   const r = d.sunrise?.value, s = d.sunset?.value, item = (word, time) => (time && time !== "—" ? { word, time } : { word: "", time: "—" });
   if (now && s && now >= s) { // prochain lever : le premier après maintenant (hors du fuseau du lieu, Open-Meteo le range parfois sous un autre jour : vérifié, Sydney vu de Paris)
     const next = data.daily.filter((x) => !sunTimes(x.date, data.daily).polar).map((x) => x.sunrise?.value).filter((t) => t && t > now).sort()[0];
-    return { polar: null, rise: next ? item(next.slice(0, 10) > today ? "demain" : "à", next.slice(11, 16)) : item("", null), night: mins(s, now) };
+    return { polar: null, rise: next ? item(next.slice(0, 10) > today ? "demain" : "à", next.slice(11, 16)) : item("", null), night: mins(s, now), nightBar: next ? share(mins(now, next), mins(s, next)) : null };
   }
   if (now && r && now >= r) {
     const span = s ? mins(r, s) : null, gone = mins(r, now);
     return { polar: null, rise: item("depuis", sun.rise), set: { ...item("à", sun.set), left: s ? mins(now, s) : null }, day: span > 0 && gone !== null ? Math.min(1, gone / span) : null };
   }
-  return { polar: null, rise: { ...item("à", sun.rise), left: now && r ? mins(now, r) : null }, set: item("à", sun.set) };
+  // Avant le lever : la nuit a commencé au coucher de la veille, absent des données (elles partent d'aujourd'hui). Il est estimé :
+  // coucher d'aujourd'hui moins l'écart entre ceux de demain et d'aujourd'hui (quelques secondes d'erreur ; sans demain, 24 h).
+  // Sert seulement au dessin de la barre, jamais à un texte (choix de l'utilisateur, 27/11/2026).
+  let nightBar = null;
+  const prev = data.daily[i - 1], after = data.daily[i + 1], at = (x) => (x ? localToMs(x, tz) : null);
+  const sMs = at(s), rMs = at(r), nowMs = at(now);
+  let startMs = prev && !sunTimes(prev.date, data.daily).polar ? at(prev.sunset?.value) : null;
+  if (startMs === null && sMs !== null) {
+    const s2 = after && !sunTimes(after.date, data.daily).polar ? at(after.sunset?.value) : null;
+    startMs = s2 !== null ? sMs - (s2 - sMs) : sMs - 86400000;
+  }
+  if (startMs !== null && rMs !== null && nowMs !== null) nightBar = share((rMs - nowMs) / 60000, (rMs - startMs) / 60000);
+  return { polar: null, rise: { ...item("à", sun.rise), left: now && r ? mins(now, r) : null }, set: item("à", sun.set), nightBar };
 }
+// Part restante (0 à 1) ; illisible : null.
+const share = (left, span) => (Number.isFinite(left) && Number.isFinite(span) && span > 0 ? Math.max(0, Math.min(1, left / span)) : null);
 
 // « Heures : Météo-France. Probabilité : ECMWF. Quarts d'heure : Météo-France. » (les 12 heures des 3 pages)
 export function homeSources(data, steps) {
@@ -269,7 +284,7 @@ export function buildHomeNow(data, pressureEl) {
 
 // Carte du bas (27/11/2026) : lever et coucher précédés de « à », « depuis » ou « demain », compte à rebours vers le prochain
 // événement (« - dans 5 h 48 min », en gras orangé la dernière heure avant le coucher), barre du jour du lever au coucher ;
-// le soir, croissant bleu et « depuis 2 h 42 min » à la place du coucher. `nowMs` : heure réelle (minuteur dans app.js).
+// le soir, croissant bleu et « depuis 2 h 42 min » à la place du coucher ; barre de nuit bleue qui se vide du coucher au lever. `nowMs` : heure réelle (minuteur dans app.js).
 export const DUSK_SOON_MIN = 60;
 const MOON = '<svg class="home-moon" viewBox="0 0 26 24" focusable="false"><path d="M16.5 3.2a9 9 0 1 0 6.3 13.9A7.3 7.3 0 0 1 16.5 3.2z"/></svg>';
 export function buildSunBand(data, nowMs) {
@@ -282,7 +297,16 @@ export function buildSunBand(data, nowMs) {
   if (sun.set) items.push(part("set", "Coucher du soleil", sun.set, sun.set.left <= DUSK_SOON_MIN));
   else if (Number.isFinite(sun.night) && sun.night >= 0) { const moon = hidden(el("span", "home-moon-box")); moon.innerHTML = MOON; items.push(el("span", "home-sun-item", moon, el("span", "home-sun-w", said("Soleil couché "), `depuis ${durationText(sun.night)}`))); }
   const out = el("section", "home-zone home-today", el("div", "home-tm-row", ...items));
-  if (Number.isFinite(sun.day)) { const fill = el("span", ""); fill.style.width = `${(sun.day * 100).toFixed(1)}%`; out.append(hidden(el("div", "home-day", fill))); out.classList.add("has-day"); }
+  // Barre du jour : se remplit de gauche à droite. Barre de nuit : pleine au coucher, se vide de gauche à droite (la partie bleue est
+  // la nuit qui reste, accrochée à droite) ; dégradé fixe sur toute la longueur, bleu du croissant à gauche, bleu pâle de l'aube à droite.
+  const bar = (cls, frac) => {
+    const fill = el("span", ""), pct = frac * 100;
+    fill.style.width = `${pct.toFixed(1)}%`;
+    if (cls === "is-night" && pct > 0) fill.style.backgroundSize = `${(10000 / pct).toFixed(1)}% 100%`; // dégradé à l'échelle de la barre entière
+    out.append(hidden(el("div", `home-day ${cls}`, fill))); out.classList.add("has-bar");
+  };
+  if (Number.isFinite(sun.day)) bar("is-day", sun.day);
+  else if (Number.isFinite(sun.nightBar)) bar("is-night", sun.nightBar);
   return out;
 }
 
@@ -429,7 +453,7 @@ export function homeLegend(data, steps) {
       { title: "Soleil", rows: [
         { sym: "sunday", text: "Lever et coucher du soleil", sub: "«\u00a0à\u00a0»\u00a0: à venir\u00a0; «\u00a0depuis\u00a0»\u00a0: déjà passé\u00a0; «\u00a0- dans\u00a0…\u00a0»\u00a0: temps restant avant le prochain, à l'heure réelle, mis à jour chaque minute." },
         { sym: "dusk", text: "Dernière heure avant le coucher", sub: "Barre\u00a0: part du jour écoulée, du lever au coucher." },
-        { sym: "moon", text: "Nuit\u00a0: temps écoulé depuis le coucher, jusqu'à minuit", sub: "Le croissant ne montre pas la phase de la lune. Après minuit\u00a0: compte à rebours du lever." }] },
+        { sym: "moon", text: "Nuit\u00a0: temps écoulé depuis le coucher, jusqu'à minuit", sub: "Le croissant ne montre pas la phase de la lune. Après minuit\u00a0: compte à rebours du lever. Barre bleue\u00a0: nuit qui reste, pleine au coucher, vide au lever." }] },
       { title: "Boutons", rows: [
         { sym: "map", text: "Carte plein écran", sub: "Point bleu\u00a0: position\u00a0; disque\u00a0: précision. «\u00a0Nuages\u00a0» et «\u00a0Pluie\u00a0»\u00a0: valeurs de modèles à l'instant ou heure par heure (réglette), interpolées. «\u00a0Vent\u00a0»\u00a0: barbules en km/h (demi-trait 5, trait 10, triangle 50\u00a0; hampe vers d'où vient le vent\u00a0; «\u00a0i\u00a0» de la carte pour les lire), qui suivent la réglette. Cible\u00a0: recentrer. Montagne\u00a0: fond relief (OpenTopoMap). Manche à air\u00a0: stations d'aéroport (pression mesurée, éclair si orage observé ; toucher une station : son dernier relevé décodé). Radar\u00a0: pluie observée des 2 dernières heures (RainViewer), seul à l'écran." }] },
       { title: "Valeurs signalées", note: "hors vigilance officielle", rows: [

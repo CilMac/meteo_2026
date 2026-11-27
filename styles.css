@@ -19,7 +19,7 @@
   --night: #e4e8f3; --night-edge: #a3aec8; --night-ink: #2f3a52; /* pastilles d'heure après le coucher du soleil : bleu nuit pâle */
   --sun-pill: #d3e9fa; --sun-pill-edge: #9fc6e4; /* pastille de l'heure du coucher (écran d'accueil) : bleu ciel */
   --rise-pill: #f3e6b3; --rise-pill-edge: #d8c27a; /* pastille de l'heure du lever : jaune paille, doux */
-  --dusk-text: #a8482a; --day-track: #e9e3d3; --day-from: #f2c14e; --day-to: #e8946a; /* carte du soleil : dernière heure avant le coucher (orangé de l'icône), barre du jour */
+  --dusk-text: #a8482a; --day-track: #e9e3d3; --day-from: #f2c14e; --day-to: #e8946a; --night-from: #285775; --night-to: #b9cfdf; /* carte du soleil : dernière heure avant le coucher (orangé de l'icône), barre du jour, barre de nuit (bleu du croissant → aube) */
 
   --note: #f1f3ed; --home-top: #ece4d1; --home-edge: #d9d0ba; /* écran d'accueil : crème plus soutenu */
   --btn-edge: #6f7d73; /* contour commun des boutons de « Lieu actuel » : assez foncé pour se voir sur le papier clair */
@@ -60,7 +60,7 @@
     --attention: #3a3120; --attention-border: #d0a65c; --attention-ink: #f0d7a0;
     --night: #2b3246; --night-edge: #5f6b8e; --night-ink: #dde3f3;
     --sun-pill: #2d4c69; --sun-pill-edge: #4f7aa0; --rise-pill: #5a4c25; --rise-pill-edge: #8c7640;
-    --dusk-text: #f3a27e; --day-track: #3a3f36; --day-from: #d9a838; --day-to: #d97c52;
+    --dusk-text: #f3a27e; --day-track: #3a3f36; --day-from: #d9a838; --day-to: #d97c52; --night-from: #9cc5e0; --night-to: #6a8cab; /* aube assez claire pour se voir sur le fond de la barre */
     --note: #2b312c; --home-top: #2b2f28; --home-edge: #454b41;
     --precip-bg: #27313a; --precip-sel: #33485a; --precip-border: #86a9c0;
     --temp-bg: #342e22; --temp-sel: #4a3f28; --temp-border: #cdab6e;
@@ -770,9 +770,9 @@ button.home-wind { width: 100%; font-family: inherit; color: inherit; text-align
 .home-sun-left { color: var(--muted); font-size: 14px; } .home-sun-left.is-soon { color: var(--dusk-text); font-weight: 700; }
 .home-moon-box svg { width: 27px; height: 25px; margin-right: 5px; vertical-align: -5px; fill: var(--primary); }
 /* Avec la barre, la tuile garde la hauteur qu'elle avait sans (téléphones : l'écran d'accueil tient au pixel près) : 14 + 14 de marges → 10 + 6 + 4 + 8. */
-@media (max-width: 699px) { .home-today.has-day { padding-block: 10px 8px; } }
+@media (max-width: 699px) { .home-today.has-bar { padding-block: 10px 8px; } }
 .home-day { height: 4px; margin: 6px 4px 0; border-radius: 2px; background: var(--day-track); overflow: hidden; } .hl-sym.is-dusk { color: var(--dusk-text); font-weight: 700; } .hl-sym.is-moon svg { width: 27px; height: 25px; fill: var(--primary); }
-.home-day span { display: block; height: 100%; border-radius: 2px; background: linear-gradient(90deg, var(--day-from), var(--day-to)); }
+.home-day span { display: block; height: 100%; border-radius: 2px; background: linear-gradient(90deg, var(--day-from), var(--day-to)); } .home-day.is-night span { margin-left: auto; background: linear-gradient(90deg, var(--night-from), var(--night-to)) right / 100% 100% no-repeat; }
 @media (max-width: 390px) { .home-chips .home-baro { font-size: 14px; gap: 2px; padding-inline: 4px; } }
 @media (max-width: 350px) { .home-wind { gap: 7px; padding-inline: 4px; font-size: 14px; } .home-chips .home-baro .mini-svg { display: none; } .home-today { font-size: 14px; } .home-tm-lab { font-size: 13px; } }
 .home-baro { display: flex; align-items: center; gap: 6px; min-height: 46px; padding: 0 13px; border: 1.5px solid var(--btn-edge); border-radius: 14px; background: var(--paper); font-size: 15px; line-height: 1.6; white-space: nowrap; font-variant-numeric: tabular-nums; cursor: pointer; } .home-baro:active { filter: brightness(.94); }
