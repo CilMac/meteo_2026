@@ -13,7 +13,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#f6f3eb" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#1b201d" media="(prefers-color-scheme: dark)">
-<link rel="stylesheet" href="styles.css?v=d81a9108">
+<link rel="stylesheet" href="styles.css?v=f73366c2">
 <script>
 // Tous les appareils : la page reste masquée le temps d'ouvrir l'écran d'accueil (app.js), 4 s au plus, pour ne pas apparaître une fraction de seconde avant lui.
 // Même règle que homeMode (home.js) : rien seulement si l'écran a été refusé ou décliné (un test le vérifie).
@@ -31,10 +31,7 @@ try { if (localStorage.getItem("meteo.home") !== "no") { document.documentElemen
 <main class="shell">
 <div class="column">
   <div class="page-head">
-    <div>
-      <h1>Météo</h1>
-      <p class="muted small">Prévisions personnelles, modèles étiquetés valeur par valeur.</p>
-    </div>
+    <h1>Météo</h1>
     <!-- Barre de navigation commune (28/11/2026) : ⌂ (mène ailleurs, bleu pâle), ↻, « i », comme l'écran d'accueil -->
     <div class="head-actions">
       <button type="button" id="home-open" class="btn nav-sq go" aria-label="Écran d'accueil : maintenant et les 12 prochaines heures, à votre position" title="Écran d'accueil : maintenant et les 12 prochaines heures, à votre position">
@@ -49,16 +46,19 @@ try { if (localStorage.getItem("meteo.home") !== "no") { document.documentElemen
   <header class="card place">
     <!-- Pression du lieu affiché (ouvre le baromètre) et carte du lieu, sur une ligne (comme dans la vue 12 h) -->
     <form id="form" class="place-form">
-      <label for="place">Lieu</label>
+      <label for="place" class="sr-only">Lieu</label>
       <select id="place" title="Choisir un lieu : sa météo s'affiche aussitôt"></select>
+      <!-- Haut de la page allégé (28/11/2026, maquette maquettes/haut-page.html, variante B) : « Autre lieu » devient une loupe -->
+      <button type="button" id="search-open" class="btn nav-sq place-search" aria-expanded="false" aria-controls="other" aria-label="Autre lieu : rechercher une ville" title="Autre lieu : rechercher une ville">
+        <svg class="mini-svg" viewBox="0 0 24 24" width="26" height="26" aria-hidden="true" focusable="false"><circle cx="10.5" cy="10.5" r="6"/><path d="M15 15l5 5"/></svg>
+      </button>
       <button type="button" id="place-baro-btn" class="btn mini-tool place-baro" aria-haspopup="dialog" hidden disabled>
         <svg class="mini-svg" viewBox="0 0 24 24" width="22" height="22" style="stroke-width:1.9" aria-hidden="true" focusable="false"><use href="#ico-baro"/></svg><span class="sr-only">Baromètre, pression : </span><span id="place-pressure" class="mini-pressure"></span>
       </button>
       <button type="button" id="place-map-btn" class="btn nav-sq go place-map" aria-haspopup="dialog" aria-label="Carte du lieu affiché" title="Carte du lieu affiché, avec nuages, pluie, vent et relief" disabled><svg class="mini-svg" viewBox="0 0 24 24" width="26" height="26" aria-hidden="true" focusable="false"><path d="M9 4 3.5 6v14L9 18l6 2 5.5-2V4L15 6 9 4zM9 4v14M15 6v14"/></svg></button>
       <p id="where" class="muted"></p>
     </form>
-    <details id="other" class="other">
-      <summary><span>Autre lieu</span><span class="summary-hint">rechercher une ville</span></summary>
+    <div id="other" class="other" hidden>
       <form id="search" class="search-form" role="search">
         <label for="q" class="sr-only">Ville ou commune</label>
         <input id="q" type="search" maxlength="80" autocomplete="off" placeholder="Ville ou commune">
@@ -66,7 +66,7 @@ try { if (localStorage.getItem("meteo.home") !== "no") { document.documentElemen
       </form>
       <p id="search-msg" class="muted small" role="status"></p>
       <ul id="results" class="results"></ul>
-    </details>
+    </div>
   </header>
 
   <div id="status" role="status" aria-live="polite"></div>
@@ -98,14 +98,14 @@ try { if (localStorage.getItem("meteo.home") !== "no") { document.documentElemen
 
 
     <!-- D. 24 heures -->
-    <section class="card" id="hourly-card" aria-labelledby="h-24"><h2 id="h-24"><span class="h2-main">Prochaines 24 heures</span> <span class="rubric rubric-precip">précipitations</span></h2><div id="hourly" role="tabpanel"></div></section>
+    <section class="card" id="hourly-card" aria-labelledby="h-24"><h2 id="h-24"><span class="h2-main">Prochaines 24 heures</span></h2><div id="hourly" role="tabpanel"></div></section>
 
 
     <!-- Vue compacte seulement (masquée par défaut) : 7 jours dans un pavé, jours 8 à 15 repliés, sans commentaire -->
     <div id="compact-only" hidden>
     <section class="card compact-card" id="compact-card" aria-labelledby="h-compact">
       <div class="compact-head">
-        <h2 id="h-compact"><span class="h2-main">7 jours</span> <span class="rubric rubric-precip">précipitations</span></h2>
+        <h2 id="h-compact"><span class="h2-main">7 jours</span></h2>
         <button type="button" id="compact-info-btn" class="compact-info-btn" aria-expanded="false" aria-controls="compact-help" aria-label="Explications de cette vue" title="Explications">i</button>
       </div>
       <div class="compact-help" id="compact-help" hidden></div>
@@ -113,7 +113,7 @@ try { if (localStorage.getItem("meteo.home") !== "no") { document.documentElemen
     </section>
     <details class="card fold" id="compact-trend-fold">
       <summary>
-        <h2 id="h-compact-15"><span class="h2-main">Jours 8 à 15</span> <span class="rubric rubric-precip">précipitations</span></h2>
+        <h2 id="h-compact-15"><span class="h2-main">Jours 8 à 15</span></h2>
         <span class="trend-warning">Au-delà de 7 jours, la fiabilité baisse nettement : ces prévisions sont des tendances susceptibles d'évoluer.</span>
       </summary>
       <div id="compact-trend"></div>
@@ -125,14 +125,14 @@ try { if (localStorage.getItem("meteo.home") !== "no") { document.documentElemen
 
     <!-- E. 7 jours -->
     <section class="card" id="week-card" aria-labelledby="h-7">
-      <h2 id="h-7"><span class="h2-main">Prévisions sur 7 jours</span> <span class="rubric rubric-precip">précipitations</span></h2>
+      <h2 id="h-7"><span class="h2-main">Prévisions sur 7 jours</span></h2>
       <div id="week"></div>
     </section>
 
     <!-- F. Jours 8 à 15 -->
     <details class="card fold" id="trend-fold">
       <summary>
-        <h2 id="h-15"><span class="h2-main">Tendances, jours 8 à 15</span> <span class="rubric rubric-precip">précipitations</span></h2>
+        <h2 id="h-15"><span class="h2-main">Tendances, jours 8 à 15</span></h2>
         <span class="trend-warning">Au-delà de 7 jours, la fiabilité baisse nettement : ces prévisions sont des tendances susceptibles d'évoluer.</span>
       </summary>
       <div id="trend"></div>
@@ -320,7 +320,7 @@ try { if (localStorage.getItem("meteo.home") !== "no") { document.documentElemen
         <p>Sur chaque écran, les mêmes boutons carrés, en haut à droite et dans le même ordre : la <strong>maison</strong> (retour à l'écran d'accueil), <strong>Actualiser</strong> (flèche circulaire), puis le <strong>« i »</strong> de l'aide. Les boutons bleu pâle mènent à un autre écran (maison, carte, marcheur, « Toutes les prévisions ») ; ceux à fond discret agissent sur l'écran affiché (Actualiser, aide, pression). Les fenêtres se ferment par la croix ✕ en haut à droite (ou la touche Échap).</p>
 
       <h3>Choisir un lieu</h3>
-      <p>Huit lieux sont proposés dans la liste (Bar-le-Duc par défaut), précédés de <strong>« 📍 Ma position »</strong> : toute la page (situation, 24 heures, 7 et 15 jours) pour la position réelle de l'appareil, recherchée à chaque choix, à chaque « Actualiser » et à l'ouverture si c'était le dernier lieu choisi. Si la position n'est pas disponible, le motif est affiché et la dernière position connue est montrée en le disant (ou, à défaut, le lieu affiché ne change pas). L'épingle rouge à gauche du nom, sous le cadre du choix, n'apparaît que pour votre position actuelle : ni pour un lieu de la liste, ni pour une dernière position connue. « Autre lieu » permet de chercher n'importe quelle ville : si plusieurs lieux portent le même nom, on choisit le bon dans la liste. Le bouton de la carte, à droite de la pression, ouvre la carte plein écran centrée sur le lieu affiché, avec son nom en titre et un anneau blanc cerclé de bleu ; avec « Ma position » trouvée, c'est votre position (point bleu plein, disque de précision, « à votre position »). Choisir un lieu dans la liste, ou toucher un résultat de la recherche, affiche aussitôt sa météo. Le dernier lieu validé est retenu sur cet appareil. Le dernier « Autre lieu » choisi reste en bas de la liste, même après avoir fermé l'application, jusqu'à la recherche suivante, qui le remplace. En <strong>revenant dans l'application</strong> (icône, onglet, appareil réveillé) avec des prévisions de plus de 30 minutes ou d'un autre jour, elles sont relues <strong>toutes seules</strong> : les anciennes restent affichées pendant ce temps, avec « Mise à jour des prévisions… ». En cas d'échec, une seconde tentative suit 5 secondes après, puis l'erreur reste affichée. Sous le choix du lieu, un bouton donne la <strong>pression</strong> au lieu affiché et ouvre le baromètre : relevé de la station d'aéroport la plus proche (moins de 100 km, moins de 3 h), sinon valeur du modèle précédée de « ≈ ». Un petit signe donne la <strong>tendance</strong> sur environ 3 heures, à la même station : flèche verte montante ou flèche rouge descendante à partir de 2 hPa d'écart, trait gris en dessous (à peu près stable) ; rien sans relevé à l'heure voulue, ni avec la valeur d'un modèle.</p>
+      <p>Huit lieux sont proposés dans la liste (Bar-le-Duc par défaut), précédés de <strong>« 📍 Ma position »</strong> : toute la page (situation, 24 heures, 7 et 15 jours) pour la position réelle de l'appareil, recherchée à chaque choix, à chaque « Actualiser » et à l'ouverture si c'était le dernier lieu choisi. Si la position n'est pas disponible, le motif est affiché et la dernière position connue est montrée en le disant (ou, à défaut, le lieu affiché ne change pas). L'épingle rouge à gauche du nom, sous le cadre du choix, n'apparaît que pour votre position actuelle : ni pour un lieu de la liste, ni pour une dernière position connue. La <strong>loupe</strong>, à droite de la liste (« Autre lieu »), ouvre une recherche juste dessous pour trouver n'importe quelle ville ; la toucher de nouveau la referme. Sous la pression, une ligne donne le jour et l'heure du lieu (« Samedi 28 novembre, 14:15 »), suivie de « heure de Tokyo » quand le lieu n'a pas le même fuseau horaire que votre appareil. Dans la recherche, si plusieurs lieux portent le même nom, on choisit le bon dans la liste. Le bouton de la carte, à droite de la pression, ouvre la carte plein écran centrée sur le lieu affiché, avec son nom en titre et un anneau blanc cerclé de bleu ; avec « Ma position » trouvée, c'est votre position (point bleu plein, disque de précision, « à votre position »). Choisir un lieu dans la liste, ou toucher un résultat de la recherche, affiche aussitôt sa météo. Le dernier lieu validé est retenu sur cet appareil. Le dernier « Autre lieu » choisi reste en bas de la liste, même après avoir fermé l'application, jusqu'à la recherche suivante, qui le remplace. En <strong>revenant dans l'application</strong> (icône, onglet, appareil réveillé) avec des prévisions de plus de 30 minutes ou d'un autre jour, elles sont relues <strong>toutes seules</strong> : les anciennes restent affichées pendant ce temps, avec « Mise à jour des prévisions… ». En cas d'échec, une seconde tentative suit 5 secondes après, puis l'erreur reste affichée. Sous le choix du lieu, un bouton donne la <strong>pression</strong> au lieu affiché et ouvre le baromètre : relevé de la station d'aéroport la plus proche (moins de 100 km, moins de 3 h), sinon valeur du modèle précédée de « ≈ ». Un petit signe donne la <strong>tendance</strong> sur environ 3 heures, à la même station : flèche verte montante ou flèche rouge descendante à partir de 2 hPa d'écart, trait gris en dessous (à peu près stable) ; rien sans relevé à l'heure voulue, ni avec la valeur d'un modèle.</p>
       <p>L'icône du marcheur (<svg class="ico-walk" viewBox="0 0 24 24" role="img" aria-label="marcheur" focusable="false"><use href="#ico-walk"/></svg>), en haut à droite, ouvre la vue <strong>« Météo des 12 prochaines heures »</strong> : un tableau des 12 prochaines heures à votre <strong>position réelle</strong> (celle de l'appareil ; le navigateur demande l'autorisation). Elle ne change pas le lieu choisi dans la liste. Sous le titre : le nom du lieu, précédé d'une épingle rouge, ses coordonnées GPS et la précision de la position, puis deux boutons. Le premier affiche la pression atmosphérique au niveau de la mer en hPa. C'est une <strong>mesure</strong> : le dernier relevé de la station météo d'aéroport la plus proche (à moins de 100 km, relevé de moins de 3 h), dont le nom, la distance et l'heure sont dans l'info-bulle. Ce relevé est un QNH : la pression de la station ramenée au niveau de la mer selon l'atmosphère standard, qui peut différer d'environ 1 à 2 hPa de la pression au niveau de la mer calculée avec la température réelle (surtout pour une station en altitude par temps froid ou chaud). Sans station récente à proximité, la valeur du modèle la remplace et s'affiche précédée de « ≈ ». Une flèche (verte en hausse, rouge en baisse) ou un trait gris (à peu près stable) donne la tendance sur environ 3 h. Ce bouton ouvre un baromètre à aiguille : l'aiguille noire est sur la valeur, l'aiguille dorée (repère) sur la pression mesurée environ 3 h plus tôt. Sous le cadran : la tendance, les deux valeurs avec leur heure, la station et sa distance ; le reste est dans « Comprendre ces valeurs ». Le second bouton, la carte, ouvre la même carte plein écran que l'écran d'accueil (voir plus haut) ; la fermer ramène ici. Toucher une heure du tableau ouvre « Balade ? » (départ à cette heure-là, ou maintenant pour la première ligne ; un petit sélecteur à droite du titre (‹ ›) avance ou recule le départ d'heure en heure, jusqu'à 12 h : le verdict, la frise et les remarques valent alors pour l'heure qui commence à ce moment-là, et la prévision est moins sûre plus on s'éloigne) : un verdict (pas une goutte en vue, restez près de chez vous, petite pluie ou quelques flocons, attendez, averse de passage, averses successives, vous allez prendre la sauce ou il va neiger toute l'heure, pluie verglaçante, orage, conditions difficiles même sans pluie, ou « je ne sais pas » si les données manquent), une petite frise des précipitations (un bâton par quart d'heure, entre les deux heures de l'axe ; le chiffre est la hauteur d'eau tombée pendant ce quart d'heure, en mm : additionnés, ils donnent le cumul ; bâton plein à 0,75 mm, soit 3 mm/h comme dans le tableau, rouge au-delà ; le petit « i » de la frise le rappelle), une rubrique « À savoir » (forte chaleur, froid, gel et verglas possible, neige au sol, brouillard, vent fort, UV, nuit qui tombe) et quelques faits (précipitation la plus forte, cumul, probabilité, température). <strong>Orage</strong> : l'alerte se déclenche si le modèle principal <em>ou</em> le choix automatique d'Open-Meteo annonce un orage dans l'heure, et le texte dit lequel. Mesuré le 23/11/2026 sur 9 lieux : JMA et GEM ne codent jamais d'orage, ECMWF presque jamais ; le choix automatique, oui. D'où quelques fausses alertes, acceptées par prudence. Le petit « i » à côté du titre de l'alerte explique sa fiabilité, dont le taux n'a pas été mesuré. Ce sont les valeurs des modèles, pas un radar : les mêmes que celles du tableau, choisies valeur par valeur (en France, Météo-France, puis ECMWF si une valeur manque) ; seules la visibilité et l'indice UV viennent du choix automatique d'Open-Meteo, le seul à les fournir. La liste des modèles et les précautions de lecture sont repliées en bas de la fenêtre (« Modèles et précautions »). Les seuils (pluie faible sous 1 mm/h, modérée sous 4, forte au-delà ; neige faible sous 1 cm/h, modérée sous 3 ; ressenti 30 °C et 35 °C pour la chaleur, 5, 0 et −10 °C pour le froid ; rafales 50 et 75 km/h ; visibilité 1 000 et 200 m ; UV 6 et plus) sont ceux de l'application, pas des seuils officiels. La vigilance canicule officielle n'est pas vérifiée. Si la position n'est pas disponible, le motif est affiché et la vue montre alors le lieu choisi sur la page, signalé comme n'étant pas votre position. Chaque ouverture garde aussi un relevé de la prévision affichée : voir l'onglet « Relevés ».</p>
       <ul>
         <li><strong>Une ligne par heure</strong> : le pictogramme du temps, puis la pluie (hauteur en mm, avec une barre verticale proportionnelle, échelle fixe de 0 à 3 mm ; au-delà de 3 mm la barre est pleine, rouge et porte un « + », le chiffre donnant la valeur exacte), la probabilité de pluie (en %, barre horizontale qui suit le pourcentage), la température et le vent (km/h, avec les rafales dessous). Les autres petites barres : pour la température elle va de la plus basse à la plus haute de ces heures, pour le vent la partie foncée est le vent et la claire les rafales.</li>
@@ -477,7 +477,7 @@ try { if (localStorage.getItem("meteo.home") !== "no") { document.documentElemen
   </div>
 
   <div class="modal-foot">
-    <p>Par CilMac et Claude Opus 5.5 · <span id="info-updated" title="Heure de Paris, notée à la dernière modification des fichiers du site">dernière modification : <time id="info-date" datetime="2026-11-28T13:05Z" data-v="76a6c4aa">28 novembre 2026 à 14:05</time></span></p>
+    <p>Par CilMac et Claude Opus 5.5 · <span id="info-updated" title="Heure de Paris, notée à la dernière modification des fichiers du site">dernière modification : <time id="info-date" datetime="2026-11-28T13:28Z" data-v="511a28a5">28 novembre 2026 à 14:28</time></span></p>
   </div>
 </dialog>
 
@@ -500,6 +500,6 @@ try { if (localStorage.getItem("meteo.home") !== "no") { document.documentElemen
   window.addEventListener("unhandledrejection", function (e) { show(String((e.reason && e.reason.message) || e.reason)); });
 })();
 </script>
-<script type="module" src="app.js?v=8eba445b"></script>
+<script type="module" src="app.js?v=e761996d"></script>
 </body>
 </html>

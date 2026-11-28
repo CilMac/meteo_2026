@@ -234,6 +234,14 @@ export function dayLabel(dateISO) {
     .format(new Date(`${dateISO}T12:00:00Z`)).replace(".", "");
 }
 export const formatLocal = (instant, tz, opts) => new Intl.DateTimeFormat("fr-FR", { timeZone: tz, ...opts }).format(instant);
+// Ligne de date sous le choix du lieu (28/11/2026) : « Samedi 28 novembre, 14:15 », à l'heure du lieu ; « …, heure de Tokyo »
+// seulement si le fuseau du lieu n'est pas celui de l'appareil (le nom du lieu est déjà dans la liste et la barre fixe).
+export function whereText(instant, tz, deviceTz, name) {
+  const day = formatLocal(instant, tz, { weekday: "long", day: "numeric", month: "long" });
+  const time = formatLocal(instant, tz, { hour: "2-digit", minute: "2-digit" });
+  const other = tz !== deviceTz;
+  return `${day.charAt(0).toUpperCase()}${day.slice(1)}, ${time}${other ? `, heure ${name ? `de ${name}` : "du lieu"}` : ""}`;
+}
 
 // Modèles des seules valeurs affichées (le lever/coucher du soleil, non affiché, ne compte pas).
 const DAILY_SHOWN = ["weatherCode", "tempMax", "tempMin", "precipSum", "precipProbMax", "windMax", "gustMax", "windDirDominant"];

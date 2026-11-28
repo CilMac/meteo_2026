@@ -7,16 +7,16 @@ import { initInfo } from "./info.js?v=ab3b754d";
 import { initBarometer, preloadDial, trendSign } from "./barometer.js?v=f58dbfb8";
 import { createSkyLayer, addDoubleTapZoom, createStationLayer } from "./skymap.js?v=8cd1dc38";
 import { parseMapPrefs, MAP_ZOOM, maxZoomFor } from "./weathermap.js?v=c631804d";
-import { initWalk } from "./walkui.js?v=24cdf977";
-import { buildHome, buildHomeNow, buildSunBand, wireHomePages, homeSteps, homeAlerts, HOME_STEPS, HOME_PAGES, homeLegend, buildLegend, homeMode, HOME_KEY } from "./home.js?v=2cb9a698";
+import { initWalk } from "./walkui.js?v=36531eeb";
+import { buildHome, buildHomeNow, buildSunBand, wireHomePages, homeSteps, homeAlerts, HOME_STEPS, HOME_PAGES, homeLegend, buildLegend, homeMode, HOME_KEY } from "./home.js?v=a3a756fd";
 import { localToMs, fetchNextHour } from "./walk.js?v=fa603674";
 import { fetchObservedPressure, fetchPressureTrend, fetchObservedStorms, stormText, fetchObservedPrecip, precipText, pressureDisplay, TREND_WORD, fetchStationsForMap, distanceKm, STORM_WORDS, metarLines } from "./observation.js?v=9b23b237";
 import { getPosition, reverseGeocode, placeFromPosition, storedGeoPlace, formatCoords, deniedHelp, GEO_ID, GEO_MAX_AGE_MS } from "./geo.js?v=b6df63a8";
 import { shouldRefresh, STALE_MS, TRY_GAP_MS, RETRY_MS, QUIET_WAIT_MS } from "./refresh.js?v=beadd3fe";
 import { createLoader } from "./loading.js?v=956b591b";
-import { makeRecord, saveRecord, loadJournal, exportText, exportName } from "./journal.js?v=2f052329";
+import { makeRecord, saveRecord, loadJournal, exportText, exportName } from "./journal.js?v=c2b8ddc4";
 import { chooseView, DEFAULT_VIEW, isIOS } from "./device.js?v=804d2636";
-import { TABS, foldTip, buildPin, buildTopPlace, buildTopNow, buildCurrent, buildHourly, buildWeek, buildTrend, buildCompact, buildMini, extremeText, COMPACT_HELP_ITEMS, buildSources, buildWarnings, buildAttribution, warningsStatus, formatLocal } from "./weather-render.js?v=374c8c64";
+import { TABS, foldTip, buildPin, buildTopPlace, buildTopNow, buildCurrent, buildHourly, buildWeek, buildTrend, buildCompact, buildMini, extremeText, COMPACT_HELP_ITEMS, buildSources, buildWarnings, buildAttribution, warningsStatus, formatLocal, whereText } from "./weather-render.js?v=a2a869ab";
 
 const $ = (id) => {
   const el = document.getElementById(id);
@@ -82,20 +82,10 @@ function selectTab(id, focus = false) {
   renderTabbed();
   if (focus) $(`tab-${id}`).focus();
 }
-// Le titre de chaque section nomme la rubrique active (précipitations, températures, vent).
-const RUBRIC = { precip: "précipitations", temp: "températures", wind: "vent" };
-function renderTitles() {
-  for (const id of ["h-24", "h-7", "h-15", "h-compact", "h-compact-15"]) {
-    const pill = $(id).querySelector(".rubric");
-    pill.textContent = RUBRIC[state.tab];
-    pill.className = `rubric fam-${state.tab}`;
-  }
-}
 // Bandeau 24 h : en changeant d'onglet (ou quand les scénarios arrivent), on reste sur les mêmes heures ; nouvelles données
 // (autre lieu, Actualiser) : retour au début. Les cases ont la même largeur dans les trois onglets, la position suffit.
 let stripScroll = { data: null, left: 0 };
 function renderTabbed() {
-  renderTitles();
   if (!state.data) return;
   const oldStrip = $("hourly").querySelector(".strip");
   if (oldStrip) stripScroll = { data: stripScroll.data, left: oldStrip.scrollLeft };
@@ -112,11 +102,12 @@ function renderTabbed() {
   $("compact-trend-fold").hidden = !compact.hasTrend;
 }
 
+// Fuseau de l'appareil : la ligne de date ne nomme l'heure du lieu que s'il est différent.
+const DEVICE_TZ = Intl.DateTimeFormat().resolvedOptions().timeZone;
 function renderAll() {
   const d = state.data;
   $("content").hidden = false;
-  $("where").textContent = `${d.location.name}${d.location.country ? ` (${d.location.country})` : ""} · fuseau ${d.location.timezone} · ` +
-    formatLocal(new Date(), d.location.timezone, { dateStyle: "full", timeStyle: "short" });
+  $("where").textContent = whereText(new Date(), d.location.timezone, DEVICE_TZ, d.location.name);
   $("current").replaceChildren(buildCurrent(d));
   // Épingle : seulement à la position actuelle (pas un lieu de la liste, ni une « dernière position connue »).
   $("top-place").replaceChildren(buildTopPlace(d, { here: state.place?.id === GEO_ID && !state.note }));
@@ -798,11 +789,15 @@ function showSelected() {
 select.addEventListener("change", () => { clearTimeout(changeTimer); changeTimer = setTimeout(showSelected, CHANGE_DELAY_MS); });
 $("form").addEventListener("submit", (ev) => { ev.preventDefault(); showSelected(); }); // Entrée dans le formulaire : tout de suite
 
-// À l'ouverture de « Autre lieu », le curseur va directement dans le champ de saisie.
-foldTip($("other"), "la recherche d'une ville");
+// « Autre lieu » (loupe, 28/11/2026) : ouvre ou ferme la recherche sous le bloc du lieu ; à l'ouverture, le curseur va dans le champ.
+function setSearch(open) {
+  $("other").hidden = !open;
+  $("search-open").setAttribute("aria-expanded", String(open));
+  if (open) $("q").focus();
+}
+$("search-open").addEventListener("click", () => setSearch($("other").hidden));
 foldTip($("baro-more"), "les explications");
 foldTip($("home-more"), "les modèles et les sources");
-$("other").addEventListener("toggle", () => { if ($("other").open) $("q").focus(); });
 
 // Recherche d'un autre lieu : géocodage, liste complète des homonymes, choix explicite.
 $("search").addEventListener("submit", async (ev) => {
@@ -824,7 +819,7 @@ $("search").addEventListener("submit", async (ev) => {
         setCustomPlace(p);
         list.replaceChildren();
         msg.textContent = "";
-        $("other").open = false;
+        setSearch(false);
         select.focus();
         showSelected();
       });

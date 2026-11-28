@@ -105,12 +105,13 @@ button, select, input { font: inherit; color: inherit; }
 .btn.nav { background: var(--navigation); border-color: var(--navigation-border); }
 
 /* A. lieu */
-.place-form { display: grid; grid-template: "label lieu lieu lieu" auto "info info baro map" auto / auto minmax(0, 1fr) auto auto; gap: 12px 10px; align-items: center; }
+.place-form { display: grid; grid-template: "lieu lieu search" auto "info baro map" auto / minmax(0, 1fr) auto auto; gap: 12px 10px; align-items: center; } /* 28/11/2026 : mot « Lieu » masqué (lecteur d'écran seulement), loupe à droite de la liste */
 .place-form label { font-weight: 600; }
 select, .search-form input { min-height: 44px; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius-control); background: var(--surface); }
 select { flex: 1 1 180px; min-width: 0; }
-.place-form label { grid-area: label; }
-#place { grid-area: lieu; }
+.place-form .place-search { grid-area: search; }
+.btn.nav-sq.place-search[aria-expanded="true"] { background: var(--help-active); border-color: var(--help-active-border); }
+#place { grid-area: lieu; min-height: 50px; } /* même hauteur que la loupe */
 .place-baro { grid-area: baro; justify-content: center; align-self: start; min-width: 142px; } /* « ≈ 1024 hPa » et « 1024 hPa » avec sa flèche tiennent */
 .place-form .place-map { grid-area: map; align-self: start; }
 #where { grid-area: info; margin: 0; font-size: 14px; align-self: start; }
@@ -127,6 +128,7 @@ details { margin-top: 12px; padding-top: 4px; border-top: 1px solid var(--line);
 summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; color: var(--summary); font-weight: 600; }
 .search-form { display: flex; gap: 8px; margin-top: 4px; }
 .search-form input { flex: 1 1 auto; min-width: 0; }
+.search-form .btn { flex: none; white-space: nowrap; } /* « Rechercher » sur une ligne, même à 320 px */
 .results { list-style: none; margin: 8px 0 0; padding: 0; }
 .results li { border-top: 1px solid var(--line); }
 .results button { width: 100%; text-align: left; background: transparent; border-color: transparent; padding: 8px 4px; }
@@ -234,10 +236,6 @@ a.official { display: inline-block; min-height: 44px; line-height: 44px; }
 
 /* titres : la rubrique active est nommée dans une pastille à sa couleur */
 h2 .h2-main { display: block; }
-.rubric { display: inline-block; margin-top: 4px; padding: 1px 10px; border: 1px solid var(--line); border-radius: 999px; font-size: 14px; font-weight: 600; line-height: 1.6; color: var(--ink); }
-.rubric.fam-precip { background: var(--precip-sel); border-color: var(--precip-border); }
-.rubric.fam-temp { background: var(--temp-sel); border-color: var(--temp-border); }
-.rubric.fam-wind { background: var(--wind-sel); border-color: var(--wind-border); }
 
 /* barre fixe : lieu + situation, puis onglets ; reste visible au défilement */
 .topbar { position: sticky; top: 0; z-index: 20; margin: 0 0 16px; padding: 8px 0 10px; background: var(--paper); box-shadow: 0 8px 8px -8px #39433033; }
@@ -252,18 +250,10 @@ h2 .h2-main { display: block; }
 
 /* « Autre lieu » : même langage que replier/déplier (pastille lavande + flèche), avec un libellé qui dit quoi faire */
 .other { border-top: 0; padding-top: 0; margin-top: 14px; }
-.other > summary { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 14px; list-style: none; border: 1px solid var(--help-border); border-radius: var(--radius-control); background: var(--help); color: var(--ink); font-weight: 600; }
-.other > summary::-webkit-details-marker { display: none; }
-.other > summary:hover { filter: brightness(.96); }
-.other > summary::after { content: "▾"; margin-left: auto; font-size: 18px; }
-.other[open] > summary { background: var(--help-active); border-color: var(--help-active-border); }
-.other[open] > summary::after { content: "▴"; }
-.summary-hint { font-weight: 400; font-size: 14px; color: var(--muted); }
-.other .search-form { margin-top: 10px; }
-@media (max-width: 420px) { .summary-hint { display: none; } }
+.other .search-form { margin-top: 0; }
 
 /* en-tête de page + bouton d'information (pastille ronde lavande) */
-.page-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.page-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; } /* sous-titre retiré le 28/11/2026 */
 
 /* fenêtre d'information : fond crème, rayon 16 px, ombre de superposition ; titre et « Fermer » restent visibles */
 dialog.modal { width: min(780px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); margin: auto; padding: 0; border: 1px solid var(--line); border-radius: var(--radius-panel); background: var(--surface); color: var(--ink); box-shadow: 0 16px 70px #1d302c35; overflow: hidden; }
@@ -386,8 +376,7 @@ dialog.extreme-modal { width: min(440px, calc(100vw - 24px)); }
 .is-compact #hourly-card { padding: 12px 14px; }
 .is-compact #hourly-card h2 { margin-bottom: 6px; }
 .is-compact #hourly-card h2 .h2-main { display: inline; margin-right: 6px; font-size: 17px; }
-.is-compact #hourly-card .rubric { margin-top: 0; }
-.is-compact .strip { gap: 6px; padding-bottom: 4px; }
+.is-compact #hourly-card .is-compact .strip { gap: 6px; padding-bottom: 4px; }
 .is-compact .hcell { flex-basis: 58px; padding: 5px 2px; } /* 58 px : « 0,4 mm » tient sur une ligne */
 .is-compact .hicon { font-size: 1.15rem; }
 .is-compact .vbar-box { height: 26px; margin: 1px 0; }
