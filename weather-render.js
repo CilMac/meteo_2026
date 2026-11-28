@@ -78,7 +78,9 @@ export function outlookSpan(firstTime, lastTime, today) {
   return `entre ${a} et ${a.startsWith("demain ") && b.startsWith("demain ") ? b.slice("demain ".length) : b}`;
 }
 
-export const RISK_PCT = 30; // 0 mm prévu mais risque signalé à partir de cette probabilité (page principale et écran d'accueil)
+export const RISK_PCT = 30; // 0 mm prévu mais « pluie possible » à partir de cette probabilité (page principale et écran d'accueil)
+export const LIKELY_PCT = 70; // « pluie probable » à partir de cette probabilité (28/11/2026, choix de l'utilisateur ; seuils propres à l'application)
+export const probWord = (p) => (p >= LIKELY_PCT ? "probable" : "possible");
 // Phrase pratique sur les 24 h ; null si aucune donnée de pluie. Pas de conseil de sortie (hors V1).
 // `today` : date locale de la situation actuelle ; sans elle, aucun « demain » n'est ajouté.
 export function rainOutlook(hours, today = null) {
@@ -92,14 +94,33 @@ export function rainOutlook(hours, today = null) {
     // Chaque valeur couvre l'heure qui se termine à l'heure de sa ligne : la pluie commence au plus tôt une heure avant la première.
     return `Pluie attendue ${outlookSpan(wet[0].time, wet[wet.length - 1].time, today)} (environ ${num1(total)} mm au total).`;
   }
+  // « Sec » seulement si aucune goutte n'est attendue (0 mm à chaque heure) : 0,1 mm = quelques gouttes (règle de l'utilisateur, 28/11/2026).
+  const drops = withPrecip.filter((h) => h.precip.value > 0);
+  if (drops.length) {
+    const total = drops.reduce((s, h) => s + h.precip.value, 0);
+    return `Au plus quelques gouttes ${outlookSpan(drops[0].time, drops[drops.length - 1].time, today)} (${num1(total)} mm au total).`;
+  }
+  if (withPrecip.length < hours.length) return "Données de pluie incomplètes sur cette période."; // une heure inconnue : jamais « sec »
   const best = probs.reduce((m, h) => (!m || h.precipProb.value > m.precipProb.value ? h : m), null);
-  if (best && best.precipProb.value >= RISK_PCT) return `Pas de pluie prévue en quantité, mais risque le plus marqué ${outlookSpan(best.time, best.time, today)} (${num0(best.precipProb.value)} %).`;
-  if (withPrecip.length < hours.length * 0.9) return "Données de pluie incomplètes sur cette période.";
-  return "Pas de pluie attendue dans les 24 prochaines heures.";
+  if (best && best.precipProb.value >= RISK_PCT) return `Sec, mais pluie ${probWord(best.precipProb.value)} ${outlookSpan(best.time, best.time, today)} (${num0(best.precipProb.value)} %).`;
+  return "Sec sur les 24 prochaines heures.";
 }
 
 const COMPASS = ["N", "NE", "E", "SE", "S", "SO", "O", "NO"];
 export const compass = (d) => (isNum(d) ? COMPASS[Math.round((((d % 360) + 360) % 360) / 45) % 8] : null);
+// Vent (26/11/2026) : d'où il vient, en 8 directions (« vent d'est »). La girouette, elle, pointe vers où il va, nord en haut.
+const FROM8 = ["du nord", "du nord-est", "d'est", "du sud-est", "du sud", "du sud-ouest", "d'ouest", "du nord-ouest"];
+export const windFrom = (deg) => (isNum(deg) ? FROM8[Math.round((((deg % 360) + 360) % 360) / 45) % 8] : null);
+// Girouette : flèche à empennage dessinée vers le sud, tournée de la direction d'où vient le vent (convention de la carte :
+// la pointe va où va le vent ; nord en haut). Sans direction connue, rien n'est dessiné. Écran d'accueil, page, vue 12 h (28/11/2026).
+const VANE = "M12 3.5v17M12 20.5l-3.5-4.5M12 20.5l3.5-4.5M12 3.5l-3-2.5M12 6.5l-3-2.5M12 3.5l3-2.5M12 6.5l3-2.5";
+export function vane(dir, small = false) {
+  if (!isNum(dir)) return null;
+  const ns = "http://www.w3.org/2000/svg", svg = document.createElementNS(ns, "svg"), path = document.createElementNS(ns, "path");
+  svg.setAttribute("viewBox", "0 0 24 24"); svg.setAttribute("class", `vane${small ? " is-small" : ""}`); svg.setAttribute("focusable", "false"); svg.setAttribute("aria-hidden", "true");
+  path.setAttribute("d", VANE); path.style.transform = `rotate(${Math.round(dir)}deg)`; svg.append(path);
+  return svg;
+}
 
 // Provenance d'un groupe de valeurs : un seul libellé si tous les champs viennent du même modèle, sinon détail par champ.
 export function modelsLine(item, fields) {
@@ -120,14 +141,43 @@ export function tempColor(t) {
   return `hsl(${Math.round(225 - ((x + 5) / 40) * 195)}, 48%, 58%)`; // teintes adoucies (charte pastel)
 }
 
+// Mot d'un jour pour le résumé (28/11/2026) : « pluie probable » dès LIKELY_PCT, « pluie possible » dès RISK_PCT ; en dessous, avec de l'eau :
+// « quelques gouttes » sous 1 mm, « pluie peu probable » à partir de 1 mm (ou « pluie » sans probabilité). 0 mm et moins de RISK_PCT : non cité.
+export function rainDayWord(mm, p) {
+  if (isNum(p) && p >= RISK_PCT) return `pluie ${probWord(p)}`;
+  if (!isNum(mm) || mm <= 0) return null;
+  if (mm < 1) return "quelques gouttes";
+  return isNum(p) ? "pluie peu probable" : "pluie";
+}
+const joinFr = (a) => (a.length < 2 ? a.join("") : `${a.slice(0, -1).join(", ")} et ${a[a.length - 1]}`);
+// Jours cités d'un groupe, regroupés par mot, chacun avec ses chiffres : « pluie possible mer 02/12 (0,7 mm, 63 %) et jeu 03/12 (4,1 mm, 61 %) ».
+// Plus de deux jours : les deux plus marqués (probabilité, puis quantité), suivis de « … ».
+function citeRainDays(days) {
+  const cited = days.map((d) => ({ d, word: rainDayWord(d.precipSum.value, d.precipProbMax?.value) })).filter((x) => x.word);
+  if (!cited.length) return null;
+  const mark = (x) => (x.d.precipProbMax?.value ?? 0) * 1000 + (x.d.precipSum.value ?? 0);
+  const kept = cited.length > 2 ? [...cited].sort((a, b) => mark(b) - mark(a)).slice(0, 2).sort((a, b) => a.d.dayIndex - b.d.dayIndex) : cited;
+  const nums = (d) => [isNum(d.precipSum.value) ? `${num1(d.precipSum.value)}\u00a0mm` : null, isNum(d.precipProbMax?.value) ? `${num0(d.precipProbMax.value)}\u00a0%` : null].filter(Boolean).join(", ");
+  const groups = [];
+  for (const x of kept) { const g = groups.find((y) => y.word === x.word); if (g) g.items.push(x); else groups.push({ word: x.word, items: [x] }); }
+  return groups.map((g) => `${g.word} ${joinFr(g.items.map((x) => `${dayLabel(x.d.date)} (${nums(x.d)})`))}`).join(", ") + (cited.length > 2 ? ", …" : "");
+}
+const capFirst = (t) => t[0].toUpperCase() + t.slice(1);
+// Résumé des 7 jours : températures, puis la pluie jour par jour (aujourd'hui à J+3, puis « Moins fiable : » J+4 à J+6), jamais « sec » avec de l'eau.
 export function weekSummary(days) {
-  const solid = days.filter((d) => !d.trend);
   const maxes = days.map((d) => d.tempMax.value).filter(isNum);
   const parts = [];
   if (maxes.length) parts.push(`Maximales de ${num0(Math.min(...maxes))} à ${num0(Math.max(...maxes))} °C sur la période.`);
-  const wet = solid.filter((d) => d.dayIndex <= RAIN_MM_UNTIL && d.precipSum.value >= 2);
-  if (wet.length) parts.push(`Pluie la plus notable : ${wet.map((d) => dayLabel(d.date)).join(", ")}.`);
-  else if (solid.some((d) => isNum(d.precipSum.value))) parts.push("Pas de pluie notable sur les jours les plus fiables.");
+  const near = days.filter((d) => d.dayIndex <= RAIN_MM_UNTIL), far = days.filter((d) => d.dayIndex > RAIN_MM_UNTIL);
+  const allDry = (list) => list.length > 0 && list.every((d) => d.precipSum.value === 0 && !(d.precipProbMax?.value >= RISK_PCT));
+  const a = citeRainDays(near), b = citeRainDays(far);
+  if (!a && !b && allDry(days)) parts.push(`Sec sur les ${days.length} jours.`);
+  else {
+    if (a) parts.push(`${capFirst(a)}.`);
+    else if (allDry(near)) parts.push(near.length > 1 ? `Sec jusqu'à ${dayLabel(near[near.length - 1].date)}.` : "Sec aujourd'hui.");
+    if (b) parts.push(`Moins fiable : ${b}.`);
+    if ([...near, ...far].some((d) => !isNum(d.precipSum.value))) parts.push("Pluie inconnue certains jours.");
+  }
   if (days.some((d) => d.trend)) parts.push("Les derniers jours sont une tendance : à confirmer.");
   return parts.join(" ");
 }
@@ -233,9 +283,12 @@ export function buildCurrent(data, now = new Date()) {
     h("p", { class: "muted small cur-note-short", text: c.time ? `Valeurs calculées pour ${hourLabel(c.time)} (modèle).` : "Heure de la situation indisponible." }),
     buildSun(sunTimes(c.time ? c.time.slice(0, 10) : d0.date, data.daily)),
     h("div", { class: "cur-grid" },
-      stat("precip", "Risque de pluie (max horaire du jour)", "Risque de pluie", isNum(d0.precipProbMax.value) ? `${num0(d0.precipProbMax.value)} %` : "—", modelsLine(d0, [["", "precipProbMax"]])),
+      // « Probabilité » partout (28/11/2026) ; le chiffre est le maximum horaire du jour, pas celui de l'heure : dit sous la valeur.
+      stat("precip", "Probabilité de pluie", "Probabilité", isNum(d0.precipProbMax.value) ? `${num0(d0.precipProbMax.value)} %` : "—", modelsLine(d0, [["", "precipProbMax"]]), "max horaire du jour"),
       stat("temp", "Min / max du jour", "Min / max", `${deg(d0.tempMin.value)}\u00a0/ ${deg(d0.tempMax.value)}`, modelsLine(d0, [["min", "tempMin"], ["max", "tempMax"]])),
-      stat("wind", "Vent actuel · rafales", "Vent · raf.", `${num0(c.wind)}\u00a0· ${num0(c.gust)}\u00a0km/h`, "")),
+      // Vent écrit comme sur l'écran d'accueil (28/11/2026) : girouette, « 12 km/h », puis « raf. 25 · vent du sud-est ».
+      stat("wind", "Vent actuel", "Vent", [vane(c.windDir, true), `${num0(c.wind)}\u00a0km/h`], "",
+        `raf.\u00a0${num0(c.gust)}${windFrom(c.windDir) ? ` · vent ${windFrom(c.windDir)}` : ""}`)),
     outlook ? h("p", { class: "outlook", text: outlook }) : null);
 }
 function buildSun(sun) {
@@ -243,9 +296,12 @@ function buildSun(sun) {
   return h("p", { class: "muted small cur-sun", title: "Lever et coucher du soleil aujourd'hui, à l'heure du lieu" },
     sun.polar ?? [one("rise", "Lever", sun.rise), " ", one("set", "Coucher", sun.set)]);
 }
-function stat(family, label, shortLabel, value, model) {
+// value : texte, ou liste de nœuds (girouette + texte) ; sub : précision toujours visible sous la valeur.
+function stat(family, label, shortLabel, value, model, sub = null) {
   return h("div", { class: `stat fam-${family}` },
-    h("div", { class: "muted small stat-label" }, h("span", { class: "l-long", text: label }), h("span", { class: "l-short", text: shortLabel })), h("div", { class: "stat-val", text: value }), model ? h("div", { class: "tag", text: model }) : null);
+    h("div", { class: "muted small stat-label" }, h("span", { class: "l-long", text: label }), h("span", { class: "l-short", text: shortLabel })),
+    Array.isArray(value) ? h("div", { class: "stat-val" }, ...value) : h("div", { class: "stat-val", text: value }),
+    sub ? h("div", { class: "muted small stat-sub", text: sub }) : null, model ? h("div", { class: "tag", text: model }) : null);
 }
 
 // Épingle rouge = position actuelle de l'appareil, et rien d'autre (page principale et vue 🥾).
@@ -298,6 +354,7 @@ export function miniRows(data, n = MINI_HOURS) {
     temp: deg(x.temp.value),
     wind: isNum(x.wind.value) ? `${num0(x.wind.value)} km/h` : "— km/h",
     gust: isNum(x.gust.value) ? `raf. ${num0(x.gust.value)}` : "raf. —",
+    dir: isNum(x.windDir?.value) ? x.windDir.value : null,
     };
   });
 }
@@ -322,7 +379,7 @@ export function buildMini(data, n = MINI_HOURS, { walk = false } = {}) {
         h("strong", { text: r.precip })),
       h("td", {}, h("strong", { text: r.prob }), hbar(r.probPct, "var(--rain)")),
       h("td", {}, h("strong", { text: r.temp }), hbar(r.tempPct, r.tempColor)),
-      h("td", {}, h("strong", { text: r.wind }), h("span", { class: "mini-sub", text: r.gust }),
+      h("td", {}, h("strong", { text: r.wind }), h("span", { class: "mini-sub" }, vane(r.dir, true), isNum(r.dir) ? h("span", { class: "sr-only", text: `vent ${windFrom(r.dir)}, ` }) : null, r.gust),
         h("div", { class: "hbar-box" },
           isNum(r.gustPct) ? h("div", { class: "hbar", style: { width: `${minVisible(r.gustPct)}%`, background: "var(--wind-2)" } }) : null,
           isNum(r.windPct) ? h("div", { class: "hbar over", style: { width: `${minVisible(r.windPct)}%`, background: "var(--wind)" } }) : null))))));
@@ -460,7 +517,7 @@ export function compactValue(v, tab) {
     return `${isNum(v.mm) ? `${num1(v.mm)} mm` : "—"}${isNum(v.pct) ? ` · ${num0(v.pct)} %` : ""}`;
   }
   if (tab === "temp") return `${deg(v.tmin)} / ${deg(v.tmax)}`;
-  return `vent ${num0(d.windMax.value)} · raf. ${num0(d.gustMax.value)} km/h`;
+  return `${num0(d.windMax.value)}\u00a0km/h raf.\u00a0${num0(d.gustMax.value)}`; // lexique du 28/11/2026 : comme l'écran d'accueil
 }
 export const COMPACT_SEP_TEXT = "Dès J+4 : fiabilité en baisse.";
 // Note en tête des jours 8 à 15 (vue compacte) : d'où viennent les valeurs dès J+8, d'après ce qui est réellement affiché.
@@ -525,8 +582,9 @@ function buildPeriod(days, tab, { sectionLabel, summary, ensemble }) {
       bar = h("div", { class: "hbar-box" },
         isNum(d.gustMax.value) ? h("div", { class: "hbar", style: { width: `${minVisible(barPct(d.gustMax.value, wMax))}%`, background: "var(--wind-2)" } }) : null,
         isNum(d.windMax.value) ? h("div", { class: "hbar over", style: { width: `${minVisible(barPct(d.windMax.value, wMax))}%`, background: "var(--wind)" } }) : null);
-      const dir = compass(d.windDirDominant.value);
-      value = `vent max ${num0(d.windMax.value)} · rafales max ${num0(d.gustMax.value)} km/h${dir ? ` · secteur ${dir}` : ""}`;
+      // Même forme que la situation actuelle (28/11/2026) : « max 20 km/h raf. 45 », girouette et direction dominante en mots.
+      const from = windFrom(d.windDirDominant.value);
+      value = [vane(d.windDirDominant.value, true), `max ${num0(d.windMax.value)} km/h raf. ${num0(d.gustMax.value)}${from ? ` · vent ${from}` : ""}`];
       tag.push(modelsLine(d, [["vent", "windMax"], ["rafales", "gustMax"]]));
       if (gustBelowWind(d)) tag.push("⚠ rafales max < vent max : écart de la source, non corrigé");
       if (d.dayIndex >= ENSEMBLE_MEDIAN_FROM) tag.push("un seul scénario"); // pas de dispersion pour le vent
@@ -538,7 +596,7 @@ function buildPeriod(days, tab, { sectionLabel, summary, ensemble }) {
     list.append(h("li", { class: "day" },
       h("div", { class: "dname" }, dayName(d, tab)),
       h("div", { class: "dicon", "aria-hidden": "true", title: info.label, text: info.icon }),
-      bar, h("div", { class: "dval", text: value }), h("div", { class: "tag dmodel", text: tag.filter(Boolean).join(" · ") })));
+      bar, Array.isArray(value) ? h("div", { class: "dval" }, ...value) : h("div", { class: "dval", text: value }), h("div", { class: "tag dmodel", text: tag.filter(Boolean).join(" · ") })));
   }
   wrap.append(list);
   wrap.append(howTo(sectionLabel, howToItems(tab, {
@@ -631,7 +689,10 @@ export function buildCompact(data, tab, ensemble) {
         list.append(h("li", { class: "compact-day" },
           h("span", { class: "c-name" }, dayName(d, tab)),
           h("span", { class: "c-icon", "aria-hidden": "true", title: info.label, text: info.icon }),
-          bar, h("span", { class: "c-val", text: compactValue(v, tab) })));
+          bar, tab === "wind"
+            // girouette de la direction dominante (sa direction en mots, pour le lecteur d'écran ; trop longue pour la ligne)
+            ? h("span", { class: "c-val" }, vane(d.windDirDominant.value, true), windFrom(d.windDirDominant.value) ? h("span", { class: "sr-only", text: `vent ${windFrom(d.windDirDominant.value)}, ` }) : null, compactValue(v, tab))
+            : h("span", { class: "c-val", text: compactValue(v, tab) })));
       }
     });
     return list;
@@ -679,8 +740,11 @@ export function trendSummary(days, ensemble) {
   if (!withEns.length && !single.length) parts.push("Aucune donnée de pluie disponible sur cette période.");
   else if (!withEns.length) {
     // Sans scénarios : seulement la valeur d'un seul scénario, classée.
-    if (wetSingle.length) parts.push(`Épisodes de pluie possibles : ${wetSingle.map((d) => `${dayLabel(d.date)} (${d.precipClass})`).join(", ")} ; ${single.filter((d) => d.precipClass === "sec").length} jour(s) sur ${single.length} plutôt secs.`);
-    else parts.push(`Plutôt sec : ${single.filter((d) => d.precipClass === "sec").length} jour(s) sur ${single.length} sans pluie notable.`);
+    // « Sec » = 0 mm (28/11/2026 : 0,1 mm n'est jamais « sec ») ; les classes faible / modéré / fort restent celles de rainClass.
+    const dry = single.filter((d) => d.precipSum?.value === 0).length, n = single.length;
+    const dryText = dry === n ? `sec les ${n} jours` : dry ? `sec ${dry} jour${dry > 1 ? "s" : ""} sur ${n}` : "aucun jour sec";
+    if (wetSingle.length) parts.push(`Épisodes de pluie possibles : ${wetSingle.map((d) => `${dayLabel(d.date)} (${d.precipClass})`).join(", ")} ; ${dryText}.`);
+    else parts.push(dry === n ? `Sec les ${n} jours.` : `Au plus de la pluie faible ; ${dryText}.`);
   } else {
     const bits = [];
     if (likely.length) bits.push(`pluie plus probable que non (au moins la moitié des scénarios) : ${likely.map((d) => dayLabel(d.date)).join(", ")}`);

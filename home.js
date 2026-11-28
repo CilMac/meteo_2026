@@ -1,9 +1,9 @@
 // Écran d'accueil (25/11/2026) : l'essentiel des 4 heures à venir à la position de l'appareil. Calculs (testés) puis construction de l'écran.
 // Tout le texte est écrit par textContent ; une donnée absente est « — », jamais 0.
-import { STEP_MS, stepKind, mmPerHour, GUST_WARN, LEVEL_WORD, localToMs } from "./walk.js?v=dbfc9474";
+import { STEP_MS, stepKind, mmPerHour, GUST_WARN, LEVEL_WORD, localToMs } from "./walk.js?v=fa603674";
 import { trendSign } from "./barometer.js?v=f58dbfb8";
 import { next24h, modelShort } from "./weather-provider.js?v=afd8726c";
-import { EXTREME, MINI_MM_FULL, RISK_PCT, minVisible, outlookSpan, isNum, num0, num1, deg, weatherInfo, isNight, sunTimes, hourLabel, extremeOf, modelsOf } from "./weather-render.js?v=8a4c0223";
+import { EXTREME, MINI_MM_FULL, RISK_PCT, LIKELY_PCT, probWord, vane, windFrom, minVisible, outlookSpan, isNum, num0, num1, deg, weatherInfo, isNight, sunTimes, hourLabel, extremeOf, modelsOf } from "./weather-render.js?v=374c8c64";
 
 export const HOME_HOURS = 4;
 export const HOME_STEPS = HOME_HOURS * 4; // pas de 15 minutes
@@ -11,12 +11,12 @@ export const HOME_STEPS = HOME_HOURS * 4; // pas de 15 minutes
 export const HOME_PAGES = 3;
 
 // Au lancement : « go » (écran, position cherchée aussitôt), « ask » (écran d'invitation : la demande de position ne surgit qu'au toucher
-// d'un bouton, pour qui n'a jamais donné sa position), « none » (page habituelle : ordinateur, tablette autre qu'iPad, ou position refusée ou déclinée sur cet appareil).
-// mobile : téléphone (PHONE_QUERY) ou appareil iOS, iPad compris (device.js). flag : « ok » | « no » | null (meteo.home) ; used : la position a déjà servi ici (relevés, « Ma position ») ; forced : adresse « ?accueil ».
-export const HOME_KEY = "meteo.home", PHONE_QUERY = "(max-width: 500px) and (pointer: coarse)";
-export function homeMode({ forced = false, mobile = false, flag = null, used = false } = {}) {
+// d'un bouton, pour qui n'a jamais donné sa position), « none » (page habituelle : position refusée ou déclinée sur cet appareil).
+// Sur tous les appareils (28/11/2026, avant : téléphone et iOS seulement). flag : « ok » | « no » | null (meteo.home) ; used : la position a déjà servi ici (relevés, « Ma position ») ; forced : adresse « ?accueil ».
+export const HOME_KEY = "meteo.home";
+export function homeMode({ forced = false, flag = null, used = false } = {}) {
   if (forced) return "go";
-  if (!mobile || flag === "no") return "none";
+  if (flag === "no") return "none";
   return flag === "ok" || used ? "go" : "ask";
 }
 
@@ -53,7 +53,7 @@ function wetWords(steps) {
 // La phrase de l'écran : un titre et une précision. Les heures sont celles d'un modèle par quart d'heure, pas d'un radar : « vers ».
 // Jamais « avant 15:45 » ni « jusqu'à 15:45 » pour la fin des 4 heures : on lirait que la pluie commence à ce moment-là.
 // nowCode : type de temps affiché en haut ; s'il annonce de la bruine, la phrase ne dit pas « sec » juste dessous.
-// risk : texte de homeRisk, ou null ; 0 mm mais une probabilité notable : la phrase ne dit plus « sec » sans réserve.
+// risk : { pct, text } de homeRisk, ou null ; 0 mm mais une probabilité notable : « Sec, mais pluie possible » (ou « probable » dès LIKELY_PCT).
 export function rainPhrase(steps, fmtTime, nowCode = null, risk = null) {
   const total = rainTotal(steps);
   if (total === null) return { tone: "unknown", title: "Pluie inconnue sur ces 4 heures", detail: "Données incomplètes." };
@@ -62,7 +62,7 @@ export function rainPhrase(steps, fmtTime, nowCode = null, risk = null) {
   if (!runs.length) {
     return nowCode >= WET_CODE || steps.some((x) => x.mm > 0 || x.code >= WET_CODE)
       ? { tone: "dry", title: "Au plus quelques gouttes", detail: `${mm} prévu${s} en 4 heures.` }
-      : risk ? { tone: "dry", title: "Sec, mais pluie possible", detail: `0\u00a0mm prévu de ${at(0)} à ${end4}. ${risk}` }
+      : risk ? { tone: "dry", title: `Sec, mais pluie ${probWord(risk.pct)}`, detail: `0\u00a0mm prévu de ${at(0)} à ${end4}. ${risk.text}` }
       : { tone: "dry", title: "Sec pendant 4 heures", detail: `Aucune pluie prévue de ${at(0)} à ${end4}.` };
   }
   const what = wetWords(steps), start = runs[0][0], end = runs[runs.length - 1][1], until = end < n ? at(end) : null;
@@ -102,11 +102,13 @@ export function homeAlerts(data, steps, fmtTime) {
   return out;
 }
 
-// « Risque le plus marqué entre 14 h et 15 h (57 %). » si l'une des 4 heures de la page atteint RISK_PCT (même seuil et mêmes mots que la page principale).
+// { pct: 57, text: « Probabilité la plus forte entre 14 h et 15 h (57 %). » } si l'une des 4 heures de la page atteint RISK_PCT
+// (même seuil et mêmes mots que la page principale, lexique du 28/11/2026).
 export function homeRisk(data, page = 0) {
   const best = next24h(data).slice(page * HOME_HOURS, (page + 1) * HOME_HOURS).filter((x) => isNum(x.precipProb?.value)).reduce((m, x) => (!m || x.precipProb.value > m.precipProb.value ? x : m), null);
   if (!best || best.precipProb.value < RISK_PCT) return null;
-  return `Risque le plus marqué ${outlookSpan(best.time, best.time, data.current.time ? data.current.time.slice(0, 10) : null)} (${num0(best.precipProb.value)}\u00a0%).`;
+  const pct = best.precipProb.value;
+  return { pct, text: `Probabilité la plus forte ${outlookSpan(best.time, best.time, data.current.time ? data.current.time.slice(0, 10) : null)} (${num0(pct)}\u00a0%).` };
 }
 
 // Valeur hors du commun (en rouge) : mêmes seuils que la pastille rouge des jours, comparés à la valeur affichée (arrondie).
@@ -127,9 +129,8 @@ export function homeHours(data, count = HOME_HOURS) {
   });
 }
 
-// Vent (26/11/2026) : d'où il vient, en 8 directions (« vent d'est »). La girouette, elle, pointe vers où il va, nord en haut.
-const FROM8 = ["du nord", "du nord-est", "d'est", "du sud-est", "du sud", "du sud-ouest", "d'ouest", "du nord-ouest"];
-export const windFrom = (deg) => (isNum(deg) ? FROM8[Math.round((((deg % 360) + 360) % 360) / 45) % 8] : null);
+// Vent : windFrom et la girouette (vane) sont dans weather-render.js depuis le 28/11/2026, communs à toutes les vues.
+export { windFrom };
 
 // Lever ou coucher du soleil compris dans l'heure qui s'achève à `time` (même convention que la pluie : la colonne « 17 h » couvre
 // 16 h → 17 h, donc un coucher à 16:48 y tombe). Heures locales du lieu, comparées comme textes « AAAA-MM-JJTHH:MM ».
@@ -215,17 +216,6 @@ const el = (tag, cls, ...children) => {
 };
 const hidden = (e) => { e.setAttribute("aria-hidden", "true"); return e; };
 const link = (href, text) => { const a = el("a", "", text); a.href = href; a.rel = "noopener"; return a; };
-
-// Girouette : flèche à empennage dessinée vers le sud, tournée de la direction d'où vient le vent (convention de la carte :
-// la pointe va où va le vent ; nord en haut). Sans direction connue, rien n'est dessiné.
-const VANE = "M12 3.5v17M12 20.5l-3.5-4.5M12 20.5l3.5-4.5M12 3.5l-3-2.5M12 6.5l-3-2.5M12 3.5l3-2.5M12 6.5l3-2.5";
-function vane(dir, small = false) {
-  if (!isNum(dir)) return null;
-  const ns = "http://www.w3.org/2000/svg", svg = document.createElementNS(ns, "svg"), path = document.createElementNS(ns, "path");
-  svg.setAttribute("viewBox", "0 0 24 24"); svg.setAttribute("class", `vane${small ? " is-small" : ""}`); svg.setAttribute("focusable", "false");
-  path.setAttribute("d", VANE); path.style.transform = `rotate(${Math.round(dir)}deg)`; svg.append(path);
-  return hidden(svg);
-}
 
 // Légende des bâtons : ce qu'ils mesurent, et ce que vaut un bâton plein (ou le rouge, dès qu'il y en a un).
 function barsCaption(steps) {
@@ -442,7 +432,7 @@ export function homeLegend(data, steps) {
         { sym: "wind", text: "Vent actuel\u00a0: vitesse, rafales, direction d'où il vient", sub: "Girouette\u00a0: pointe vers où va le vent, nord en haut. Petite girouette des heures\u00a0: direction à l'heure dite. Toucher la pastille du vent\u00a0: carte, calque «\u00a0Vent\u00a0» allumé." } ] },
       { title: "Pluie par quart d'heure", note: "12 heures, 4 par page, en mm", rows: [
         { sym: "bars", text: `Échelle fixe\u00a0: barre pleine = ${full}, soit ${MINI_MM_FULL}\u00a0mm/h`, sub: "Grise\u00a0: 0\u00a0mm. Rouge\u00a0: échelle dépassée. «\u00a0—\u00a0»\u00a0: donnée absente." },
-        { sym: "risk", text: `«\u00a0Sec, mais pluie possible\u00a0»\u00a0: cumul prévu nul, probabilité d'au moins ${RISK_PCT}\u00a0% dans l'une des 4\u00a0heures de la page` }] },
+        { sym: "risk", text: `«\u00a0Sec, mais pluie possible\u00a0»\u00a0: cumul prévu nul, probabilité d'au moins ${RISK_PCT}\u00a0% dans l'une des 4\u00a0heures de la page`, sub: `«\u00a0probable\u00a0» à partir de ${LIKELY_PCT}\u00a0%. «\u00a0Sec\u00a0» seulement avec 0\u00a0mm à chaque quart d'heure et aucune bruine annoncée\u00a0; sinon «\u00a0Au plus quelques gouttes\u00a0».` }] },
       { title: "Prévision horaire", note: "12 prochaines heures, 4 par page", rows: [
         { sym: "swipe", text: "Glisser la pluie ou les heures vers la gauche\u00a0: 4 heures suivantes (3 pages)", sub: "Les deux tuiles glissent ensemble. «\u00a01/3\u00a0», en haut à droite de la pluie\u00a0: numéro de la page. Chevrons aux deux bords de cette ligne, quand il y a une page de ce côté\u00a0: y mènent au toucher." },
         { sym: "hour", text: "Température et ciel à 16\u00a0h\u00a0; précipitations et rafales de 15\u00a0h à\u00a016\u00a0h", sub: "Heure soulignée\u00a0: la toucher ouvre «\u00a0Balade\u00a0?\u00a0» pour un départ à cette heure-là (première colonne\u00a0: dans l'heure)." },

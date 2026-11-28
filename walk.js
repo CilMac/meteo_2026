@@ -262,13 +262,13 @@ export function walkAdvice(rows, ctx = {}, now = Date.now()) {
   }
   if (!anyWet) {
     // Bruine ou gouttes annoncées sans cumul notable (type de temps ≥ 51, ou un peu d'eau sous le seuil de 0,1 mm par quart d'heure) :
-    // jamais « pas une goutte » (même règle que l'écran d'accueil, 26/11/2026 : bruine vécue un matin où tout était « au vert »).
+    // jamais « sec » (même règle que l'écran d'accueil, 26/11/2026 : bruine vécue un matin où tout était « au vert »).
     const drops = steps.some((s) => s.mm > 0 || (isNum(s.code) && s.code >= DROPS_CODE));
     if (danger) return out("caution", "Pas de pluie, mais des conditions difficiles", `${drops ? "Au plus quelques gouttes ou un peu de bruine dans l'heure qui suit" : "Aucune précipitation prévue dans l'heure qui suit"}, mais lisez attentivement les remarques ci-dessous avant de partir.`);
     if (observedWet && !drops) return out("light", "Rien de prévu, mais observé à proximité", "Les modèles ne prévoient aucune précipitation dans l'heure qui suit, mais une station d'aéroport proche en signale en ce moment (ci-dessous) : prévoyez une veste.");
     return drops
       ? out("light", "Au plus quelques gouttes", "Les modèles annoncent un peu de bruine ou quelques gouttes dans l'heure qui suit, sans cumul notable. Rien qui empêche de marcher ; une veste suffit.")
-      : out("go", "Pas une goutte en vue", "Aucune précipitation prévue dans l'heure qui suit : vous pouvez partir vous promener.");
+      : out("go", "Sec dans l'heure", "Aucune précipitation prévue dans l'heure qui suit (0 mm à chaque quart d'heure, aucune bruine annoncée) : vous pouvez partir vous promener.");
   }
 
   const first = wet.indexOf(true), last = wet.lastIndexOf(true);

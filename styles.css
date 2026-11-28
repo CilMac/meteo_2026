@@ -105,19 +105,20 @@ button, select, input { font: inherit; color: inherit; }
 .btn.nav { background: var(--navigation); border-color: var(--navigation-border); }
 
 /* A. lieu */
-.place-form { display: grid; grid-template: "label lieu actu" auto "info info baro" auto / auto minmax(0, 1fr) auto; gap: 12px 10px; align-items: center; }
+.place-form { display: grid; grid-template: "label lieu lieu lieu" auto "info info baro map" auto / auto minmax(0, 1fr) auto auto; gap: 12px 10px; align-items: center; }
 .place-form label { font-weight: 600; }
 select, .search-form input { min-height: 44px; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius-control); background: var(--surface); }
 select { flex: 1 1 180px; min-width: 0; }
 .place-form label { grid-area: label; }
 #place { grid-area: lieu; }
-#refresh { grid-area: actu; min-width: 142px; } /* même largeur que la pression, l'un sous l'autre (« ≈ 1024 hPa » et « 1024 hPa » avec sa flèche tiennent) */
-.place-baro { grid-area: baro; justify-content: center; align-self: start; }
+.place-baro { grid-area: baro; justify-content: center; align-self: start; min-width: 142px; } /* « ≈ 1024 hPa » et « 1024 hPa » avec sa flèche tiennent */
+.place-form .place-map { grid-area: map; align-self: start; }
 #where { grid-area: info; margin: 0; font-size: 14px; align-self: start; }
-@media (max-width: 450px) { /* téléphone : Lieu + liste, puis Actualiser et pression côte à côte, puis le texte */
+@media (max-width: 450px) { /* téléphone : Lieu + liste, puis pression et carte côte à côte, puis le texte */
   .place-form { display: flex; flex-wrap: wrap; gap: 10px; }
   #place { flex-basis: calc(100% - 60px); }
-  #refresh, .place-baro { flex: 1 1 0; min-width: auto; align-self: stretch; padding-inline: 6px; white-space: nowrap; }
+  .place-baro { flex: 1 1 0; min-width: auto; align-self: stretch; padding-inline: 6px; white-space: nowrap; }
+  .place-form .place-map { margin-left: auto; } /* reste à droite tant que la pression n'est pas arrivée */
   #where { flex-basis: 100%; }
 }
 
@@ -251,13 +252,6 @@ h2 .h2-main { display: block; }
 
 /* « Autre lieu » : même langage que replier/déplier (pastille lavande + flèche), avec un libellé qui dit quoi faire */
 .other { border-top: 0; padding-top: 0; margin-top: 14px; }
-/* « Autre lieu » et, à sa droite, le bouton Carte (26/11/2026), dans la colonne d'Actualiser et de la pression (142 px) ; sur téléphone : icône seule */
-/* Grille à une case : « Autre lieu » occupe toute la largeur (la recherche ouverte aussi), le bouton se pose à droite de son titre. */
-.other-row { --map-w: 142px; display: grid; grid-template-columns: minmax(0, 1fr) auto; margin-top: 14px; }
-.other-row > .other { grid-area: 1 / 1 / 2 / 3; min-width: 0; margin-top: 0; }
-.other-row > .other > summary { margin-right: calc(var(--map-w) + 10px); }
-.btn.place-map { grid-area: 1 / 2; align-self: start; width: var(--map-w); min-height: 44px; justify-content: center; gap: 8px; }
-@media (max-width: 450px) { .other-row { --map-w: 52px; } .btn.place-map { padding-inline: 0; } .place-map-label { display: none; } }
 .other > summary { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 14px; list-style: none; border: 1px solid var(--help-border); border-radius: var(--radius-control); background: var(--help); color: var(--ink); font-weight: 600; }
 .other > summary::-webkit-details-marker { display: none; }
 .other > summary:hover { filter: brightness(.96); }
@@ -270,8 +264,6 @@ h2 .h2-main { display: block; }
 
 /* en-tête de page + bouton d'information (pastille ronde lavande) */
 .page-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
-.info-btn { flex: none; width: 44px; height: 44px; margin-top: 4px; padding: 0; border: 1px solid var(--help-border); border-radius: 50%; background: var(--help); color: var(--ink); font: italic 700 22px/1 var(--font-title); cursor: pointer; }
-.info-btn:hover { filter: brightness(.96); }
 
 /* fenêtre d'information : fond crème, rayon 16 px, ombre de superposition ; titre et « Fermer » restent visibles */
 dialog.modal { width: min(780px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); margin: auto; padding: 0; border: 1px solid var(--line); border-radius: var(--radius-panel); background: var(--surface); color: var(--ink); box-shadow: 0 16px 70px #1d302c35; overflow: hidden; }
@@ -428,14 +420,7 @@ dialog.extreme-modal { width: min(440px, calc(100vw - 24px)); }
 }
 
 /* Vue minimale : les prochaines heures, un tableau et rien d'autre */
-.head-actions { display: flex; align-items: center; gap: 8px; flex: none; margin-top: 4px; }
-.head-actions .info-btn { margin-top: 0; }
-.mini-btn { display: inline-flex; align-items: center; justify-content: center; width: 44px; padding: 0; background: var(--precip-bg); border-color: var(--precip-border); } /* marcheur seul : « Rando ici ? » (le texte est lu par les lecteurs d'écran) */
-@media (max-width: 520px) {
-  /* Petit écran : Actualiser et Retour réduits à leur icône (le texte reste lu par les lecteurs d'écran) */
-  .mini-act { width: 40px; padding: 0; justify-content: center; }
-  .mini-act > span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-}
+.head-actions { display: flex; align-items: center; gap: 10px; flex: none; margin-top: 4px; }
 .mini { --mini-pad: 32px; max-width: 1160px; margin-inline: auto; padding: 32px 32px 18px; }
 /* En-tête (refait le 22/11/2026, sobre) : titre + Actualiser/Retour ; lieu ; GPS ; outils (pression-baromètre, carte).
    Une seule police hors titre ; haut de page fixe, les titres de colonnes se collent juste dessous (--mini-top-h mesurée par app.js). */
@@ -455,10 +440,7 @@ dialog.baro-modal { width: min(440px, calc(100vw - 24px)); }
 .baro-mark { justify-self: center; width: 22px; height: 4px; border-radius: 2px; } .is-now .baro-mark { background: #241b12; } @media (prefers-color-scheme: dark) { .is-now .baro-mark { box-shadow: 0 0 0 1.5px #ece0bd; } } /* noire comme l'aiguille, cernée pour se voir sur fond sombre */ .is-past .baro-mark { background: #d9a53a; } .is-place .baro-mark { width: 10px; height: 10px; border: 2.5px solid var(--muted); border-radius: 50%; }
 .baro-body .howto { margin-top: 0; padding-top: 12px; border-top: 1px solid var(--line); text-align: left; } .baro-body .howto-list li { margin: 8px 0; }
 .baro-note { margin: 8px 0 0; }
-.mini-act { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; font-weight: 600; }
 .mini-svg { flex: none; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
-.mini-act.nav { border-color: var(--primary-border); }
-.mini-map-btn { background: var(--precip-bg); border-color: var(--precip-border); color: var(--ink); }
 /* Calque nuages · pluie, flèche du vent */
 .sky-panel { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; font: 13px/1.25 var(--font-body); color: var(--ink); }
 .sky-switch { white-space: nowrap; display: inline-flex; align-items: center; gap: 8px; min-height: 36px; padding: 4px 6px 4px 10px; font: inherit; font-weight: 600; color: var(--ink); background: var(--surface); border: 2px solid var(--precip-border); border-radius: var(--radius-control); cursor: pointer; box-shadow: 0 1px 4px #0003; }
@@ -565,7 +547,6 @@ button.mini-hour:focus-visible { outline: 2px solid var(--ink); outline-offset: 
 .mini-mm .vbar.is-over { display: flex; justify-content: center; align-items: flex-start; background: var(--alert-red); color: #fff; font: 700 11px/12px var(--font-body); } /* au-delà de l'échelle : plein, rouge, repère « + » (visible sans la couleur) */
 .mini-mm strong { display: inline-block !important; vertical-align: middle; }
 .mini-sub { display: block; font-size: 13px; color: var(--muted); }
-.mini-table td:nth-child(5) strong { color: var(--wind); } /* température : vert, comme avant */
 .mini-table .hbar-box { margin: 5px 0 0; height: 8px; }
 .mini-credit { margin-top: 14px; }
 .mini-log { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin-top: 14px; }
@@ -597,10 +578,7 @@ button.mini-hour:focus-visible { outline: 2px solid var(--ink); outline-offset: 
 }
 
 /* Boutons de « Lieu actuel » : même contour, bien visible (la couleur de fond garde la distinction entre familles) */
-.mini .btn, .mini .btn.nav, .mini .mini-map-btn, .mini-btn { border: 1.5px solid var(--btn-edge); }
-#refresh, #place-baro-btn { border: 1.5px solid var(--btn-edge); } /* même trait que le marcheur (choix de l'utilisateur) ; le « i » garde le sien */
-#info-open { position: relative; width: 38px; height: 38px; font-size: 20px; } /* un peu plus petit que le marcheur (choix de l'utilisateur) */
-#info-open::after { content: ""; position: absolute; inset: -4px; border-radius: 50%; } /* zone à toucher : 44 px comme avant */
+.mini .btn { border: 1.5px solid var(--btn-edge); }
 
 
 /* Balade dans l'heure : icône d'imperméable discrète à côté de « Carte » ; fenêtre avec verdict, frise de pluie, détails */
@@ -654,17 +632,13 @@ dialog.walk-modal { width: min(480px, calc(100vw - 24px)); }
 .walk-step-btn { width: 34px; min-height: 34px; padding: 0; font-size: 22px; line-height: 1; border: 1.5px solid var(--btn-edge); }
 .walk-step-btn:disabled { opacity: .4; cursor: default; }
 .walk-when { min-width: 4.6em; text-align: center; font-weight: 700; font-size: 14px; font-variant-numeric: tabular-nums; }
-/* Tout tient sur une ligne : titre court, sélecteur compact ; sur petit écran « Fermer » devient une croix */
+/* Tout tient sur une ligne : titre court, sélecteur compact, croix de fermeture */
 .walk-head { flex-wrap: nowrap; }
-.walk-x { display: none; }
 @media (max-width: 520px) {
   .walk-head { gap: 8px; }
   .walk-head h2 { font-size: 20px; }
   .walk-step-btn { width: 30px; min-height: 30px; font-size: 20px; }
   .walk-when { min-width: 0; font-size: 13px; padding: 0 2px; }
-  .walk-head #walk-close { width: 36px; min-height: 36px; padding: 0; }
-  .walk-x-label { display: none; }
-  .walk-x { display: inline; font-size: 16px; }
 }
 
 /* Écran d'accueil (25/11/2026) : plein écran, une zone par sujet, tons crème */
@@ -825,4 +799,19 @@ html.home-boot body > main { visibility: hidden; }
 
 /* Icône du marcheur (bouton de la vue 12 heures, écran d'accueil, aide) */
 .ico-walk { display: inline-block; flex: none; width: 1.25em; height: 1.25em; vertical-align: -.25em; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-.mini-btn .ico-walk { width: 28px; height: 28px; color: var(--primary); } .mini-btn .mini-svg { color: var(--primary); stroke-width: 2; }
+
+/* Barre de navigation commune (28/11/2026, maquette maquettes/barre-navigation.html) : les boutons carrés de l'écran d'accueil, partout.
+   Fond discret = agit sur l'écran affiché (Actualiser, aide, pression, fermer) ; .go, bleu pâle = mène à un autre écran (maison, carte). */
+.btn.nav-sq { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 50px; min-height: 50px; margin: 0; padding: 0; border: 1px solid var(--home-edge); border-radius: 14px; background: color-mix(in srgb, var(--surface) 55%, transparent); color: var(--primary); white-space: nowrap; }
+.btn.nav-sq.go { border: 1.5px solid var(--precip-border); background: var(--precip-sel); }
+.btn.nav-sq .mini-svg { width: 26px; height: 26px; stroke-width: 2; }
+.btn.nav-sq.nav-i { font: italic 700 22px/1 var(--font-title); }
+.btn.nav-sq.nav-x { font-size: 20px; color: var(--ink); }
+.mini-tools .btn.nav-sq { min-height: 44px; } /* à la hauteur du bouton de la pression voisin */
+.btn.place-baro { min-height: 50px; border: 1px solid var(--home-edge); border-radius: 14px; background: color-mix(in srgb, var(--surface) 55%, transparent); } /* même pastille que la pression de l'écran d'accueil */
+
+/* Lexique commun (28/11/2026) : marcheur de « Balade ? » à la place de l'emoji 🚶 ; « max horaire du jour » sous la probabilité ;
+   girouette devant le vent de la situation actuelle et des jours. */
+.walk-ico .ico-walk { width: 1em; height: 1em; vertical-align: 0; color: var(--primary); }
+.stat-sub { margin-top: 1px; line-height: 1.3; }
+.stat-val .vane.is-small, .dval .vane.is-small { margin-right: 4px; }

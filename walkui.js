@@ -1,15 +1,16 @@
 // Fenêtre « Balade dans l'heure ? » : lit la pluie, la neige et le contexte à 15 minutes à la position de l'appareil (walk.js) et affiche
 // le verdict, avec un sélecteur pour avancer le départ d'heure en heure. Tout le texte est écrit par textContent.
-import { fetchNextHour, walkAdvice, walkSources, hourlyAt, mmPerHour, MAX_OFFSET_H, STEP_MS, SNOW_CM_PER_MM, WalkError } from "./walk.js?v=dbfc9474";
+import { fetchNextHour, walkAdvice, walkSources, hourlyAt, mmPerHour, MAX_OFFSET_H, STEP_MS, SNOW_CM_PER_MM, WalkError } from "./walk.js?v=fa603674";
 import { stormText, precipText } from "./observation.js?v=9b23b237";
 import { modelShort } from "./weather-provider.js?v=afd8726c";
-import { MINI_MM_FULL, foldTip } from "./weather-render.js?v=8a4c0223";
+import { MINI_MM_FULL, foldTip } from "./weather-render.js?v=374c8c64";
 
 // Échelle de la frise : la même que la barre de pluie du tableau « Lieu actuel » (pleine à 3 mm dans l'heure),
 // soit 0,75 mm par quart d'heure ; au-delà, bâton plein et rouge (choix de l'utilisateur, 22/11/2026).
 const FULL_MMH = MINI_MM_FULL;
 
-const ICON = { go: "🚶", caution: "⚠️", short: "⏳", light: "🌂", wait: "⏸️", shower: "🌦️", mixed: "🌧️", no: "☔", storm: "⛈️", ice: "🧊", unknown: "❓" };
+const ICON = { go: null, // « go » : icône du marcheur de l'appli (#ico-walk), plus l'emoji 🚶 (lexique, 28/11/2026)
+  caution: "⚠️", short: "⏳", light: "🌂", wait: "⏸️", shower: "🌦️", mixed: "🌧️", no: "☔", storm: "⛈️", ice: "🧊", unknown: "❓" };
 const CACHE_MS = 5 * 60 * 1000;
 const HOUR_MS = 60 * 60 * 1000;
 const nf1 = new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 1 });
@@ -97,7 +98,9 @@ export function initWalk({ getHere, fmtTime, getStorms = () => null, getPrecip =
   function render(advice, at, sources) {
     const snowy = advice.kind === "snow";
     const verdict = el("div", `walk-verdict is-${advice.level}`);
-    verdict.append(el("div", "walk-ico", ICON[advice.level] ?? "❓"));
+    const ico = el("div", "walk-ico", advice.level === "go" ? "" : ICON[advice.level] ?? "❓");
+    if (advice.level === "go") ico.innerHTML = '<svg class="ico-walk" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ico-walk"/></svg>';
+    verdict.append(ico);
     const txt = el("div", "walk-txt");
     const title = el("h3", "walk-title", advice.title);
     txt.append(title, el("p", "walk-text", advice.text));
@@ -116,7 +119,7 @@ export function initWalk({ getHere, fmtTime, getStorms = () => null, getPrecip =
       info.setAttribute("aria-label", "Comment lire cette frise ?");
       info.setAttribute("aria-controls", "walk-tl-help");
       info.setAttribute("aria-expanded", String(tlHelpOpen));
-      head.append(el("p", "walk-sub", snowy ? "Précipitations prévues, en mm d'eau par quart d'heure :" : "Pluie prévue, en mm par quart d'heure :"), info);
+      head.append(el("p", "walk-sub", snowy ? "Précipitations en mm d'eau par quart d'heure" : "Pluie en mm par quart d'heure"), info);
       const help = el("ul", "compact-help walk-tl-help");
       help.id = "walk-tl-help";
       help.hidden = !tlHelpOpen;

@@ -7,16 +7,16 @@ import { initInfo } from "./info.js?v=ab3b754d";
 import { initBarometer, preloadDial, trendSign } from "./barometer.js?v=f58dbfb8";
 import { createSkyLayer, addDoubleTapZoom, createStationLayer } from "./skymap.js?v=8cd1dc38";
 import { parseMapPrefs, MAP_ZOOM, maxZoomFor } from "./weathermap.js?v=c631804d";
-import { initWalk } from "./walkui.js?v=fbdaa9a1";
-import { buildHome, buildHomeNow, buildSunBand, wireHomePages, homeSteps, homeAlerts, HOME_STEPS, HOME_PAGES, homeLegend, buildLegend, homeMode, HOME_KEY, PHONE_QUERY } from "./home.js?v=41dba178";
-import { localToMs, fetchNextHour } from "./walk.js?v=dbfc9474";
+import { initWalk } from "./walkui.js?v=24cdf977";
+import { buildHome, buildHomeNow, buildSunBand, wireHomePages, homeSteps, homeAlerts, HOME_STEPS, HOME_PAGES, homeLegend, buildLegend, homeMode, HOME_KEY } from "./home.js?v=2cb9a698";
+import { localToMs, fetchNextHour } from "./walk.js?v=fa603674";
 import { fetchObservedPressure, fetchPressureTrend, fetchObservedStorms, stormText, fetchObservedPrecip, precipText, pressureDisplay, TREND_WORD, fetchStationsForMap, distanceKm, STORM_WORDS, metarLines } from "./observation.js?v=9b23b237";
 import { getPosition, reverseGeocode, placeFromPosition, storedGeoPlace, formatCoords, deniedHelp, GEO_ID, GEO_MAX_AGE_MS } from "./geo.js?v=b6df63a8";
 import { shouldRefresh, STALE_MS, TRY_GAP_MS, RETRY_MS, QUIET_WAIT_MS } from "./refresh.js?v=beadd3fe";
 import { createLoader } from "./loading.js?v=956b591b";
-import { makeRecord, saveRecord, loadJournal, exportText, exportName } from "./journal.js?v=47a0f04a";
+import { makeRecord, saveRecord, loadJournal, exportText, exportName } from "./journal.js?v=2f052329";
 import { chooseView, DEFAULT_VIEW, isIOS } from "./device.js?v=804d2636";
-import { TABS, foldTip, buildPin, buildTopPlace, buildTopNow, buildCurrent, buildHourly, buildWeek, buildTrend, buildCompact, buildMini, extremeText, COMPACT_HELP_ITEMS, buildSources, buildWarnings, buildAttribution, warningsStatus, formatLocal } from "./weather-render.js?v=8a4c0223";
+import { TABS, foldTip, buildPin, buildTopPlace, buildTopNow, buildCurrent, buildHourly, buildWeek, buildTrend, buildCompact, buildMini, extremeText, COMPACT_HELP_ITEMS, buildSources, buildWarnings, buildAttribution, warningsStatus, formatLocal } from "./weather-render.js?v=374c8c64";
 
 const $ = (id) => {
   const el = document.getElementById(id);
@@ -124,7 +124,7 @@ function renderAll() {
   renderTabs();
   renderTabbed();
   renderWarnings();
-  $("refresh").hidden = false;
+  $("refresh").disabled = false; // ↻ de la barre du haut : actif dès qu'un lieu est affiché
   $("place-map-btn").disabled = false;
   updateFreshness();
 }
@@ -327,7 +327,7 @@ async function readHere(id, onFound = () => {}) {
   const [data, observed, storms, precip] = await Promise.all([fetchForecast(place), observedP, stormsP, precipP]);
   if (id !== geo.loadId) return false;
   setHomeFlag("ok"); // position accordée : l'écran d'accueil peut s'ouvrir au lancement
-  Object.assign(geo, { at: Date.now(), data, coords, named: Boolean(named), pressure: pressureOf(data, observed), storms, precip, recorded: false, cc: place.countryCode });
+  Object.assign(geo, { at: Date.now(), data, coords, place, named: Boolean(named), pressure: pressureOf(data, observed), storms, precip, recorded: false, cc: place.countryCode });
   trendP.then((t) => {
     if (!t || geo.data !== data) return; // une autre position a été chargée entre-temps
     geo.pressure = pressureOf(data, observed, t);
@@ -403,22 +403,17 @@ async function exportJournal() {
   setTimeout(() => URL.revokeObjectURL(url), 10000);
   showJournal(`Fichier ${name} téléchargé (${list.length} relevé${list.length > 1 ? "s" : ""}).`);
 }
-// Retour ramène à l'écran d'où l'on vient (26/11/2026) : la page météo, ou l'écran d'accueil (téléphone, iPad).
-let miniFrom = "page";
-function setMini(open, from = "page") {
-  if (open) {
-    miniFrom = from;
-    $("mini-close").title = from === "home" ? "Revenir à l'écran d'accueil" : "Revenir à la page météo";
-  }
+// La vue 12 h ne s'ouvre que depuis l'écran d'accueil (28/11/2026 : le marcheur de la page a été retiré) ; sa maison (⌂) y ramène.
+function setMini(open) {
   document.querySelector("main.shell").hidden = open;
   $("mini").hidden = !open;
   window.scrollTo({ top: 0 });
-  if (open) { showJournal(); locate(false); preloadDial(); $("mini-close").focus(); } else { geo.loadId++; $("mini-refresh").disabled = false; $("mini-open").focus(); autoRefresh(); if (miniFrom === "home") openHome("go", { asked: true }); } // fermer abandonne une recherche en cours ; la page principale a pu vieillir entre-temps
+  if (open) { showJournal(); locate(false); preloadDial(); $("mini-close").focus(); } else { geo.loadId++; $("mini-refresh").disabled = false; autoRefresh(); openHome("go", { asked: true }); } // fermer abandonne une recherche en cours ; la page principale a pu vieillir entre-temps
 }
 // Hauteur du haut de page fixe de « Lieu actuel » : les titres de colonnes se collent juste dessous.
 if (typeof ResizeObserver !== "undefined") { const top = document.querySelector(".mini-top"); new ResizeObserver(() => $("mini").style.setProperty("--mini-top-h", `${top.offsetHeight}px`)).observe(top); }
 const walk = initWalk({
-  fallbackFocus: () => (homeDlg.open ? $("home-refresh") : $("mini-close")), // si l'heure touchée n'existe plus (tableau ou écran d'accueil redessiné), le curseur revient sur Actualiser ou Retour
+  fallbackFocus: () => (homeDlg.open ? $("home-refresh") : $("mini-close")), // si l'heure touchée n'existe plus (tableau ou écran d'accueil redessiné), le curseur revient sur Actualiser ou la maisonour
   // mêmes modèles que le tableau « Lieu actuel » (selon le pays de la position)
   getHere: () => (geo.coords ? { lat: geo.coords.latitude, lon: geo.coords.longitude, models: geo.data?.metadata?.modelsRequested ?? [] } : null),
   getStorms: () => geo.storms, // orages observés par les stations (repris en tête de « Balade ? »)
@@ -450,7 +445,6 @@ initBarometer([
   { openBtn: $("place-baro-btn"), getPressure: () => state.pressure },
   { openBtn: homeBaroBtn, getPressure: () => geo.pressure },
 ]);
-$("mini-open").addEventListener("click", () => setMini(true));
 $("mini-close").addEventListener("click", () => setMini(false));
 $("mini-refresh").addEventListener("click", () => locate(true));
 $("mini-map-btn").addEventListener("click", () => { if (geo.coords) openMap($("mini-map-btn"), geoTarget(), (t) => miniMessage(t, "err")); });
@@ -528,13 +522,23 @@ function openHome(mode, { asked = false } = {}) {
   if (mode !== "ask") fillHome({ force: false, asked }); // aucun bouton n'est mis au premier plan (autofocus sur le conteneur) : Safari l'entourerait d'un gros contour
 }
 $("home-ask-btn").addEventListener("click", () => { $("home-ask").hidden = true; homeDlg.classList.remove("is-ask"); fillHome(); });
-// Maison, entre le marcheur et le « i » : revenir à l'écran d'accueil (téléphones et iOS ; toucher la maison vaut accord pour chercher la position).
+// Maison, à gauche du « i » : revenir à l'écran d'accueil (tous les appareils ; toucher la maison vaut accord pour chercher la position).
 $("home-open").addEventListener("click", () => openHome("go", { asked: true }));
+// « Toutes les prévisions » (28/11/2026) : la page s'ouvre sur « Ma position », puisque l'écran d'accueil est à la position de l'appareil.
+// Invitation déclinée : la page reste sur son lieu (on ne demande pas la position à qui vient de la refuser).
 $("home-all").addEventListener("click", () => {
-  if (homeDlg.classList.contains("is-ask")) setHomeFlag("no"); // invitation déclinée : elle ne revient pas
+  const declined = homeDlg.classList.contains("is-ask");
+  if (declined) setHomeFlag("no"); // invitation déclinée : elle ne revient pas
   homeDlg.close();
+  if (declined) return;
+  const shownHere = select.value === GEO_ID && state.place?.id === GEO_ID && !state.note;
+  const recent = geo.place && geo.coords && Date.now() - geo.at < GEO_MAX_AGE_MS;
+  if (shownHere && (!recent || state.place.latitude === geo.place.latitude && state.place.longitude === geo.place.longitude)) return; // déjà là
+  clearTimeout(changeTimer);
+  select.value = GEO_ID;
+  showPosition({ known: recent ? { coords: geo.coords, place: geo.place, at: geo.at } : null });
 });
-$("home-mini").addEventListener("click", () => { homeDlg.close(); setMini(true, "home"); });
+$("home-mini").addEventListener("click", () => { homeDlg.close(); setMini(true); });
 $("home-refresh").addEventListener("click", () => fillHome());
 // Carte plein écran : Leaflet chargé au premier toucher, carte créée une fois (après l'ouverture : il lui faut sa taille), recentrée à chaque ouverture.
 // Zoom et fond (plan ou relief) retenus sur l'appareil (meteo.map) ; au départ, zone d'environ 200 km, plan.
@@ -632,7 +636,7 @@ function renderWarnings() {
   $("attribution").replaceChildren(buildAttribution(state.data, state.warnings, state.ensemble));
 }
 
-// Pression du lieu affiché (bouton sous Actualiser) ; null = mesure en cours de lecture, jamais la pression du lieu précédent.
+// Pression du lieu affiché (bouton à côté de la carte) ; null = mesure en cours de lecture, jamais la pression du lieu précédent.
 function renderPressure() {
   const btn = $("place-baro-btn"), p = state.pressure;
   btn.hidden = !state.data;
@@ -741,21 +745,22 @@ select.value = initial.id;
 // Position réelle de l'appareil pour la page principale. Échec : le motif est affiché ; avec une position déjà connue, celle-ci est
 // montrée en le disant (« dernière position connue ») ; sans, le lieu affiché ne change pas : jamais une autre ville présentée comme ici.
 let posSeq = 0;
-async function showPosition({ quiet = false } = {}) {
+// known : position et lieu que l'écran d'accueil vient de lire ({ coords, place, at }), repris sans nouvelle demande.
+async function showPosition({ quiet = false, known = null } = {}) {
   const seq = ++posSeq;
   state.searching++;
   const stillWanted = () => seq === posSeq && select.value === GEO_ID;
   setStatus("Recherche de votre position…");
   try {
-    const coords = await getPosition();
+    const coords = known?.coords ?? await getPosition();
     if (!stillWanted()) return;
     state.posCoords = coords; // précises, en mémoire seulement : pour la carte (le lieu gardé est arrondi à 0,01°)
     let named = null;
-    try { named = await reverseGeocode(coords.latitude, coords.longitude); } catch { /* repli : « Position GPS » */ }
+    if (!known) try { named = await reverseGeocode(coords.latitude, coords.longitude); } catch { /* repli : « Position GPS » */ }
     if (!stillWanted()) return;
-    const place = placeFromPosition(coords, named);
+    const place = known?.place ?? placeFromPosition(coords, named);
     if (!place) throw new Error("coordonnées ou fuseau horaire invalides");
-    const stamped = { ...place, at: Date.now() };
+    const stamped = { ...place, at: known?.at ?? Date.now() };
     setPositionLabel(stamped);
     saveLastPlace(stamped);
     return await load(stamped, { quiet });
@@ -911,11 +916,10 @@ try { localStorage.removeItem("meteo.theme"); } catch { /* ignoré */ }
 {
   let flag = null;
   try { flag = localStorage.getItem(HOME_KEY); } catch { /* stockage indisponible */ }
-  const forced = new URLSearchParams(location.search).has("accueil"), mobile = matchMedia(PHONE_QUERY).matches || isIOS();
-  info = initInfo({ homeTab: mobile || forced, fillHome: fillHomeLegend }); // onglet « Accueil » là où l'écran d'accueil existe
-  $("home-open").hidden = !mobile && !forced;
+  const forced = new URLSearchParams(location.search).has("accueil"); // ?accueil : l'ouvre même après un refus (tests)
+  info = initInfo({ homeTab: true, fillHome: fillHomeLegend }); // onglet « Accueil » : l'écran d'accueil existe sur tous les appareils (28/11/2026)
   const mode = homeMode({
-    forced, mobile, flag,
+    forced, flag,
     used: lastPlaceId() === GEO_ID || Boolean(readStoredPosition()) || loadJournal().length > 0,
   });
   if (mode !== "none") openHome(mode);
