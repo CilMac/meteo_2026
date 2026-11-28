@@ -255,16 +255,15 @@ body:has(dialog.modal[open]) { overflow: hidden; }
 .modal-head h2 { flex: 1 1 auto; min-width: 0; }
 .modal-head .btn { flex: none; white-space: nowrap; }
 .m-tabs { display: flex; gap: 8px; padding: 4px 20px 12px; border-bottom: 1px solid var(--line); }
-@media (max-width: 380px) { .m-tabs { flex-wrap: wrap; } } /* 4 onglets sur téléphone (avec « Accueil ») : une rangée à 402 px, deux sur petit écran (débordement de 33 px à 320 px sinon) */
+@media (max-width: 380px) { .m-tabs { flex-wrap: wrap; } } /* 3 onglets depuis le 28/11/2026 ; filet de sécurité si un texte s'allonge */
 .m-tab { flex: 1; min-height: 44px; padding: 9px 12px; border: 1px solid var(--help-border); border-radius: var(--radius-control); background: var(--help); color: var(--ink); font: inherit; cursor: pointer; }
 .m-tab:hover { filter: brightness(.96); }
 .m-tab[aria-selected="true"] { background: var(--help-active); border: 2px solid var(--help-active-border); font-weight: 700; text-decoration: underline; text-underline-offset: 4px; }
 /* onglet secondaire (Relevés, outil de test) : petit bouton à droite, contour seul (pas de fond lavande), qui ne s'étire pas ; choisi, il a l'allure des autres */
-.m-tab-quiet, .m-tab-quiet[aria-selected="true"] { flex: none; margin-left: 4px; font-size: 14px; }
-.m-tab-quiet[aria-selected="false"] { border-color: var(--btn-edge); background: transparent; color: var(--muted); }
 .modal-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 8px 20px 16px; overscroll-behavior: contain; }
 .modal-body h3 { margin: 22px 0 6px; font-size: 17px; }
 .modal-body h3:first-child { margin-top: 12px; }
+.modal-body h4 { margin: 16px 0 4px; font-size: 15px; } #log-more { margin-top: 22px; }
 .modal-body p, .modal-body li { font-size: 15px; line-height: 1.6; }
 .modal-body ul { margin: 6px 0; padding-left: 20px; }
 .modal-body li { margin: 4px 0; }
@@ -275,10 +274,9 @@ body:has(dialog.modal[open]) { overflow: hidden; }
   .modal-head, .m-tabs, .modal-body, .modal-foot { padding-left: 14px; padding-right: 14px; }
   .m-tabs { gap: 6px; }
   .m-tab { flex: 1 1 auto; padding: 8px 4px; font-size: 15px; } /* largeur selon le texte : les trois onglets tiennent sur une ligne à 375 px */
-  .m-tab-quiet, .m-tab-quiet[aria-selected="true"] { flex: none; margin-left: 0; padding: 8px 7px; font-size: 14px; }
   .modal-head h2 { font-size: 20px; }
 }
-@media (max-width: 400px) { .m-tab { font-size: 14px; } .m-tab-quiet, .m-tab-quiet[aria-selected="true"] { padding: 8px 4px; font-size: 13px; } } /* une seule ligne à 375 px, même l'onglet choisi en gras */
+@media (max-width: 400px) { .m-tab { font-size: 14px; } } /* une seule ligne à 375 px, même l'onglet choisi en gras */
 
 
 /* explications repliables sous les prévisions : bouton lavande, fermé par défaut */

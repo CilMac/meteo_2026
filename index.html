@@ -13,7 +13,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#f6f3eb" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#1b201d" media="(prefers-color-scheme: dark)">
-<link rel="stylesheet" href="styles.css?v=32034eb0">
+<link rel="stylesheet" href="styles.css?v=efecac05">
 <script>
 // Tous les appareils : la page reste masquée le temps d'ouvrir l'écran d'accueil (app.js), 4 s au plus, pour ne pas apparaître une fraction de seconde avant lui.
 // Même règle que homeMode (home.js) : rien seulement si l'écran a été refusé ou décliné (un test le vérifie).
@@ -257,7 +257,7 @@ try { if (localStorage.getItem("meteo.home") !== "no") { document.documentElemen
   <p class="loader-time muted small"></p>
 </div>
 
-<!-- Fenêtre d'information : deux onglets (fonctionnement, sous le capot), puis « Relevés », plus petit, à droite : il ne sert qu'aux tests de fiabilité -->
+<!-- Fenêtre d'information (aide réécrite le 28/11/2026) : Accueil (légende de l'écran d'accueil), Mode d'emploi (court, un écran par section), Sous le capot (détails ; les relevés de test y sont repliés) -->
 <dialog id="info" class="modal" aria-labelledby="info-title">
   <div class="modal-head">
     <h2 id="info-title">À propos de cette application</h2>
@@ -265,9 +265,8 @@ try { if (localStorage.getItem("meteo.home") !== "no") { document.documentElemen
   </div>
   <div class="m-tabs" role="tablist" aria-label="Rubriques d'information">
     <button type="button" class="m-tab" role="tab" id="m-tab-home" aria-controls="m-panel-home" aria-selected="false" tabindex="-1" title="Légende de l'écran d'accueil : symboles et définitions" hidden>Accueil</button>
-    <button type="button" class="m-tab" role="tab" id="m-tab-how" aria-controls="m-panel-how" aria-selected="true" title="Mode d'emploi : choisir un lieu, lire l'écran, d'où viennent les valeurs">Fonctionnement</button>
-    <button type="button" class="m-tab" role="tab" id="m-tab-tech" aria-controls="m-panel-tech" aria-selected="false" tabindex="-1" title="Côté technique : fichiers, appels réseau, choix des modèles, stockage">Sous le capot</button>
-    <button type="button" class="m-tab m-tab-quiet" role="tab" id="m-tab-log" aria-controls="m-panel-log" aria-selected="false" tabindex="-1" title="Pour les tests : relevés gardés pour mesurer la fiabilité de la vue Rando">Relevés</button>
+    <button type="button" class="m-tab" role="tab" id="m-tab-how" aria-controls="m-panel-how" aria-selected="true" title="Chaque écran en quelques lignes : à quoi il sert, ses boutons, ses chiffres">Mode d'emploi</button>
+    <button type="button" class="m-tab" role="tab" id="m-tab-tech" aria-controls="m-panel-tech" aria-selected="false" tabindex="-1" title="Les détails : sources, fiabilité mesurée, appels réseau, stockage">Sous le capot</button>
   </div>
 
   <div class="modal-body">
@@ -281,40 +280,76 @@ try { if (localStorage.getItem("meteo.home") !== "no") { document.documentElemen
       </details>
     </section>
     <section id="m-panel-how" role="tabpanel" aria-labelledby="m-tab-how" tabindex="0">
-      <h3>À quoi ça sert</h3>
-      <p>Un tableau de bord météo personnel, pensé pour iPhone et Mac : situation actuelle, prochaines 24 heures et 7 jours. Une vue à part, ouverte par le marcheur <svg class="ico-walk" viewBox="0 0 24 24" role="img" aria-label="marcheur" focusable="false"><use href="#ico-walk"/></svg> de l'écran d'accueil, donne les 12 prochaines heures en un tableau à l'endroit où vous êtes. Usage personnel et non commercial, sans publicité ni compte, et sans collecte de données.</p>
+      <h3>En deux mots</h3>
+      <ul>
+        <li>La météo d'ici et d'ailleurs : un écran d'accueil à votre position, une page pour 7 jours, une vue des 12 prochaines heures pour sortir marcher. Sans publicité, sans compte, sans collecte de données.</li>
+        <li>En haut à droite, partout dans le même ordre : la <strong>maison</strong> (écran d'accueil), la <strong>flèche circulaire</strong> (actualiser), le <strong>« i »</strong> (cette aide). Bleu pâle : le bouton mène à un autre écran. Une fenêtre se ferme par ✕ ou la touche Échap.</li>
+        <li><strong>« — »</strong> = donnée absente, jamais un zéro déguisé. L'apparence claire ou sombre suit celle de l'appareil.</li>
+      </ul>
 
       <h3>Écran d'accueil</h3>
-      <p>Au lancement, sur tous les appareils, un écran montre l'essentiel à votre <strong>position réelle</strong> : la situation du moment, avec dessous la <strong>pression</strong> (bouton du baromètre) et le <strong>vent</strong> (vitesse, rafales et direction d'où il vient, par exemple « vent d'est » ; la <strong>girouette</strong> pointe vers où va le vent, le nord étant en haut ; toucher cette pastille ouvre la carte plein écran avec le calque « Vent » allumé, à l'échelle météo) ; la pluie des 4 prochaines heures par quart d'heure (titre, précision et bâtons : fond gris = maximum dessiné, 0,75 mm ; rouge = plus) ; les quatre heures suivantes (ciel, température, mm, probabilité en % avec sa barre horizontale, petite girouette et rafales) ; chaque heure, soulignée d'un trait fin, s'ouvre au toucher sur « Balade ? » pour un départ à cette heure-là, comme dans la vue des 12 heures (la première colonne, l'heure en cours : « Dans l'heure »). <strong>Glisser</strong> la pluie ou les heures vers la gauche montre les 4 heures suivantes, jusqu'à 12 heures en 3 pages : les deux tuiles glissent ensemble ; « 1/3 », en haut à droite de la pluie, donne la page, et les chevrons ‹ › aux deux bords de cette ligne, affichés seulement s'il y a une page de ce côté, y mènent au toucher ; chaque ouverture de l'écran et chaque actualisation repartent de la première page ; les quarts d'heure viennent de la même lecture que « Balade ? », sans appel en plus. Si le <strong>lever</strong> ou le <strong>coucher du soleil</strong> tombe dans les heures affichées, une pastille remplace l'heure de sa colonne par celle du lever (fond jaune paille) ou du coucher (fond bleu ciel) (même règle que la pluie : la colonne « 17 h » couvre 16 h → 17 h, un coucher à 16:48 y figure) ; enfin le <strong>lever</strong> et le <strong>coucher du soleil</strong>, précédés de « à » (à venir) ou de « depuis » (déjà passé), avec le temps qui reste avant le prochain : avant le lever, « à 08:05 - dans 1 h 35 min » ; dans la journée, « à 16:48 - dans 5 h 48 min » (« dans 3 h » à l'heure pile), en gras orangé pendant la dernière heure avant le coucher, et une fine barre qui se remplit du lever au coucher ; après le coucher et jusqu'à minuit, le lever de « demain » seul, puis un croissant de lune bleu et le temps écoulé depuis le coucher (« depuis 2 h 42 min » ; le croissant signifie « nuit », il ne montre pas la phase de la lune) ; après minuit, le compte à rebours du lever revient. La nuit, une barre bleue, pleine au coucher, se vide de gauche à droite jusqu'au lever : la partie bleue est la nuit qui reste (avant le lever, le coucher de la veille, absent des données, est estimé d'après ceux d'aujourd'hui et de demain, à quelques secondes près : il ne sert qu'au dessin de la barre). Ces durées partent de l'heure réelle de l'appareil, dans le fuseau du lieu, et se mettent à jour chaque minute tant que l'écran est ouvert. Si 0 mm est prévu sur une page mais qu'une de ses heures atteint 30 % de probabilité, le titre devient « Sec, mais pluie possible ». Une température de 35 °C ou plus, ou de −10 °C ou moins, et des rafales de 90 km/h ou plus s'écrivent en rouge (mêmes seuils que la pastille rouge des jours ; ce n'est pas une vigilance officielle). Un encadré jaune n'apparaît que s'il y a lieu (orage ou rafales de 50 km/h ou plus dans les 4 premières heures, jour hors du commun). En bas : « Toutes les prévisions » ouvre cette page sur « 📍 Ma position », le marcheur ouvre les 12 prochaines heures, et l'icône de carte ouvre une <strong>carte plein écran</strong> de votre position (point bleu, disque de précision, zoom, échelle, bouton de recentrage, bouton montagne pour passer du plan au <strong>fond relief</strong> (courbes de niveau, ombrage, sentiers, d'OpenTopoMap ; choix retenu sur l'appareil), bouton manche à air pour afficher les <strong>stations d'aéroport</strong> du pays du lieu (relevé de moins de 3 h : pression mesurée en hPa, pastille rouge avec un éclair si un orage y est observé dans l'heure ; toucher une station ouvre son dernier relevé décodé : température et point de rosée, vent moyen sur 10 min et rafales, visibilité, nuages, temps présent, heure, et le message METAR d'origine ; éteintes à chaque ouverture ; les pays voisins ne sont pas montrés), interrupteurs « Nuages » et « Pluie » séparés et flèche du vent, comme dans la vue des 12 heures). Interrupteur <strong>« Vent »</strong> : le vent en <strong>barbules</strong>, comme sur les cartes marines mais en <strong>km/h</strong> (demi-trait = 5 km/h, trait = 10, triangle = 50, vitesse arrondie aux 5 km/h, cercle = calme, moins de 2,5 km/h) ; la hampe part vers l'endroit d'où vient le vent ; vent à 10 m, hors rafales (celles du point marqué sont dans la ligne sous la carte, la grande flèche étant masquée tant que les barbules sont affichées) ; une barbule par point d'une grille d'environ 140 points, sans interpolation ; un point sans valeur reste vide ; le petit « i » de sa légende, en bas à gauche, explique la lecture ; il se combine avec Nuages et Pluie et suit la réglette des heures. Interrupteur <strong>« Radar »</strong> : la pluie et la neige <strong>observées</strong> par les radars, sur les 2 dernières heures, une image toutes les 20 minutes (réglette et ▶ propres, ouverture sur la dernière image publiée, son heure affichée) ; zones grisées = hors de portée des radars (là, la carte ne dit rien de la pluie) ; il s'affiche seul (l'allumer éteint Nuages, Pluie et Vent, et l'inverse) pour ne pas mêler pluie observée et pluie prévue ; légende en mm/h approximatifs ; la <strong>neige</strong> y est en <strong>violet</strong> (c'est RainViewer qui décide où il neige, d'une façon qu'il ne publie pas : à prendre comme indicatif). Deux échelles, chacune retenue sur l'appareil : l'échelle <strong>du lieu</strong>, à l'ouverture, nuages et pluie éteints (au départ, échelle de 2 km, environ 10 km de large sur un téléphone), et l'échelle <strong>météo</strong>, dès que « Nuages », « Pluie » ou « Vent » est allumé (au départ environ 165 km de large ; zoom limité à environ 40 km, car la grille de 50 à 140 points n'a plus de sens plus près). Passer de l'une à l'autre garde l'endroit regardé au centre ; la cible ramène au lieu. Le fond relief est limité au zoom 17, le plus fin que fournit OpenTopoMap. Un double toucher zoome d'un cran. Dès qu'un calque est allumé, une réglette sous la carte montre la <strong>prévision heure par heure</strong> des 12 prochaines heures (bouton ▶ pour les faire défiler) : à l'heure dite, nuages et vent à cet instant, pluie tombée pendant l'heure qui s'achève (même convention que la vue des 12 heures). Ce sont des modèles interpolés entre les points, pas un radar. Si aucun point de la zone n'a de pluie, la ligne sous la carte le dit, pour qu'une carte sans couleur ne passe pas pour une panne. En haut à droite : la flèche circulaire actualise (l'heure de la dernière actualisation est sous le lieu) et le « i » ouvre cette aide sur l'onglet <strong>Accueil</strong>, la légende de l'écran (symboles et définitions ; modèles et sources dans un accordéon) ; les autres onglets donnent le reste de l'aide.  Toucher la pression (petit demi-cadran) ouvre le baromètre. La première fois, l'écran propose d'utiliser votre position ; si vous choisissez « Toutes les prévisions » (la page garde alors son lieu) ou refusez la position, il ne s'ouvre plus. La <strong>maison</strong>, en haut à droite de cette page, le rouvre à tout moment ; dès que la position est accordée, il revient aussi au lancement. Une position lue il y a moins de 10 minutes est reprise telle quelle. Il n'ajoute aucun relevé aux tests.</p>
-        <p>Sur chaque écran, les mêmes boutons carrés, en haut à droite et dans le même ordre : la <strong>maison</strong> (retour à l'écran d'accueil), <strong>Actualiser</strong> (flèche circulaire), puis le <strong>« i »</strong> de l'aide. Les boutons bleu pâle mènent à un autre écran (maison, carte, marcheur, « Toutes les prévisions ») ; ceux à fond discret agissent sur l'écran affiché (Actualiser, aide, pression). Les fenêtres se ferment par la croix ✕ en haut à droite (ou la touche Échap).</p>
-
-      <h3>Choisir un lieu</h3>
-      <p>Huit lieux sont proposés dans la liste (Bar-le-Duc par défaut), précédés de <strong>« 📍 Ma position »</strong> : toute la page (situation, 24 heures et 7 jours) pour la position réelle de l'appareil, recherchée à chaque choix, à chaque « Actualiser » et à l'ouverture si c'était le dernier lieu choisi. Si la position n'est pas disponible, le motif est affiché et la dernière position connue est montrée en le disant (ou, à défaut, le lieu affiché ne change pas). L'épingle rouge à gauche du nom, sous le cadre du choix, n'apparaît que pour votre position actuelle : ni pour un lieu de la liste, ni pour une dernière position connue. La <strong>loupe</strong>, à droite de la liste (« Autre lieu »), ouvre une recherche juste dessous pour trouver n'importe quelle ville ; la toucher de nouveau la referme. Sous la pression, une ligne donne le jour et l'heure du lieu (« Samedi 28 novembre, 14:15 »), suivie de « heure de Tokyo » quand le lieu n'a pas le même fuseau horaire que votre appareil. Dans la recherche, si plusieurs lieux portent le même nom, on choisit le bon dans la liste. Le bouton de la carte, à droite de la pression, ouvre la carte plein écran centrée sur le lieu affiché, avec son nom en titre et un anneau blanc cerclé de bleu ; avec « Ma position » trouvée, c'est votre position (point bleu plein, disque de précision, « à votre position »). Choisir un lieu dans la liste, ou toucher un résultat de la recherche, affiche aussitôt sa météo. Le dernier lieu validé est retenu sur cet appareil. Le dernier « Autre lieu » choisi reste en bas de la liste, même après avoir fermé l'application, jusqu'à la recherche suivante, qui le remplace. En <strong>revenant dans l'application</strong> (icône, onglet, appareil réveillé) avec des prévisions de plus de 30 minutes ou d'un autre jour, elles sont relues <strong>toutes seules</strong> : les anciennes restent affichées pendant ce temps, avec « Mise à jour des prévisions… ». En cas d'échec, une seconde tentative suit 5 secondes après, puis l'erreur reste affichée. Sous le choix du lieu, un bouton donne la <strong>pression</strong> au lieu affiché et ouvre le baromètre : relevé de la station d'aéroport la plus proche (moins de 100 km, moins de 3 h), sinon valeur du modèle précédée de « ≈ ». Un petit signe donne la <strong>tendance</strong> sur environ 3 heures, à la même station : flèche verte montante ou flèche rouge descendante à partir de 2 hPa d'écart, trait gris en dessous (à peu près stable) ; rien sans relevé à l'heure voulue, ni avec la valeur d'un modèle.</p>
-      <p>L'icône du marcheur (<svg class="ico-walk" viewBox="0 0 24 24" role="img" aria-label="marcheur" focusable="false"><use href="#ico-walk"/></svg>), en haut à droite, ouvre la vue <strong>« Météo des 12 prochaines heures »</strong> : un tableau des 12 prochaines heures à votre <strong>position réelle</strong> (celle de l'appareil ; le navigateur demande l'autorisation). Elle ne change pas le lieu choisi dans la liste. Sous le titre : le nom du lieu, précédé d'une épingle rouge, ses coordonnées GPS et la précision de la position, puis deux boutons. Le premier affiche la pression atmosphérique au niveau de la mer en hPa. C'est une <strong>mesure</strong> : le dernier relevé de la station météo d'aéroport la plus proche (à moins de 100 km, relevé de moins de 3 h), dont le nom, la distance et l'heure sont dans l'info-bulle. Ce relevé est un QNH : la pression de la station ramenée au niveau de la mer selon l'atmosphère standard, qui peut différer d'environ 1 à 2 hPa de la pression au niveau de la mer calculée avec la température réelle (surtout pour une station en altitude par temps froid ou chaud). Sans station récente à proximité, la valeur du modèle la remplace et s'affiche précédée de « ≈ ». Une flèche (verte en hausse, rouge en baisse) ou un trait gris (à peu près stable) donne la tendance sur environ 3 h. Ce bouton ouvre un baromètre à aiguille : l'aiguille noire est sur la valeur, l'aiguille dorée (repère) sur la pression mesurée environ 3 h plus tôt. Sous le cadran : la tendance, les deux valeurs avec leur heure, la station et sa distance ; le reste est dans « Comprendre ces valeurs ». Le second bouton, la carte, ouvre la même carte plein écran que l'écran d'accueil (voir plus haut) ; la fermer ramène ici. Toucher une heure du tableau ouvre « Balade ? » (départ à cette heure-là, ou maintenant pour la première ligne ; un petit sélecteur à droite du titre (‹ ›) avance ou recule le départ d'heure en heure, jusqu'à 12 h : le verdict, la frise et les remarques valent alors pour l'heure qui commence à ce moment-là, et la prévision est moins sûre plus on s'éloigne) : un verdict (pas une goutte en vue, restez près de chez vous, petite pluie ou quelques flocons, attendez, averse de passage, averses successives, vous allez prendre la sauce ou il va neiger toute l'heure, pluie verglaçante, orage, conditions difficiles même sans pluie, ou « je ne sais pas » si les données manquent), une petite frise des précipitations (un bâton par quart d'heure, entre les deux heures de l'axe ; le chiffre est la hauteur d'eau tombée pendant ce quart d'heure, en mm : additionnés, ils donnent le cumul ; bâton plein à 0,75 mm, soit 3 mm/h comme dans le tableau, rouge au-delà ; le petit « i » de la frise le rappelle), une rubrique « À savoir » (forte chaleur, froid, gel et verglas possible, neige au sol, brouillard, vent fort, UV, nuit qui tombe) et quelques faits (précipitation la plus forte, cumul, probabilité, température). <strong>Orage</strong> : l'alerte se déclenche si le modèle principal <em>ou</em> le choix automatique d'Open-Meteo annonce un orage dans l'heure, et le texte dit lequel. Mesuré le 23/11/2026 sur 9 lieux : JMA et GEM ne codent jamais d'orage, ECMWF presque jamais ; le choix automatique, oui. D'où quelques fausses alertes, acceptées par prudence. Le petit « i » à côté du titre de l'alerte explique sa fiabilité, dont le taux n'a pas été mesuré. Ce sont les valeurs des modèles, pas un radar : les mêmes que celles du tableau, choisies valeur par valeur (en France, Météo-France, puis ECMWF si une valeur manque) ; seules la visibilité et l'indice UV viennent du choix automatique d'Open-Meteo, le seul à les fournir. La liste des modèles et les précautions de lecture sont repliées en bas de la fenêtre (« Modèles et précautions »). Les seuils (pluie faible sous 1 mm/h, modérée sous 4, forte au-delà ; neige faible sous 1 cm/h, modérée sous 3 ; ressenti 30 °C et 35 °C pour la chaleur, 5, 0 et −10 °C pour le froid ; rafales 50 et 75 km/h ; visibilité 1 000 et 200 m ; UV 6 et plus) sont ceux de l'application, pas des seuils officiels. La vigilance canicule officielle n'est pas vérifiée. Si la position n'est pas disponible, le motif est affiché et la vue montre alors le lieu choisi sur la page, signalé comme n'étant pas votre position. Chaque ouverture garde aussi un relevé de la prévision affichée : voir l'onglet « Relevés ».</p>
       <ul>
-        <li><strong>Une ligne par heure</strong> : le pictogramme du temps, puis la pluie (hauteur en mm, avec une barre verticale proportionnelle, échelle fixe de 0 à 3 mm ; au-delà de 3 mm la barre est pleine, rouge et porte un « + », le chiffre donnant la valeur exacte), la probabilité de pluie (en %, barre horizontale qui suit le pourcentage), la température et le vent (km/h, avec les rafales dessous). Les autres petites barres : pour la température elle va de la plus basse à la plus haute de ces heures, pour le vent la partie foncée est le vent et la claire les rafales.</li>
-        <li><strong>L'étiquette de l'heure</strong> a l'allure d'un petit bouton : jaune quand le soleil est levé, bleu pâle quand il est couché, d'après le lever et le coucher du jour du lieu (neutre si ces heures manquent). La toucher ouvre « Balade ? » pour un départ à cette heure-là, ou maintenant pour la première ligne. Le petit « i » du titre de colonne « Heure » en donne des exemples.</li>
-        <li><strong>⚡ Orage observé</strong> : si une station d'aéroport à moins de 50 km signale un orage dans son dernier message (de moins d'une heure), un bandeau l'indique sous l'en-tête, avec le nom de l'aéroport, la distance et l'heure du relevé ; il est repris dans « Balade ? ». C'est une <strong>observation</strong>, pas une prévision. Les aéroports sont espacés d'environ 50 km et publient toutes les 30 minutes environ : un orage local peut échapper à toutes les stations, donc l'absence de bandeau ne garantit pas l'absence d'orage.</li>
-        <li><strong>💧 Pluie observée</strong> : de même, si une station d'aéroport à moins de 50 km signale de la pluie, de la bruine, de la neige ou des averses (en ce moment, à proximité ou dans l'heure passée) dans son dernier message de moins d'une heure, un bandeau bleu l'indique, avec le code du message traduit ; il est repris sur l'écran d'accueil et dans « Balade ? ». Mêmes limites que pour l'orage : l'absence de bandeau ne garantit pas qu'il ne pleut pas. Dans « Balade ? », pour un départ immédiat, le titre devient « Rien de prévu, mais observé à proximité » quand les modèles ne prévoient rien alors qu'une station signale de la pluie.</li>
-        <li><strong>« Au plus quelques gouttes »</strong> (« Balade ? ») : les modèles annoncent de la bruine ou quelques gouttes sans cumul notable (moins de 0,1 mm par quart d'heure) ; jamais « Sec dans l'heure » dans ce cas, comme sur l'écran d'accueil. « Sec dans l'heure » veut dire 0 mm à chaque quart d'heure et aucune bruine annoncée.</li>
-        <li><strong>Sous le tableau</strong>, « Comment lire ces valeurs » (replié) : le modèle de chaque colonne et la lecture des petites barres.</li>
-        <li><strong>Un trait épais</strong> sépare la ligne de 12 h de celle de 13 h : le matin d'un côté, l'après-midi de l'autre.</li>
-        <li>La <strong>maison</strong> et <strong>Actualiser</strong> (flèche circulaire) sont à droite du titre. La <strong>maison</strong> ferme la vue (la touche Échap aussi) et ramène à l'écran d'accueil, seul endroit d'où elle s'ouvre. <strong>Actualiser</strong> relit la position et recharge la météo ; sans cela, une même position est gardée 10 minutes. En revenant dans l'application au-delà de ces 10 minutes, la position et la météo sont relues toutes seules, l'ancien tableau restant affiché pendant ce temps. Sous le lieu, le bouton de la <strong>pression</strong> ouvre le baromètre, et celui de la <strong>carte</strong> affiche une carte centrée sur la position, avec un zoom (boutons + et −, molette ou deux doigts) ; elle n'est chargée qu'au premier clic et le bouton devient « Masquer la carte ». Ces deux boutons n'apparaissent que si la position est connue.</li>
+        <li>Il s'ouvre au lancement, à votre <strong>position réelle</strong>. La première fois, il demande la permission ; refusée, il ne s'ouvre plus tout seul (la maison le rouvre).</li>
+        <li>En haut, le temps du moment. Toucher la <strong>pression</strong> ouvre le baromètre ; toucher le <strong>vent</strong> ouvre la carte des vents. La girouette pointe vers où va le vent.</li>
+        <li>Dessous, la pluie par quart d'heure puis les heures. <strong>Glisser</strong> vers la gauche, ou toucher les chevrons ‹ ›, montre la suite : 12 heures en 3 pages.</li>
+        <li>Toucher une <strong>heure</strong> (soulignée) ouvre « Balade ? » pour partir à cette heure-là.</li>
+        <li>En bas : « Toutes les prévisions » (la page), le marcheur <svg class="ico-walk" viewBox="0 0 24 24" role="img" aria-label="marcheur" focusable="false"><use href="#ico-walk"/></svg> (les 12 prochaines heures), la carte.</li>
+        <li>Chaque symbole est expliqué dans l'onglet <strong>Accueil</strong> de cette aide.</li>
       </ul>
 
-      <h3>Lire l'écran</h3>
+      <h3>La page « Toutes les prévisions »</h3>
       <ul>
-        <li><strong>Barre du haut</strong> : le lieu et la situation du moment, toujours visible, avec les trois onglets Précipitations, Température et Vent.</li>
-        <li><strong>Les onglets</strong> pilotent en même temps les prochaines 24 heures et les 7 jours. Changer d'onglet est instantané : rien n'est rechargé.</li>
-        <li><strong>« Prochaines 24 heures »</strong> défile horizontalement. Changer d'onglet garde les mêmes heures à l'écran ; un autre lieu ou « Actualiser » repart de l'heure en cours. Onglet Précipitations : la barre verticale donne les mm (pleine à 3 mm), la petite barre horizontale le pourcentage.</li>
-        <li><strong>« Situation actuelle »</strong> : valeurs calculées par un modèle pour l'heure en cours (pas un relevé de station). La <strong>probabilité</strong> affichée est le maximum horaire du jour, pas celle de l'heure en cours (c'est écrit dessous). Dessous, deux icônes donnent le <strong>lever</strong> (soleil jaune, flèche vers le haut) et le <strong>coucher</strong> (soleil orangé, flèche vers le bas) du soleil du jour, à l'heure du lieu ; près des pôles, la ligne dit si le soleil reste levé ou couché toute la journée. À leur droite, un rappel de la <strong>pression</strong> et de sa tendance : la même valeur que le bouton du baromètre, donc une mesure de station ou, précédée de « ≈ », la valeur du modèle.</li>
-        <li><strong>Pastille rouge sur un jour</strong> : valeur hors du commun pour l'onglet affiché. Précipitations : 50 mm ou plus dans la journée, jusqu'à J+3 seulement (au-delà, la quantité n'est pas fiable). Vent : rafales de 90 km/h ou plus ; Température : maximale de 35 °C ou plus, ou minimale de −10 °C ou moins, jusqu'à J+6 (dernier jour affiché). Touchez la pastille pour l'explication et le lien vers les vigilances officielles. Ces seuils sont ceux de l'application, les mêmes partout dans le monde : <strong>ce n'est pas une vigilance officielle</strong>, et un jour sans pastille n'est pas un jour sans danger.</li>
-        <li><strong>Infobulles</strong> : sur ordinateur, laissez la souris un instant sur un bouton pour savoir ce qu'il fait (elles ne s'affichent pas au toucher).</li>
-        <li><strong>Une seule présentation</strong>, la même sur tous les appareils : la situation actuelle, les 24 heures, puis les 7 jours, une ligne par jour, en deux blocs (aujourd'hui à J+3, puis J+4 à J+6) séparés par « Dès J+4 : fiabilité en baisse. », et terminés par un résumé (maximales, jours de pluie). Les longueurs de barres se comparent d'un bout à l'autre des 7 jours (même échelle). Le petit <strong>« i »</strong> des 24 heures rappelle comment lire une heure (« 18 h » : pluie de 17 h à 18 h ; température à 18 h) et ses barres ; celui des 7 jours, ce que signifient les chiffres. Sous chaque bloc, une ligne <strong>« Modèles »</strong> dit d'où viennent les valeurs affichées. Dans l'onglet Vent, un <strong>« ⚠ »</strong> au bout d'un jour signale des rafales max annoncées plus faibles que le vent max : c'est un écart de la source, signalé sous la liste et jamais corrigé.</li>
-        <li><strong>Jour ou nuit</strong> : l'interface suit le réglage de votre appareil (apparence claire ou sombre) ; il n'y a rien à régler dans la page.</li>
-        <li><strong>« — »</strong> veut dire « donnée absente ». Ce n'est jamais un zéro déguisé : un vrai « 0 mm » est affiché « 0 mm ».</li>
+        <li><strong>Le lieu</strong> : « 📍 Ma position » ou un des huit favoris ; la <strong>loupe</strong> cherche une autre ville (la dernière cherchée reste en bas de la liste). L'épingle rouge marque votre position actuelle, rien d'autre.</li>
+        <li>Sous la liste : le jour et l'heure du lieu, la <strong>pression</strong> (baromètre) et la <strong>carte</strong> du lieu.</li>
+        <li><strong>Les onglets</strong> Précipitations, Température, Vent changent ensemble les 24 heures et les 7 jours.</li>
+        <li>Les 24 heures défilent de côté. Les 7 jours se lisent en deux blocs : à partir de « Dès J+4 : fiabilité en baisse. », prudence. Le petit <strong>« i »</strong> de chaque bloc explique sa lecture ; la ligne <strong>« Modèles »</strong> dessous dit d'où viennent les valeurs.</li>
+        <li><strong>Pastille rouge</strong> sur un jour : valeur hors du commun (pluie de 50 mm ou plus, jusqu'à J+3 ; rafales de 90 km/h ou plus ; 35 °C ou plus ; −10 °C ou moins). La toucher l'explique. Ce n'est pas une vigilance officielle. <strong>⚠</strong> (onglet Vent) : rafales annoncées plus faibles que le vent, un écart de la source, laissé tel quel.</li>
+        <li>En revenant dans l'application après plus de 30 minutes, les prévisions se mettent à jour toutes seules.</li>
       </ul>
 
+      <h3>Les 12 prochaines heures <svg class="ico-walk" viewBox="0 0 24 24" role="img" aria-label="marcheur" focusable="false"><use href="#ico-walk"/></svg></h3>
+      <ul>
+        <li>Ouverte par le marcheur de l'écran d'accueil : un tableau, heure par heure, à votre position. Pluie en mm (barre pleine à 3 mm), probabilité en %, température, vent et rafales.</li>
+        <li>L'heure est sur fond jaune de jour, bleu pâle de nuit. La toucher ouvre « Balade ? ».</li>
+        <li>Un bandeau <strong>⚡ orage</strong> ou <strong>💧 pluie observée</strong> apparaît si une station d'aéroport à moins de 50 km en signale. C'est une observation, pas une prévision ; pas de bandeau ne garantit pas qu'il fait sec.</li>
+        <li>« Comment lire ces valeurs », sous le tableau, donne les modèles et la lecture des barres.</li>
+      </ul>
+
+      <h3>Balade ?</h3>
+      <ul>
+        <li>Faut-il partir maintenant, ou à l'heure touchée ? Un verdict pour l'heure qui suit le départ ; ‹ › avance ou recule le départ, jusqu'à 12 heures.</li>
+        <li>La frise : un bâton par quart d'heure, le chiffre dessous est la pluie tombée en mm (les chiffres s'additionnent). Bâton plein à 0,75 mm, rouge au-delà.</li>
+        <li>« À savoir » signale chaleur, froid, verglas, brouillard, vent fort, UV, nuit. Ces seuils sont ceux de l'application, pas des seuils officiels.</li>
+        <li>Orage : annoncé dès que le modèle principal ou le choix automatique d'Open-Meteo en prévoit un, et le texte dit lequel. Par prudence : quelques fausses alertes.</li>
+      </ul>
+
+      <h3>La carte</h3>
+      <ul>
+        <li>Point bleu : votre position (le disque donne la précision). Anneau : le lieu de la page. La cible recentre ; la montagne passe au <strong>fond relief</strong> ; la manche à air montre les <strong>stations d'aéroport</strong> (toucher une station : son dernier relevé).</li>
+        <li><strong>Nuages</strong>, <strong>Pluie</strong>, <strong>Vent</strong> : la prévision, avec une réglette pour les 12 prochaines heures (▶ les fait défiler). Le vent en barbules, en km/h : demi-trait 5, trait 10, triangle 50.</li>
+        <li><strong>Radar</strong> : la pluie et la neige <strong>observées</strong> (neige en violet) sur les 2 dernières heures. Il s'affiche seul. Zones grisées : hors de portée des radars.</li>
+        <li>Double toucher : zoom avant.</li>
+      </ul>
+
+      <h3>Le baromètre</h3>
+      <ul>
+        <li>Aiguille noire : la pression maintenant. Aiguille dorée : environ 3 heures avant.</li>
+        <li>Flèche verte ou rouge : hausse ou baisse d'au moins 2 hPa ; trait gris : à peu près stable.</li>
+        <li>C'est une <strong>mesure</strong> de la station d'aéroport la plus proche. Sans station proche, la valeur d'un modèle, précédée de « ≈ », sans tendance.</li>
+      </ul>
+
+      <h3>Les mots et les chiffres</h3>
+      <ul>
+        <li><strong>« Sec »</strong> = 0 mm prévu. Dès 0,1 mm : au moins « quelques gouttes ».</li>
+        <li><strong>« Pluie possible »</strong> : probabilité de 30 % ou plus ; <strong>« probable »</strong> : 70 % ou plus.</li>
+        <li>Pour un jour, le % est la probabilité horaire la plus forte de la journée, pas celle de toute la journée.</li>
+        <li>Pluie : barre <strong>verticale</strong> = quantité en mm ; barre <strong>horizontale</strong> = probabilité en %.</li>
+        <li>Vent : « 12 km/h raf. 25 » ; pour un jour, ce sont des maxima, jamais des moyennes.</li>
+        <li>Valeur en <strong>rouge</strong> : hors du commun (mêmes seuils que la pastille rouge).</li>
+      </ul>
+    </section>
+
+    <section id="m-panel-tech" role="tabpanel" aria-labelledby="m-tab-tech" tabindex="0" hidden>
       <h3>D'où viennent les valeurs</h3>
       <p>Sous la situation, sous les 24 heures et sous les 7 jours, une ligne « Modèles » nomme le modèle de chaque valeur affichée, avec le jour ou l'heure où il passe le relais (« Modèles : mm Météo-France jusqu'au mar 01/12, puis ECMWF · % ECMWF »). Pour la France, Météo-France (AROME et ARPEGE) fournit les premiers jours, jusqu'à environ J+3 ; au-delà, c'est ECMWF. Pour le Japon c'est la JMA, pour le Canada le modèle GEM, puis ECMWF. Au Japon, deux limites : la JMA ne fournit pas de vraies valeurs par quart d'heure (Open-Meteo les déduit des valeurs horaires, la frise de « Balade ? » y est donc moins précise) et ne prévoit pas les orages, comme GEM au Canada ; les rafales y viennent d'ECMWF. Le séparateur « Dès J+4 : fiabilité en baisse. » apparaît à l'endroit où le modèle court s'arrête (J+4 en France, J+5 au plus tard ailleurs). Météo-France n'est jamais présenté comme source d'une valeur venant d'un autre modèle.</p>
 
@@ -349,42 +384,14 @@ try { if (localStorage.getItem("meteo.home") !== "no") { document.documentElemen
         <li>Les sources peuvent se contredire ; la page signale, par exemple, des rafales annoncées plus faibles que le vent max, sans les corriger.</li>
         <li>Aucun pourcentage de fiabilité n'est affiché : il n'existe pas de source sûre pour le justifier.</li>
       </ul>
-    </section>
 
-    <section id="m-panel-log" role="tabpanel" aria-labelledby="m-tab-log" tabindex="0" hidden>
-      <h3>À quoi ça sert</h3>
-      <p>Mesurer, sur des semaines, si la vue <svg class="ico-walk" viewBox="0 0 24 24" role="img" aria-label="marcheur" focusable="false"><use href="#ico-walk"/></svg> « Météo des 12 prochaines heures » annonce juste. Les prévisions affichées sont gardées au moment où vous les consultez, puis comparées plus tard à ce qui s'est réellement passé. On ne peut pas les reconstituer après coup : la vue choisit son modèle valeur par valeur, et les archives des services météo ne gardent pas ce mélange.</p>
-
-      <h3>Quand un relevé est pris</h3>
+      <h3>Observations des stations d'aéroport</h3>
       <ul>
-        <li>À chaque ouverture de la vue <svg class="ico-walk" viewBox="0 0 24 24" role="img" aria-label="marcheur" focusable="false"><use href="#ico-walk"/></svg> où la position est trouvée et la météo chargée, à chaque « Actualiser » et à chaque mise à jour automatique au retour dans l'application. Rien à faire de votre part.</li>
-        <li>Pas de relevé si la position n'est pas disponible : la vue montre alors le lieu choisi sur la page, qui n'est pas l'endroit où vous êtes.</li>
-        <li>Un relevé pris au même endroit (à environ 1 km près) moins d'une heure après le précédent le <strong>remplace</strong> : pas de doublons si vous rouvrez la vue plusieurs fois.</li>
+        <li>Pression, orages et pluie observés viennent des messages METAR des aéroports. La pression est un QNH : la pression de la station ramenée au niveau de la mer selon l'atmosphère standard (1 à 2 hPa d'écart possible avec un calcul fait avec la température réelle, surtout en altitude).</li>
+        <li>Les aéroports sont espacés d'environ 50 km et publient environ toutes les 30 minutes : un orage ou une averse locale peut échapper à toutes les stations.</li>
+        <li>Seule la partie observée du message compte ; les groupes de prévision (TEMPO, BECMG) sont ignorés.</li>
       </ul>
 
-      <h3>Ce qu'il contient</h3>
-      <ul>
-        <li>L'heure du relevé, le nom du lieu, le fuseau horaire, la position <strong>arrondie à 0,01°</strong> (environ 1 km) et sa précision.</li>
-        <li>Les 12 heures du tableau, celles qu'on voit en faisant défiler la vue : pluie (mm), probabilité (%), température, ressenti, vent, rafales et code du temps.</li>
-        <li>Les valeurs exactes du modèle (avant l'arrondi de l'affichage) et, pour chacune, le <strong>modèle</strong> qui l'a fournie. Une donnée absente reste absente, jamais remplacée par 0.</li>
-        <li>Environ 1 Ko par relevé ; au-delà de 2 000 relevés, les plus anciens sont retirés.</li>
-      </ul>
-
-      <h3>Où il est gardé</h3>
-      <ul>
-        <li>Dans le stockage du navigateur de <strong>cet appareil</strong> uniquement : rien n'est envoyé nulle part.</li>
-        <li>L'application posée sur l'écran d'accueil de l'iPhone et Safari ont chacun leur stockage, donc chacun leurs relevés. Utilisez toujours le même.</li>
-        <li>Supprimer l'icône de l'écran d'accueil, ou effacer les données du site, efface les relevés. Exportez-les régulièrement (une fois par semaine, par exemple) : chaque fichier contient <strong>tous</strong> les relevés depuis le début.</li>
-      </ul>
-
-      <h3>Exporter</h3>
-      <p>Le bouton « Exporter les relevés », en bas de la vue <svg class="ico-walk" viewBox="0 0 24 24" role="img" aria-label="marcheur" focusable="false"><use href="#ico-walk"/></svg>, indique combien de relevés sont gardés et crée le fichier <code>releves-rando-AAAA-MM-JJ.json</code>. Sur iPhone, il ouvre la feuille de partage : « Enregistrer dans Fichiers » (dans iCloud Drive, par exemple, pour le retrouver sur le Mac), AirDrop, Mail… Sinon, le fichier est téléchargé. Exporter n'efface rien. Le fichier contient vos positions (à environ 1 km près) : pensez-y avant de le partager.</p>
-
-      <h3>La comparaison</h3>
-      <p>Elle se fait plus tard, hors de l'application, à partir du fichier : les prévisions sont confrontées aux observations des stations météo les plus proches (température, vent et rafales des stations d'aéroport, pluie des stations Météo-France). Limites connues : la station peut être à plusieurs dizaines de kilomètres et à une autre altitude, et une averse peut tomber sur la station et pas sur vous, ou l'inverse. La probabilité de pluie ne peut être jugée qu'avec beaucoup de relevés (des centaines d'heures).</p>
-    </section>
-
-    <section id="m-panel-tech" role="tabpanel" aria-labelledby="m-tab-tech" tabindex="0" hidden>
       <h3>Principes</h3>
       <p>HTML, CSS et JavaScript natifs (modules ES) : pas de framework, pas de compilation, pas de serveur (seule exception : Leaflet, chargé à la demande pour la carte). Le site est statique et peut être hébergé tel quel sur GitHub Pages. Chaque fichier est appelé avec un numéro de version tiré de son contenu (<code>app.js?v=…</code>, posé par <code>npm run version</code> avant chaque publication) : la page et ses fichiers changent toujours ensemble, jamais un mélange d'anciennes et de nouvelles versions. Aucune clé ni secret n'existe dans le code : toutes les requêtes partent du navigateur vers des API publiques.</p>
 
@@ -402,7 +409,7 @@ try { if (localStorage.getItem("meteo.home") !== "no") { document.documentElemen
         <li><code>journal.js</code> : relevés de la vue <svg class="ico-walk" viewBox="0 0 24 24" role="img" aria-label="marcheur" focusable="false"><use href="#ico-walk"/></svg> (prévision affichée gardée sur l'appareil) et fichier d'export.</li>
         <li><code>geo.js</code> : position de l'appareil (arrondie avant tout envoi à un service tiers) et nom du lieu.</li>
         <li><code>manifest.webmanifest</code> et <code>icone-180.png</code>, <code>icone-192.png</code>, <code>icone-512.png</code> : nom, icône et affichage en appli sur l'écran d'accueil (iPhone et Android) ; l'icône, un phare à l'aquarelle, a été créée avec ChatGPT à la demande de l'auteur. Les adresses des icônes et du manifeste portent aussi un numéro de version, qui change avec l'image. Sur iPhone, faire l'ajout à l'écran d'accueil depuis Safari : Firefox met une lettre à la place de l'icône (défaut connu de Firefox).</li>
-        <li><code>warnings.js</code> : vigilances. <code>places.js</code> : favoris et géocodage. <code>info.js</code> : cette fenêtre (son onglet « Accueil », la légende de l'écran d'accueil, est rempli par <code>app.js</code> à chaque affichage, avec les modèles du moment). La date de dernière modification, en bas, est écrite dans la page elle-même au moment de la modification : c'est la même partout, quelle que soit l'heure de publication.</li>
+        <li><code>warnings.js</code> : vigilances. <code>places.js</code> : favoris et géocodage. <code>info.js</code> : cette fenêtre (son onglet « Accueil », la légende de l'écran d'accueil, est rempli par <code>app.js</code> à chaque affichage, avec les modèles du moment ; « Mode d'emploi » s'ouvre depuis la page). La date de dernière modification, en bas, est écrite dans la page elle-même au moment de la modification : c'est la même partout, quelle que soit l'heure de publication.</li>
       </ul>
 
       <h3>Appels réseau (tous depuis le navigateur)</h3>
@@ -434,15 +441,51 @@ try { if (localStorage.getItem("meteo.home") !== "no") { document.documentElemen
 
       <h3>Qualité</h3>
       <ul>
-        <li>Plus de 60 tests automatiques (<code>npm test</code>, Node, sans dépendance) sur les règles métier, avec des données synthétiques.</li>
+        <li>Près de 200 tests automatiques (<code>npm test</code>, Node, sans dépendance) sur les règles métier, avec des données synthétiques.</li>
         <li>Un script de contrôle sur de vraies données pour les 8 favoris (<code>npm run live</code>) : couverture des 7 jours, cohérence des valeurs.</li>
         <li>Accessibilité : onglets et fenêtre utilisables au clavier, états signalés autrement que par la couleur, zones tactiles d'au moins 44 px, contrastes texte et fond mesurés au-dessus de 4,5:1.</li>
       </ul>
+
+      <!-- Relevés de test : utiles à l'auteur seulement, donc repliés ici plutôt qu'en onglet (28/11/2026) -->
+      <details class="howto" id="log-more">
+        <summary>Relevés de test (fiabilité de la vue des 12 heures)</summary>
+
+      <h4>À quoi ça sert</h4>
+      <p>Mesurer, sur des semaines, si la vue <svg class="ico-walk" viewBox="0 0 24 24" role="img" aria-label="marcheur" focusable="false"><use href="#ico-walk"/></svg> « Météo des 12 prochaines heures » annonce juste. Les prévisions affichées sont gardées au moment où vous les consultez, puis comparées plus tard à ce qui s'est réellement passé. On ne peut pas les reconstituer après coup : la vue choisit son modèle valeur par valeur, et les archives des services météo ne gardent pas ce mélange.</p>
+
+      <h4>Quand un relevé est pris</h4>
+      <ul>
+        <li>À chaque ouverture de la vue <svg class="ico-walk" viewBox="0 0 24 24" role="img" aria-label="marcheur" focusable="false"><use href="#ico-walk"/></svg> où la position est trouvée et la météo chargée, à chaque « Actualiser » et à chaque mise à jour automatique au retour dans l'application. Rien à faire de votre part.</li>
+        <li>Pas de relevé si la position n'est pas disponible : la vue montre alors le lieu choisi sur la page, qui n'est pas l'endroit où vous êtes.</li>
+        <li>Un relevé pris au même endroit (à environ 1 km près) moins d'une heure après le précédent le <strong>remplace</strong> : pas de doublons si vous rouvrez la vue plusieurs fois.</li>
+      </ul>
+
+      <h4>Ce qu'il contient</h4>
+      <ul>
+        <li>L'heure du relevé, le nom du lieu, le fuseau horaire, la position <strong>arrondie à 0,01°</strong> (environ 1 km) et sa précision.</li>
+        <li>Les 12 heures du tableau, celles qu'on voit en faisant défiler la vue : pluie (mm), probabilité (%), température, ressenti, vent, rafales et code du temps.</li>
+        <li>Les valeurs exactes du modèle (avant l'arrondi de l'affichage) et, pour chacune, le <strong>modèle</strong> qui l'a fournie. Une donnée absente reste absente, jamais remplacée par 0.</li>
+        <li>Environ 1 Ko par relevé ; au-delà de 2 000 relevés, les plus anciens sont retirés.</li>
+      </ul>
+
+      <h4>Où il est gardé</h4>
+      <ul>
+        <li>Dans le stockage du navigateur de <strong>cet appareil</strong> uniquement : rien n'est envoyé nulle part.</li>
+        <li>L'application posée sur l'écran d'accueil de l'iPhone et Safari ont chacun leur stockage, donc chacun leurs relevés. Utilisez toujours le même.</li>
+        <li>Supprimer l'icône de l'écran d'accueil, ou effacer les données du site, efface les relevés. Exportez-les régulièrement (une fois par semaine, par exemple) : chaque fichier contient <strong>tous</strong> les relevés depuis le début.</li>
+      </ul>
+
+      <h4>Exporter</h4>
+      <p>Le bouton « Exporter les relevés », en bas de la vue <svg class="ico-walk" viewBox="0 0 24 24" role="img" aria-label="marcheur" focusable="false"><use href="#ico-walk"/></svg>, indique combien de relevés sont gardés et crée le fichier <code>releves-rando-AAAA-MM-JJ.json</code>. Sur iPhone, il ouvre la feuille de partage : « Enregistrer dans Fichiers » (dans iCloud Drive, par exemple, pour le retrouver sur le Mac), AirDrop, Mail… Sinon, le fichier est téléchargé. Exporter n'efface rien. Le fichier contient vos positions (à environ 1 km près) : pensez-y avant de le partager.</p>
+
+      <h4>La comparaison</h4>
+      <p>Elle se fait plus tard, hors de l'application, à partir du fichier : les prévisions sont confrontées aux observations des stations météo les plus proches (température, vent et rafales des stations d'aéroport, pluie des stations Météo-France). Limites connues : la station peut être à plusieurs dizaines de kilomètres et à une autre altitude, et une averse peut tomber sur la station et pas sur vous, ou l'inverse. La probabilité de pluie ne peut être jugée qu'avec beaucoup de relevés (des centaines d'heures).</p>
+      </details>
     </section>
   </div>
 
   <div class="modal-foot">
-    <p>Par CilMac et Claude Opus 5.5 · <span id="info-updated" title="Heure de Paris, notée à la dernière modification des fichiers du site">dernière modification : <time id="info-date" datetime="2026-11-28T14:36Z" data-v="7d82f3f4">28 novembre 2026 à 15:36</time></span></p>
+    <p>Par CilMac et Claude Opus 5.5 · <span id="info-updated" title="Heure de Paris, notée à la dernière modification des fichiers du site">dernière modification : <time id="info-date" datetime="2026-11-28T15:05Z" data-v="b0a7e711">28 novembre 2026 à 16:05</time></span></p>
   </div>
 </dialog>
 
@@ -465,6 +508,6 @@ try { if (localStorage.getItem("meteo.home") !== "no") { document.documentElemen
   window.addEventListener("unhandledrejection", function (e) { show(String((e.reason && e.reason.message) || e.reason)); });
 })();
 </script>
-<script type="module" src="app.js?v=bb5edb1a"></script>
+<script type="module" src="app.js?v=7a89bb42"></script>
 </body>
 </html>

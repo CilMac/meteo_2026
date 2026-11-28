@@ -34,9 +34,10 @@ export function initInfo({ homeTab = false, fillHome = () => {} } = {}) {
       selectTab(tabs[(next + tabs.length) % tabs.length], true);
     });
   });
-  const open = (tab, from) => { returnTo = from; selectTab(tab); dlg.showModal(); };
+  // Les relevés de test (repliés en bas de « Sous le capot ») se referment à chaque ouverture.
+  const open = (tab, from) => { returnTo = from; $("log-more").open = false; selectTab(tab); dlg.showModal(); };
 
-  openBtn.addEventListener("click", () => open($("m-tab-how"), openBtn)); // page principale : « Fonctionnement », comme avant
+  openBtn.addEventListener("click", () => open($("m-tab-how"), openBtn)); // page principale : « Mode d'emploi »
   $("info-close").addEventListener("click", () => dlg.close());
   dlg.addEventListener("close", () => returnTo.focus());
   // Clic sur le voile : fermeture. Seule la cible « le dialogue lui-même » compte : un bouton activé au clavier envoie

@@ -2,7 +2,7 @@
 import { FAVORITES, DEFAULT_PLACE, CUSTOM_ID, searchPlaces, validatePlace, placeLabel } from "./places.js?v=521daa6a";
 import { fetchForecast, localDateISO } from "./weather-provider.js?v=9f2e113b";
 import { loadWarnings, officialSource } from "./warnings.js?v=79a17bd6";
-import { initInfo } from "./info.js?v=ab3b754d";
+import { initInfo } from "./info.js?v=c9370b62";
 import { initBarometer, preloadDial, trendSign } from "./barometer.js?v=f58dbfb8";
 import { createSkyLayer, addDoubleTapZoom, createStationLayer } from "./skymap.js?v=8cd1dc38";
 import { parseMapPrefs, MAP_ZOOM, maxZoomFor } from "./weathermap.js?v=c631804d";
