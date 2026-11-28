@@ -3,8 +3,8 @@
 import { timed, seconds, TIMEOUTS } from "./net.js?v=26ccf5e2";
 
 const API_URL = "https://api.open-meteo.com/v1/forecast";
-export const FORECAST_DAYS = 16; // l'API renvoie 16 jours ; le 16e (J+15) est vide pour ECMWF, on garde J..J+14
-export const KEPT_DAYS = 15;
+export const FORECAST_DAYS = 7; // page coupée à 7 jours (J..J+6) le 28/11/2026 : au-delà, une prévision jour par jour n'est plus fiable
+export const KEPT_DAYS = 7;
 export const TREND_LATEST_DAY = 5; // « tendance » au plus tard à partir de J+5 (cahier 8)
 
 // Liste de priorité des modèles par pays (hypothèses confirmées au lot 0).
@@ -191,7 +191,6 @@ export function usedModels(daily, hourly = []) {
 }
 
 export const firstWeek = (data) => data.daily.slice(0, 7);
-export const secondWeek = (data) => data.daily.slice(7, KEPT_DAYS);
 
 // 24 heures glissantes (comparaison de chaînes ISO locales, même fuseau).
 // Open-Meteo : pluie, probabilité et rafales d'une ligne « 18:00 » portent sur l'heure PRÉCÉDENTE (17 h → 18 h) ;

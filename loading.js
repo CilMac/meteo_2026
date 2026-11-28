@@ -2,9 +2,8 @@
 // quelles étapes sont terminées (aucun pourcentage inventé pour une requête dont la durée est inconnue).
 
 export const LOAD_STEPS = [
-  { id: "forecast", label: "Prévisions", weight: 60 },
-  { id: "ensemble", label: "Scénarios (J+4 à J+14)", weight: 25 },
-  { id: "warnings", label: "Vigilance officielle", weight: 15 },
+  { id: "forecast", label: "Prévisions", weight: 80 },
+  { id: "warnings", label: "Vigilance officielle", weight: 20 }, // plus d'étape « Scénarios » depuis le 28/11/2026 (page coupée à 7 jours)
 ];
 const DONE = new Set(["ok", "ko"]); // ko : étape terminée mais indisponible
 
@@ -44,7 +43,7 @@ export function createLoader(root, { delayMs = 400 } = {}) {
   return {
     start(placeName) {
       stop();
-      states = { forecast: "pending", ensemble: "waiting", warnings: "pending" };
+      states = { forecast: "pending", warnings: "pending" };
       startedAt = Date.now();
       $(".loader-title").textContent = `Chargement de la météo : ${placeName}`;
       paint(); tick();

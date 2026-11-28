@@ -1,7 +1,6 @@
 // Rendu des sections (cahier 4 à 8, 13). Les helpers purs sont testables sous Node ; `document` n'est utilisé que dans les builders.
 import { ECCC_ATTRIBUTION, ECCC_LICENCE_URL } from "./warnings.js?v=79a17bd6";
-import { ENSEMBLE_FIRST_DAY, ENSEMBLE_MEDIAN_FROM, WET_MM } from "./ensemble.js?v=88c38ccc";
-import { modelShort, modelLabel, next24h, firstWeek, secondWeek } from "./weather-provider.js?v=afd8726c";
+import { modelShort, modelLabel, next24h, firstWeek } from "./weather-provider.js?v=9f2e113b";
 
 export const TABS = [
   { id: "precip", label: "Précipitations", tip: "Afficher la pluie : quantité et probabilité" },
@@ -178,15 +177,14 @@ export function weekSummary(days) {
     if (b) parts.push(`Moins fiable : ${b}.`);
     if ([...near, ...far].some((d) => !isNum(d.precipSum.value))) parts.push("Pluie inconnue certains jours.");
   }
-  if (days.some((d) => d.trend)) parts.push("Les derniers jours sont une tendance : à confirmer.");
   return parts.join(" ");
 }
 
 // Jours marqués d'une pastille rouge : seuils propres à l'application (pas une vigilance officielle), un sujet par onglet.
-// Pluie : jusqu'à J+3 seulement (quantité non fiable au-delà, mesuré) ; température et vent : jusqu'à J+7, avant les médianes de scénarios.
+// Pluie : jusqu'à J+3 seulement (quantité non fiable au-delà, mesuré) ; température et vent : jusqu'à J+6, dernier jour affiché (page coupée à 7 jours le 28/11/2026).
 // La valeur comparée est la valeur AFFICHÉE (arrondie), pour qu'un « 90 km/h » lu soit toujours marqué.
 export const EXTREME = { rain: 50, gust: 90, hot: 35, cold: -10 };
-export const EXTREME_UNTIL = 7;
+export const EXTREME_UNTIL = 6;
 export function extremeOf(d, tab) {
   const out = [];
   if (tab === "precip") {
@@ -252,7 +250,7 @@ export function modelsOf(items, keys) {
   return [...set];
 }
 
-// Modèles réellement affichés : 24 h + jours J à J+14.
+// Modèles réellement affichés : 24 h + jours J à J+6.
 export function displayedModels(data) {
   return [...new Set([...modelsOf(data.daily, DAILY_SHOWN), ...modelsOf(next24h(data), HOURLY_SHOWN)])];
 }
@@ -490,33 +488,16 @@ function vbar(pct, color) {
   return h("div", { class: "vbar-box" }, pct === null ? null : h("div", { class: "vbar", style: { height: `${minVisible(pct)}%`, background: color } }));
 }
 
-// Valeurs effectivement affichées pour chaque jour : la médiane des scénarios à partir de J+8, sinon la valeur d'un seul scénario.
-export function dayViews(days, ensemble) {
-  const ensDays = ensemble?.status === "ok" ? ensemble.days : {};
-  return days.map((d) => {
-    const ens = ensDays[d.date] ?? null;
-    const median = Boolean(ens) && d.dayIndex >= ENSEMBLE_MEDIAN_FROM;
-    const range = Boolean(ens) && d.dayIndex >= ENSEMBLE_FIRST_DAY && !median;
-    return {
-      d, ens, median, range,
-      tmin: median ? ens.tmin?.median ?? null : d.tempMin.value,
-      tmax: median ? ens.tmax?.median ?? null : d.tempMax.value,
-      mm: median ? ens.precip?.mean ?? null : d.precipSum.value, // dès J+8 : moyenne des scénarios
-      pct: median ? (isNum(ens.precip?.probWet) ? ens.precip.probWet * 100 : null) : d.precipProbMax.value,
-    };
-  });
+// Valeurs affichées pour chaque jour : celles du modèle retenu valeur par valeur (plus de scénarios depuis le 28/11/2026 :
+// la page s'arrête à 7 jours, choix de l'utilisateur).
+export function dayViews(days) {
+  return days.map((d) => ({ d, tmin: d.tempMin.value, tmax: d.tempMax.value, mm: d.precipSum.value, pct: d.precipProbMax.value }));
 }
 
-// Vue compacte : trois blocs (4 premiers jours, 3 suivants, le reste jusqu'à J+14) ; les deux premiers toujours visibles,
-// le dernier dans une section repliée.
-export const COMPACT_BLOCKS = [[0, 3], [4, 6], [7, 14]];
+// Vue compacte : deux blocs (aujourd'hui à J+3, puis J+4 à J+6), séparés par une phrase.
+export const COMPACT_BLOCKS = [[0, 3], [4, 6]];
 export function compactBlocks(views) {
   return COMPACT_BLOCKS.map(([a, b]) => views.filter((v) => v.d.dayIndex >= a && v.d.dayIndex <= b)).filter((g) => g.length);
-}
-export const COMPACT_TREND_FROM = COMPACT_BLOCKS[2][0]; // premier jour de la section repliée « Jours 8 à 15 » (J+7)
-export function compactSplit(views) {
-  const blocks = compactBlocks(views), late = (g) => g[0].d.dayIndex >= COMPACT_TREND_FROM;
-  return { week: blocks.filter((g) => !late(g)), trend: blocks.filter(late) };
 }
 // Texte de valeur d'une ligne compacte, sans commentaire (les définitions sont dans le petit « i »).
 export function compactValue(v, tab) {
@@ -525,39 +506,23 @@ export function compactValue(v, tab) {
     return `${isNum(v.mm) ? `${num1(v.mm)} mm` : "—"}${isNum(v.pct) ? ` · ${num0(v.pct)} %` : ""}`;
   }
   if (tab === "temp") return `${deg(v.tmin)} / ${deg(v.tmax)}`;
-  return `${num0(d.windMax.value)}\u00a0km/h raf.\u00a0${num0(d.gustMax.value)}`; // lexique du 28/11/2026 : comme l'écran d'accueil
+  return `${num0(d.windMax.value)} km/h raf. ${num0(d.gustMax.value)}`; // lexique du 28/11/2026 : comme l'écran d'accueil
 }
-export const COMPACT_SEP_TEXT = "Dès J+4 : fiabilité en baisse.";
-// Note en tête des jours 8 à 15 (vue compacte) : d'où viennent les valeurs dès J+8, d'après ce qui est réellement affiché.
-// Sans scénarios (chargement ou échec), ou pour les jours qui n'en ont pas, la valeur d'un seul scénario est signalée. null = rien à dire.
-export function compactTrendNote(views, tab) {
-  const late = views.filter((v) => v.d.dayIndex >= ENSEMBLE_MEDIAN_FROM), single = late.filter((v) => !v.median);
-  if (!late.length) return null;
-  if (single.length === late.length) return `Dès J+${ENSEMBLE_MEDIAN_FROM} : valeurs d'un seul scénario, pas de médiane.`;
-  if (tab === "wind") return null;
-  const parts = [];
-  if (tab === "precip") parts.push(`Dès J+${ENSEMBLE_MEDIAN_FROM} : mm = moyenne des scénarios, % = part des scénarios à ${WET_MM} mm ou plus.`);
-  if (single.length) parts.push(`Un seul scénario : ${single.map((v) => dayLabel(v.d.date)).join(", ")}.`);
-  return parts.join(" ") || null;
-}
+export const COMPACT_SEP_TEXT = `Dès J+${COMPACT_BLOCKS[1][0]} : fiabilité en baisse.`;
 export const COMPACT_HELP_ITEMS = [
-  "7 jours : J à J+3, puis J+4 à J+6. Jours 8 à 15 (J+7 à J+14) : section à déplier.",
+  "7 jours : J à J+3, puis J+4 à J+6. Au-delà, une prévision jour par jour n'est plus fiable.",
   `Pluie : mm et %. Les mm sont peu fiables dès J+${RAIN_MM_UNTIL + 1}, non fiables à 7 jours.`,
   `Barres de pluie : petite verticale = mm du jour (pleine à 10 mm) ; horizontale = %.`,
-  "Jusqu'à J+7, le % est la probabilité horaire maximale du jour.",
-  `Dès J+${ENSEMBLE_MEDIAN_FROM} : mm = moyenne des scénarios ; % = part des scénarios à ${WET_MM} mm ou plus.`,
-  `Températures : minimale / maximale (médiane des scénarios dès J+${ENSEMBLE_MEDIAN_FROM}).`,
+  "Le % est la probabilité horaire maximale du jour.",
+  "Températures : minimale / maximale.",
   "Vent : maxima du jour.",
   "Détails et modèles : vue détaillée.",
 ];
 
-// Lignes de jours (7 jours ou 8-15 jours) : même construction, échelles propres à la section.
-// `ensemble` : undefined = scénarios en cours de chargement ; { status: "unavailable" } ; { status: "ok", days, models }.
-//  - J+4 à J+7 : la valeur d'un seul scénario (ECMWF) reste, avec la fourchette des scénarios à côté ;
-//  - à partir de J+8 : la médiane des scénarios remplace la valeur d'un seul scénario (températures et pluie).
-function buildPeriod(days, tab, { sectionLabel, summary, ensemble }) {
+// Lignes des 7 jours (vue détaillée) : barre, valeur, modèle ; séparateur à la frontière où le modèle court s'arrête.
+function buildPeriod(days, tab, { sectionLabel, summary }) {
   const wrap = h("div", {});
-  const views = dayViews(days, ensemble);
+  const views = dayViews(days);
   const tMins = views.map((v) => v.tmin).filter(isNum), tMaxs = views.map((v) => v.tmax).filter(isNum);
   const gmin = Math.min(...tMins, ...tMaxs), gmax = Math.max(...tMins, ...tMaxs);
   const wMax = scaleMax(days.map((d) => d.gustMax.value ?? d.windMax.value), 20);
@@ -565,27 +530,20 @@ function buildPeriod(days, tab, { sectionLabel, summary, ensemble }) {
   const list = h("ol", { class: `week week-${tab}` });
   let sep = false;
   for (const v of views) {
-    const { d, ens } = v;
-    if (d.trend && !sep && d.dayIndex < 7) { list.append(h("li", { class: "trend-sep", text: "Tendance — fiabilité moindre" })); sep = true; }
+    const { d } = v;
+    // Même phrase que la vue compacte (28/11/2026), avec le jour réel de la frontière (J+4 en France, J+5 au plus tard ailleurs).
+    if (d.trend && !sep) { list.append(h("li", { class: "trend-sep", text: `Dès J+${d.dayIndex} : fiabilité en baisse.` })); sep = true; }
     const info = weatherInfo(d.weatherCode.value, false);
-    // Même ligne pour les 15 jours : barre, valeur, une étiquette courte (modèle ou scénarios). Le reste est dans « Comment lire ces valeurs ».
+    // Même ligne pour les 7 jours : barre, valeur, le modèle. Le reste est dans « Comment lire ces valeurs ».
     let bar, value, tag = [];
     if (tab === "precip") {
       bar = rainBars(v.mm, v.pct);
       value = compactValue(v, "precip");
-      if (v.median) tag.push(`moyenne de ${ens.nMembers} scénarios`);
-      else {
-        tag.push(modelsLine(d, [["mm", "precipSum"], ["%", "precipProbMax"]]));
-        if (v.range && isNum(ens.precip?.probWet)) tag.push(`scén. ${num0(ens.precip.probWet * 100)} % ≥ ${WET_MM} mm`);
-      }
+      tag.push(modelsLine(d, [["mm", "precipSum"], ["%", "precipProbMax"]]));
     } else if (tab === "temp") {
       bar = rangeBar(v.tmin, v.tmax, gmin, gmax);
       value = compactValue(v, "temp");
-      if (v.median) tag.push("médiane", tmaxRange(ens));
-      else {
-        tag.push(modelsLine(d, [["min", "tempMin"], ["max", "tempMax"]]));
-        if (v.range && ens.tmax) tag.push(`scén. ${tmaxRange(ens)}`);
-      }
+      tag.push(modelsLine(d, [["min", "tempMin"], ["max", "tempMax"]]));
     } else {
       bar = h("div", { class: "hbar-box" },
         isNum(d.gustMax.value) ? h("div", { class: "hbar", style: { width: `${minVisible(barPct(d.gustMax.value, wMax))}%`, background: "var(--wind-2)" } }) : null,
@@ -595,11 +553,6 @@ function buildPeriod(days, tab, { sectionLabel, summary, ensemble }) {
       value = [vane(d.windDirDominant.value, true), `max ${num0(d.windMax.value)} km/h raf. ${num0(d.gustMax.value)}${from ? ` · vent ${from}` : ""}`];
       tag.push(modelsLine(d, [["vent", "windMax"], ["rafales", "gustMax"]]));
       if (gustBelowWind(d)) tag.push("⚠ rafales max < vent max : écart de la source, non corrigé");
-      if (d.dayIndex >= ENSEMBLE_MEDIAN_FROM) tag.push("un seul scénario"); // pas de dispersion pour le vent
-    }
-    // Scénarios attendus mais absents : dit clairement que la valeur reste celle d'un seul scénario.
-    if (tab !== "wind" && d.dayIndex >= ENSEMBLE_MEDIAN_FROM && !v.median) {
-      tag.push(ensemble === undefined ? "scénarios en chargement…" : "un seul scénario");
     }
     list.append(h("li", { class: "day" },
       h("div", { class: "dname" }, dayName(d, tab)),
@@ -609,14 +562,11 @@ function buildPeriod(days, tab, { sectionLabel, summary, ensemble }) {
   wrap.append(list);
   wrap.append(howTo(sectionLabel, howToItems(tab, {
     sectionLabel,
-    hasMedian: views.some((v) => v.median),
-    hasEns: views.some((v) => v.ens),
-    hasLateDays: days.some((d) => d.dayIndex >= ENSEMBLE_MEDIAN_FROM),
     hasLateMm: days.some((d) => d.dayIndex > RAIN_MM_UNTIL),
-    mixedRain: views.some((v) => !v.median && mixedRainModels(v.d)),
-    confidence: confidenceText(tab === "wind" ? days : views.filter((v) => !v.median).map((v) => v.d)),
+    mixedRain: views.some((v) => mixedRainModels(v.d)),
+    confidence: confidenceText(days),
   })));
-  const text = summary(days, ensemble);
+  const text = summary(days);
   if (text) wrap.append(h("p", { class: "summary", text }));
   return wrap;
 }
@@ -625,28 +575,19 @@ function buildPeriod(days, tab, { sectionLabel, summary, ensemble }) {
 export const mixedRainModels = (d) => Boolean(d.precipSum.model && d.precipProbMax.model && d.precipSum.model !== d.precipProbMax.model);
 
 // « Comment lire ces valeurs » : une idée par ligne, adaptée à l'onglet et à ce qui est réellement affiché.
-export function howToItems(tab, { sectionLabel = "cette liste", hasMedian = false, hasEns = false, hasLateDays = false, hasLateMm = false, mixedRain = false, confidence = "" } = {}) {
+export function howToItems(tab, { sectionLabel = "cette liste", hasLateMm = false, mixedRain = false, confidence = "" } = {}) {
   const items = [];
   if (tab === "precip") {
-    items.push(`Barres : horizontale = % de risque de pluie ; petite verticale = mm du jour, pleine à ${DAY_MM_FULL} mm (rouge et « + » au-delà).`);
+    items.push(`Barres : horizontale = probabilité de pluie (%) ; petite verticale = mm du jour, pleine à ${DAY_MM_FULL} mm (rouge et « + » au-delà).`);
     if (hasLateMm) items.push(`Les mm sont peu fiables dès J+${RAIN_MM_UNTIL + 1}, non fiables à 7 jours : un ordre de grandeur incertain.`);
-    items.push(hasMedian
-      ? `Dès J+${ENSEMBLE_MEDIAN_FROM} : mm = moyenne des scénarios, % = part des scénarios à ${WET_MM} mm ou plus ; avant, % = probabilité horaire maximale.`
-      : "Le % est la probabilité horaire maximale du jour, pas celle de toute la journée.");
+    items.push("Le % est la probabilité horaire maximale du jour, pas celle de toute la journée.");
     if (mixedRain) items.push("mm et % de deux modèles (Météo-France ne publie pas de %) : ils peuvent se contredire, par exemple 0 mm avec 60 %.");
-    if (hasEns) items.push(`Scénarios : plusieurs modèles à poids égal, bruts ; « scén. 27 % ≥ ${WET_MM} mm » : part d'entre eux à ${WET_MM} mm ou plus.`);
   } else if (tab === "temp") {
     items.push(`Barres : de la minimale à la maximale du jour (échelle propre à ${sectionLabel}).`);
-    if (hasEns) {
-      items.push("« T max 11 à 18 °C » : 80 % des scénarios tombent dans cet intervalle.");
-      items.push(`Dès J+${ENSEMBLE_MEDIAN_FROM} : médiane de plusieurs modèles, brute, non calibrée.`);
-      items.push("Dispersion (écart de cet intervalle) : faible sous 4 °C, forte au-delà de 8 °C.");
-    }
   } else {
     items.push("Valeurs : maxima du jour, jamais des moyennes.");
     items.push(`Barre foncée : vent max ; claire : rafales max (échelle propre à ${sectionLabel}).`);
-    items.push("Secteur : d'où vient le vent (direction dominante du jour).");
-    if (hasLateDays) items.push(`Dès J+${ENSEMBLE_MEDIAN_FROM} : valeur d'un seul scénario, sans dispersion.`);
+    items.push("Girouette et « vent du … » : d'où vient le vent (direction dominante du jour) ; la pointe va où va le vent.");
   }
   if (confidence) items.push(confidence);
   return items;
@@ -660,7 +601,7 @@ export function foldTip(details, what) {
   details.addEventListener("toggle", tip);
   return details;
 }
-// Explications repliées par défaut ; l'état choisi est conservé quand la section est reconstruite (onglet, scénarios chargés).
+// Explications repliées par défaut ; l'état choisi est conservé quand la section est reconstruite (changement d'onglet).
 const howToOpen = {};
 function howTo(key, items) {
   const d = h("details", { class: "howto" }, h("summary", { text: "Comment lire ces valeurs" }),
@@ -670,46 +611,35 @@ function howTo(key, items) {
   return foldTip(d, "les explications");
 }
 
-const tmaxRange = (ens) => (ens?.tmax ? `T max ${num0(ens.tmax.p10)} à ${num0(ens.tmax.p90)} °C` : null); // 80 % des scénarios (dit dans l'aide)
-
-// Vue compacte : lignes des 7 jours (deux blocs, séparateur expliqué) et lignes des jours 8 à 15 (section repliée, sa note à part).
-// Échelles communes aux 15 jours : les barres restent comparables une fois la suite dépliée.
-export function buildCompact(data, tab, ensemble) {
-  const views = dayViews(data.daily, ensemble);
+// Vue compacte : les 7 jours en deux blocs, séparateur expliqué, puis le même résumé que la vue détaillée.
+export function buildCompact(data, tab) {
+  const views = dayViews(firstWeek(data));
   const tMins = views.map((v) => v.tmin).filter(isNum), tMaxs = views.map((v) => v.tmax).filter(isNum);
   const gmin = Math.min(...tMins, ...tMaxs), gmax = Math.max(...tMins, ...tMaxs);
   const wMax = scaleMax(views.map((v) => v.d.gustMax.value ?? v.d.windMax.value), 20);
-  const trendNote = compactTrendNote(views, tab);
-  const split = compactSplit(views);
-  const buildList = (blocks) => {
-    const list = h("ol", { class: "compact-list" });
-    blocks.forEach((block, i) => {
-      if (i > 0) list.append(h("li", { class: "compact-sep", text: COMPACT_SEP_TEXT }));
-      for (const v of block) {
-        const { d } = v;
-        const info = weatherInfo(d.weatherCode.value, false);
-        let bar;
-        if (tab === "precip") bar = rainBars(v.mm, v.pct);
-        else if (tab === "temp") bar = rangeBar(v.tmin, v.tmax, gmin, gmax);
-        else bar = h("div", { class: "hbar-box" },
-          isNum(d.gustMax.value) ? h("div", { class: "hbar", style: { width: `${minVisible(barPct(d.gustMax.value, wMax))}%`, background: "var(--wind-2)" } }) : null,
-          isNum(d.windMax.value) ? h("div", { class: "hbar over", style: { width: `${minVisible(barPct(d.windMax.value, wMax))}%`, background: "var(--wind)" } }) : null);
-        list.append(h("li", { class: "compact-day" },
-          h("span", { class: "c-name" }, dayName(d, tab)),
-          h("span", { class: "c-icon", "aria-hidden": "true", title: info.label, text: info.icon }),
-          bar, tab === "wind"
-            // girouette de la direction dominante (sa direction en mots, pour le lecteur d'écran ; trop longue pour la ligne)
-            ? h("span", { class: "c-val" }, vane(d.windDirDominant.value, true), windFrom(d.windDirDominant.value) ? h("span", { class: "sr-only", text: `vent ${windFrom(d.windDirDominant.value)}, ` }) : null, compactValue(v, tab))
-            : h("span", { class: "c-val", text: compactValue(v, tab) })));
-      }
-    });
-    return list;
-  };
-  // Sous les 7 jours : le même résumé que dans la vue détaillée.
+  const list = h("ol", { class: "compact-list" });
+  compactBlocks(views).forEach((block, i) => {
+    if (i > 0) list.append(h("li", { class: "compact-sep", text: COMPACT_SEP_TEXT }));
+    for (const v of block) {
+      const { d } = v;
+      const info = weatherInfo(d.weatherCode.value, false);
+      let bar;
+      if (tab === "precip") bar = rainBars(v.mm, v.pct);
+      else if (tab === "temp") bar = rangeBar(v.tmin, v.tmax, gmin, gmax);
+      else bar = h("div", { class: "hbar-box" },
+        isNum(d.gustMax.value) ? h("div", { class: "hbar", style: { width: `${minVisible(barPct(d.gustMax.value, wMax))}%`, background: "var(--wind-2)" } }) : null,
+        isNum(d.windMax.value) ? h("div", { class: "hbar over", style: { width: `${minVisible(barPct(d.windMax.value, wMax))}%`, background: "var(--wind)" } }) : null);
+      list.append(h("li", { class: "compact-day" },
+        h("span", { class: "c-name" }, dayName(d, tab)),
+        h("span", { class: "c-icon", "aria-hidden": "true", title: info.label, text: info.icon }),
+        bar, tab === "wind"
+          // girouette de la direction dominante (sa direction en mots, pour le lecteur d'écran ; trop longue pour la ligne)
+          ? h("span", { class: "c-val" }, vane(d.windDirDominant.value, true), windFrom(d.windDirDominant.value) ? h("span", { class: "sr-only", text: `vent ${windFrom(d.windDirDominant.value)}, ` }) : null, compactValue(v, tab))
+          : h("span", { class: "c-val", text: compactValue(v, tab) })));
+    }
+  });
   const text = weekSummary(firstWeek(data));
-  const week = h("div", {}, buildList(split.week), text ? h("p", { class: "summary", text }) : null);
-  const trend = h("div", {}, trendNote ? h("p", { class: "muted small", text: trendNote }) : null, buildList(split.trend));
-  return { week, trend, hasTrend: split.trend.length > 0 };
+  return h("div", {}, list, text ? h("p", { class: "summary", text }) : null);
 }
 
 // Cas observé à Montréal (GEM) : rafales max inférieures au vent max. Signalé, jamais retouché.
@@ -728,51 +658,8 @@ export function confidenceText(days) {
   return `Confiance selon l'horizon (non calibrée) : ${groups.map((g) => `${g.c} ${g.from === g.to ? `à J+${g.from}` : `J+${g.from} à J+${g.to}`}`).join(", ")}.`;
 }
 
-// 7 lignes (J à J+6) avec séparateur « tendance » à la frontière calculée.
-export const buildWeek = (data, tab, ensemble) => buildPeriod(firstWeek(data), tab, { sectionLabel: "ces 7 jours", summary: weekSummary, ensemble });
-// 8 lignes (J+7 à J+14), toutes en tendance.
-export const buildTrend = (data, tab, ensemble) => buildPeriod(secondWeek(data), tab, { sectionLabel: "ces 8 jours", summary: trendSummary, ensemble });
-
-// 2 ou 3 phrases sur les jours 8 à 15 : températures, sec/humide, incertitudes. N'invente rien.
-export function trendSummary(days, ensemble) {
-  const ens = ensemble?.status === "ok" ? ensemble.days : {};
-  const med = (d) => (ens[d.date] && d.dayIndex >= ENSEMBLE_MEDIAN_FROM ? ens[d.date] : null);
-  const maxes = days.map((d) => (med(d) ? med(d).tmax?.median : d.tempMax.value)).filter(isNum);
-  const mins = days.map((d) => (med(d) ? med(d).tmin?.median : d.tempMin.value)).filter(isNum);
-  const parts = [];
-  if (maxes.length && mins.length) parts.push(`Maximales de ${num0(Math.min(...maxes))} à ${num0(Math.max(...maxes))} °C, minimales de ${num0(Math.min(...mins))} à ${num0(Math.max(...mins))} °C.`);
-  const withEns = days.filter((d) => med(d) && isNum(med(d).precip?.probWet));
-  const single = days.filter((d) => !med(d) && d.precipClass);
-  const wetSingle = single.filter((d) => d.precipClass === "fort" || d.precipClass === "modéré");
-  const likely = withEns.filter((d) => med(d).precip.probWet >= 0.5);
-  if (!withEns.length && !single.length) parts.push("Aucune donnée de pluie disponible sur cette période.");
-  else if (!withEns.length) {
-    // Sans scénarios : seulement la valeur d'un seul scénario, classée.
-    // « Sec » = 0 mm (28/11/2026 : 0,1 mm n'est jamais « sec ») ; les classes faible / modéré / fort restent celles de rainClass.
-    const dry = single.filter((d) => d.precipSum?.value === 0).length, n = single.length;
-    const dryText = dry === n ? `sec les ${n} jours` : dry ? `sec ${dry} jour${dry > 1 ? "s" : ""} sur ${n}` : "aucun jour sec";
-    if (wetSingle.length) parts.push(`Épisodes de pluie possibles : ${wetSingle.map((d) => `${dayLabel(d.date)} (${d.precipClass})`).join(", ")} ; ${dryText}.`);
-    else parts.push(dry === n ? `Sec les ${n} jours.` : `Au plus de la pluie faible ; ${dryText}.`);
-  } else {
-    const bits = [];
-    if (likely.length) bits.push(`pluie plus probable que non (au moins la moitié des scénarios) : ${likely.map((d) => dayLabel(d.date)).join(", ")}`);
-    else if (withEns.length) {
-      const top = withEns.reduce((m, d) => (med(d).precip.probWet > med(m).precip.probWet ? d : m));
-      bits.push(`aucun jour où la pluie domine dans les scénarios (au plus ${num0(med(top).precip.probWet * 100)} % des scénarios ≥ ${WET_MM} mm, le ${dayLabel(top.date)})`);
-    }
-    if (wetSingle.length) bits.push(`épisodes de pluie possibles selon un seul scénario : ${wetSingle.map((d) => `${dayLabel(d.date)} (${d.precipClass})`).join(", ")}`);
-    parts.push(`${bits.join(" ; ").replace(/^./, (c) => c.toUpperCase())}.`);
-  }
-  const sample = withEns.length ? med(withEns[0]) : null;
-  if (sample) {
-    parts.push(`Médiane de ${sample.nMembers} scénarios environ (${sample.nModels} modèles), bruts et non calibrés : tendance à prendre avec prudence.`);
-  } else {
-    const missing = days.length - single.length;
-    const models = modelsOf(days, DAILY_SHOWN).map(modelShort).join(", ");
-    parts.push(`${models ? `Valeurs issues de ${models}` : "Aucune valeur disponible"}, sans mesure de dispersion : tendances à prendre avec prudence${missing ? `, ${missing} jour(s) sans donnée` : ""}.`);
-  }
-  return parts.join(" ");
-}
+// 7 lignes (J à J+6) avec séparateur à la frontière calculée.
+export const buildWeek = (data, tab) => buildPeriod(firstWeek(data), tab, { sectionLabel: "ces 7 jours", summary: weekSummary });
 
 function hbar(pct, color) {
   return h("div", { class: "hbar-box" }, pct === null ? null : h("div", { class: "hbar", style: { width: `${minVisible(pct)}%`, background: color } }));
@@ -801,10 +688,10 @@ function rangeBar(lo, hi, gmin, gmax) {
 }
 
 // Bloc de transparence (cahier 13).
-export function buildSources(data, warnings = null, ensemble = null, now = new Date()) {
+export function buildSources(data, warnings = null) {
   const tz = data.location.timezone, m = data.metadata;
   const models = displayedModels(data);
-  const week = data.daily; // J à J+14
+  const week = data.daily; // J à J+6
   const items = [];
   items.push(h("li", { text: `Consulté le ${formatLocal(new Date(m.fetchedAt), tz, { dateStyle: "full", timeStyle: "short" })} (heure de ${data.location.name}, ${tz}).` }));
   items.push(h("li", { text: "Mise à jour de la source : non publiée par l'API (aucune heure inventée)." }));
@@ -815,26 +702,19 @@ export function buildSources(data, warnings = null, ensemble = null, now = new D
   }
   const gaps = [["probabilité de pluie", "precipProbMax"], ["rafales max", "gustMax"], ["vent max", "windMax"], ["pluie (mm)", "precipSum"]]
     .map(([l, k]) => [l, week.filter((d) => d[k].value === null).length]).filter(([, n]) => n > 0);
-  items.push(h("li", { text: gaps.length ? `Données manquantes sur les 15 jours : ${gaps.map(([l, n]) => `${l} (${n} j)`).join(", ")}.` : "Aucune donnée manquante sur les 15 jours." }));
-  items.push(h("li", { text: "Jusqu'à J+7, le modèle est choisi pour chaque valeur : le premier de la liste de priorité qui fournit une donnée, sans moyenne de modèles." }));
-  if (ensemble?.status === "ok") {
-    const sample = Object.values(ensemble.days)[0];
-    items.push(h("li", { text: `Scénarios (J+${ENSEMBLE_FIRST_DAY} à J+14) : ${ensemble.models.map((m) => m.label).join(", ")}, environ ${sample?.nMembers ?? "?"} scénarios par jour, via Open-Meteo (API d'ensemble). À partir de J+${ENSEMBLE_MEDIAN_FROM}, les températures sont la médiane et les mm de pluie la moyenne de ces scénarios : ce n'est pas la prévision d'un modèle précis, et ils ne sont pas calibrés.` }));
-  } else if (ensemble?.status === "unavailable") {
-    items.push(h("li", { text: `Scénarios indisponibles : ${ensemble.reason} Les jours à partir de J+${ENSEMBLE_MEDIAN_FROM} montrent la valeur d'un seul scénario (ECMWF).` }));
-  }
+  items.push(h("li", { text: gaps.length ? `Données manquantes sur les 7 jours : ${gaps.map(([l, n]) => `${l} (${n} j)`).join(", ")}.` : "Aucune donnée manquante sur les 7 jours." }));
+  items.push(h("li", { text: "Le modèle est choisi pour chaque valeur : le premier de la liste de priorité qui fournit une donnée, sans moyenne de modèles." }));
   items.push(h("li", { text: "La résolution du modèle (1,5 à 25 km selon les cas) ne rend pas compte des microclimats locaux, notamment sur le littoral." }));
 
   return h("div", { class: "sources" }, h("ul", {}, items));
 }
 
 // Attributions obligatoires : toujours visibles, même quand « Sources et limites » est replié.
-export function buildAttribution(data, warnings = null, ensemble = null) {
+export function buildAttribution(data, warnings = null) {
   const models = displayedModels(data);
   const attribution = h("p", { class: "attrib muted small" }, h("a", { href: "https://open-meteo.com/", rel: "noopener", text: "Weather data by Open-Meteo.com" }), " · ",
     h("a", { href: "https://open-meteo.com/en/terms", rel: "noopener", text: "conditions d'utilisation" }));
   if (models.includes("meteofrance_seamless")) attribution.append(" · Source : Météo-France");
-  if (ensemble?.status === "ok") attribution.append(" · Scénarios : ECMWF, NOAA, Environnement et Changement climatique Canada (via Open-Meteo)");
   if (warnings?.status === "confirmed") {
     attribution.append(` · ${ECCC_ATTRIBUTION} `, h("a", { href: ECCC_LICENCE_URL, rel: "noopener", text: "(licence)" }));
   }

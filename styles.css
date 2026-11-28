@@ -188,8 +188,8 @@ summary { min-height: 44px; display: flex; align-items: center; cursor: pointer;
 .dname { grid-area: n; font-weight: 600; text-transform: capitalize; line-height: 1.3; } .dicon { grid-area: i; font-size: 1.4rem; }
 .day .hbar-box, .day .dbars { grid-area: b; } .dval { grid-area: v; font-size: 15px; font-weight: 600; line-height: 1.4; } .dmodel { grid-area: m; }
 .dmodel:empty { display: none; }
-.trend-sep, .trend-warning { padding: 10px 14px; border-left: 4px solid var(--attention-border); border-radius: var(--radius-control); background: var(--attention); color: var(--attention-ink); font-weight: 600; }
-.trend-sep { margin: 12px 0 6px; font-size: 15px; } .trend-warning { margin: 0 0 12px; }
+.trend-sep { padding: 10px 14px; border-left: 4px solid var(--attention-border); border-radius: var(--radius-control); background: var(--attention); color: var(--attention-ink); font-weight: 600; }
+.trend-sep { margin: 12px 0 6px; font-size: 15px; }
 .hbar-box { position: relative; height: 10px; background: color-mix(in srgb, var(--line) 70%, transparent); border-radius: 5px; overflow: hidden; margin: 2px 0; }
 .hbar { position: absolute; left: 0; top: 0; height: 100%; border-radius: 5px; } .hbar.range { min-width: 6px; }
 .summary { margin: 12px 0 0; font-weight: 600; }
@@ -231,7 +231,6 @@ a.official { display: inline-block; min-height: 44px; line-height: 44px; }
 }
 .fold > summary:hover::after { filter: brightness(.96); }
 .fold[open] > summary::after { background: var(--help-active) var(--fold-up) center / 24px 24px no-repeat; border-color: var(--help-active-border); }
-.fold > summary .trend-warning { grid-column: 1 / -1; margin: 0; }
 .fold[open] > summary { margin-bottom: 12px; }
 
 /* titres : la rubrique active est nommée dans une pastille à sa couleur */

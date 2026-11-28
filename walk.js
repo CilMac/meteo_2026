@@ -4,7 +4,7 @@
 // Sans dépendance au DOM (tests Node).
 
 import { timed, seconds, TIMEOUTS } from "./net.js?v=26ccf5e2";
-import { modelShort } from "./weather-provider.js?v=afd8726c";
+import { modelShort } from "./weather-provider.js?v=9f2e113b";
 
 const API = "https://api.open-meteo.com/v1/forecast";
 export const STEP_MS = 15 * 60 * 1000;

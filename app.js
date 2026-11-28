@@ -1,22 +1,21 @@
 // Orchestration : lieu, un appel réseau par validation, onglets qui re-rendent sans appel réseau.
 import { FAVORITES, DEFAULT_PLACE, CUSTOM_ID, searchPlaces, validatePlace, placeLabel } from "./places.js?v=521daa6a";
-import { fetchForecast, localDateISO } from "./weather-provider.js?v=afd8726c";
+import { fetchForecast, localDateISO } from "./weather-provider.js?v=9f2e113b";
 import { loadWarnings, officialSource } from "./warnings.js?v=79a17bd6";
-import { fetchEnsemble } from "./ensemble.js?v=88c38ccc";
 import { initInfo } from "./info.js?v=ab3b754d";
 import { initBarometer, preloadDial, trendSign } from "./barometer.js?v=f58dbfb8";
 import { createSkyLayer, addDoubleTapZoom, createStationLayer } from "./skymap.js?v=8cd1dc38";
 import { parseMapPrefs, MAP_ZOOM, maxZoomFor } from "./weathermap.js?v=c631804d";
-import { initWalk } from "./walkui.js?v=36531eeb";
-import { buildHome, buildHomeNow, buildSunBand, wireHomePages, homeSteps, homeAlerts, HOME_STEPS, HOME_PAGES, homeLegend, buildLegend, homeMode, HOME_KEY } from "./home.js?v=a3a756fd";
-import { localToMs, fetchNextHour } from "./walk.js?v=fa603674";
+import { initWalk } from "./walkui.js?v=1e5cad5d";
+import { buildHome, buildHomeNow, buildSunBand, wireHomePages, homeSteps, homeAlerts, HOME_STEPS, HOME_PAGES, homeLegend, buildLegend, homeMode, HOME_KEY } from "./home.js?v=54687578";
+import { localToMs, fetchNextHour } from "./walk.js?v=a0f5668b";
 import { fetchObservedPressure, fetchPressureTrend, fetchObservedStorms, stormText, fetchObservedPrecip, precipText, pressureDisplay, TREND_WORD, fetchStationsForMap, distanceKm, STORM_WORDS, metarLines } from "./observation.js?v=9b23b237";
 import { getPosition, reverseGeocode, placeFromPosition, storedGeoPlace, formatCoords, deniedHelp, GEO_ID, GEO_MAX_AGE_MS } from "./geo.js?v=b6df63a8";
 import { shouldRefresh, STALE_MS, TRY_GAP_MS, RETRY_MS, QUIET_WAIT_MS } from "./refresh.js?v=beadd3fe";
-import { createLoader } from "./loading.js?v=956b591b";
-import { makeRecord, saveRecord, loadJournal, exportText, exportName } from "./journal.js?v=c2b8ddc4";
+import { createLoader } from "./loading.js?v=72442cde";
+import { makeRecord, saveRecord, loadJournal, exportText, exportName } from "./journal.js?v=3dd59354";
 import { chooseView, DEFAULT_VIEW, isIOS } from "./device.js?v=804d2636";
-import { TABS, foldTip, buildPin, buildTopPlace, buildTopNow, buildCurrent, buildHourly, buildWeek, buildTrend, buildCompact, buildMini, extremeText, COMPACT_HELP_ITEMS, buildSources, buildWarnings, buildAttribution, warningsStatus, formatLocal, whereText } from "./weather-render.js?v=a2a869ab";
+import { TABS, foldTip, buildPin, buildTopPlace, buildTopNow, buildCurrent, buildHourly, buildWeek, buildCompact, buildMini, extremeText, COMPACT_HELP_ITEMS, buildSources, buildWarnings, buildAttribution, warningsStatus, formatLocal, whereText } from "./weather-render.js?v=d9c33732";
 
 const $ = (id) => {
   const el = document.getElementById(id);
@@ -27,7 +26,7 @@ const $ = (id) => {
 const PLACE_KEY = "meteo.lastPlace", CUSTOM_KEY = "meteo.customPlace", POSITION_KEY = "meteo.position", TAB_DEFAULT = "precip";
 
 const loader = createLoader($("loader"));
-const state = { place: null, data: null, warnings: null, ensemble: undefined, pressure: null, view: DEFAULT_VIEW, tab: TAB_DEFAULT, loading: false, searching: 0, loadId: 0, posCoords: null };
+const state = { place: null, data: null, warnings: null, pressure: null, view: DEFAULT_VIEW, tab: TAB_DEFAULT, loading: false, searching: 0, loadId: 0, posCoords: null };
 
 // Dernier « autre lieu » choisi, relu et revalidé (jamais pris tel quel dans le stockage) ; absent ou illisible : null.
 function readCustomPlace() {
@@ -82,7 +81,7 @@ function selectTab(id, focus = false) {
   renderTabbed();
   if (focus) $(`tab-${id}`).focus();
 }
-// Bandeau 24 h : en changeant d'onglet (ou quand les scénarios arrivent), on reste sur les mêmes heures ; nouvelles données
+// Bandeau 24 h : en changeant d'onglet, on reste sur les mêmes heures ; nouvelles données
 // (autre lieu, Actualiser) : retour au début. Les cases ont la même largeur dans les trois onglets, la position suffit.
 let stripScroll = { data: null, left: 0 };
 function renderTabbed() {
@@ -94,12 +93,8 @@ function renderTabbed() {
   $("hourly").replaceChildren(buildHourly(state.data, state.tab));
   const newStrip = $("hourly").querySelector(".strip");
   if (newStrip) newStrip.scrollLeft = stripScroll.left;
-  $("week").replaceChildren(buildWeek(state.data, state.tab, state.ensemble));
-  $("trend").replaceChildren(buildTrend(state.data, state.tab, state.ensemble));
-  const compact = buildCompact(state.data, state.tab, state.ensemble);
-  $("compact").replaceChildren(compact.week);
-  $("compact-trend").replaceChildren(compact.trend);
-  $("compact-trend-fold").hidden = !compact.hasTrend;
+  $("week").replaceChildren(buildWeek(state.data, state.tab));
+  $("compact").replaceChildren(buildCompact(state.data, state.tab));
 }
 
 // Fuseau de l'appareil : la ligne de date ne nomme l'heure du lieu que s'il est différent.
@@ -623,8 +618,8 @@ function renderWarnings() {
   const st = warningsStatus(state.data, state.warnings);
   $("warnings-status").textContent = st.text;
   $("warnings-status").classList.toggle("is-alert", st.alert);
-  $("sources").replaceChildren(buildSources(state.data, state.warnings, state.ensemble));
-  $("attribution").replaceChildren(buildAttribution(state.data, state.warnings, state.ensemble));
+  $("sources").replaceChildren(buildSources(state.data, state.warnings));
+  $("attribution").replaceChildren(buildAttribution(state.data, state.warnings));
 }
 
 // Pression du lieu affiché (bouton à côté de la carte) ; null = mesure en cours de lecture, jamais la pression du lieu précédent.
@@ -675,15 +670,12 @@ async function load(place, { note = "", kind = "", quiet = false } = {}) {
     const data = await fetchForecast(place);
     if (id !== state.loadId) return; // un lieu plus récent a été demandé entre-temps
     loader.done("forecast");
-    loader.begin("ensemble");
-    // Scénarios d'ensemble (J+4 à J+14) : chargés après la prévision, sans bloquer son affichage (sauf retour discret : tout d'un coup).
-    const ensembleP = fetchEnsemble(place, data.daily.map((d) => d.date));
-    if (quiet) {
-      await Promise.race([Promise.allSettled([warningsP, trendP, ensembleP]), new Promise((r) => setTimeout(r, QUIET_WAIT_MS))]);
+    if (quiet) { // retour discret : tout d'un coup, une fois vigilance et pression arrivées
+      await Promise.race([Promise.allSettled([warningsP, trendP]), new Promise((r) => setTimeout(r, QUIET_WAIT_MS))]);
       if (id !== state.loadId) return;
     }
     const focusId = document.activeElement?.id; // redessiner les onglets leur ferait perdre le curseur
-    state.place = place; state.data = data; state.warnings = null; state.ensemble = undefined; state.pressure = null; state.loading = false;
+    state.place = place; state.data = data; state.warnings = null; state.pressure = null; state.loading = false;
     state.note = note ? { text: note, kind } : null; // reste affiché tant que ces données sont à l'écran (renderAll → état « périmé »)
     renderAll();
     renderPressure();
@@ -695,11 +687,7 @@ async function load(place, { note = "", kind = "", quiet = false } = {}) {
       trendP.then((t) => { if (t && id === state.loadId) { state.pressure = pressureOf(data, o, t); renderPressure(); } });
     });
     warningsP.then((w) => { if (id === state.loadId) { state.warnings = w; renderWarnings(); loader.done("warnings", true); } });
-    ensembleP.then((e) => {
-      if (id !== state.loadId) return;
-      state.ensemble = e; renderTabbed(); renderWarnings();
-      loader.done("ensemble", e.status === "ok");
-    });
+
     return true;
   } catch (e) {
     if (id !== state.loadId) return;
@@ -712,7 +700,7 @@ async function load(place, { note = "", kind = "", quiet = false } = {}) {
 }
 
 const select = $("place");
-// « Ma position » en tête de liste : toute la page (24 h, 7 et 15 jours) à la position réelle de l'appareil.
+// « Ma position » en tête de liste : toute la page (24 h et 7 jours) à la position réelle de l'appareil.
 const POSITION_LABEL = "📍 Ma position";
 select.add(new Option(POSITION_LABEL, GEO_ID));
 const setPositionLabel = (place) => { const o = select.querySelector(`option[value="${GEO_ID}"]`); if (o) o.text = place ? `${POSITION_LABEL} (${place.name})` : POSITION_LABEL; };
