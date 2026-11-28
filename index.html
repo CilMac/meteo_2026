@@ -13,7 +13,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#f6f3eb" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#1b201d" media="(prefers-color-scheme: dark)">
-<link rel="stylesheet" href="styles.css?v=6cf3ed1f">
+<link rel="stylesheet" href="styles.css?v=32034eb0">
 <script>
 // Tous les appareils : la page reste masquée le temps d'ouvrir l'écran d'accueil (app.js), 4 s au plus, pour ne pas apparaître une fraction de seconde avant lui.
 // Même règle que homeMode (home.js) : rien seulement si l'écran a été refusé ou décliné (un test le vérifie).
@@ -71,21 +71,11 @@ try { if (localStorage.getItem("meteo.home") !== "no") { document.documentElemen
 
   <div id="status" role="status" aria-live="polite"></div>
 
-  <div id="content" hidden>
+  <div id="content" class="is-compact" hidden><!-- une seule vue (28/11/2026) : réglages « compacts » du CSS -->
     <!-- Barre fixe : lieu + situation en une ligne, puis les onglets (toujours visibles au défilement) -->
     <div class="topbar">
       <div class="top-row">
         <div id="top-place" class="top-cell top-cell-place" aria-live="polite"></div>
-        <!-- petit déroulant : l'icône de la vue en cours et un chevron ; la vraie liste (native) est posée dessus, invisible -->
-        <div id="view-pick" class="view-pick">
-          <svg class="vb-svg vb-detail" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><rect x="4" y="3.5" width="16" height="7.5" rx="2"/><rect x="4" y="13" width="16" height="7.5" rx="2"/></svg>
-          <svg class="vb-svg vb-compact" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><path d="M4.5 6h15M4.5 10h15M4.5 14h15M4.5 18h15"/></svg>
-          <svg class="vb-svg vb-chevron" viewBox="0 0 12 12" width="10" height="10" aria-hidden="true" focusable="false"><path d="M2 4l4 4 4-4"/></svg>
-          <select id="view-select" aria-label="Type d'affichage" title="Choisir la vue compacte ou détaillée">
-            <option value="compact" selected>Vue compacte</option>
-            <option value="detail">Vue détaillée</option>
-          </select>
-        </div>
         <div id="top-now" class="top-cell top-cell-now" aria-live="polite"></div>
       </div>
       <div id="tabs" class="tabs" role="tablist" aria-label="Rubrique affichée"></div>
@@ -98,11 +88,17 @@ try { if (localStorage.getItem("meteo.home") !== "no") { document.documentElemen
 
 
     <!-- D. 24 heures -->
-    <section class="card" id="hourly-card" aria-labelledby="h-24"><h2 id="h-24"><span class="h2-main">Prochaines 24 heures</span></h2><div id="hourly" role="tabpanel"></div></section>
+    <section class="card" id="hourly-card" aria-labelledby="h-24">
+      <div class="compact-head">
+        <h2 id="h-24"><span class="h2-main">Prochaines 24 heures</span></h2>
+        <button type="button" id="hourly-info-btn" class="compact-info-btn" aria-expanded="false" aria-controls="hourly-help" aria-label="Explications des 24 heures" title="Explications">i</button>
+      </div>
+      <div class="compact-help" id="hourly-help" hidden></div>
+      <div id="hourly" role="tabpanel"></div>
+    </section>
 
 
-    <!-- Vue compacte seulement (masquée par défaut) : 7 jours dans un pavé, sans commentaire -->
-    <div id="compact-only" hidden>
+    <!-- 7 jours dans un pavé (une seule vue depuis le 28/11/2026) -->
     <section class="card compact-card" id="compact-card" aria-labelledby="h-compact">
       <div class="compact-head">
         <h2 id="h-compact"><span class="h2-main">7 jours</span></h2>
@@ -111,19 +107,7 @@ try { if (localStorage.getItem("meteo.home") !== "no") { document.documentElemen
       <div class="compact-help" id="compact-help" hidden></div>
       <div id="compact"></div>
     </section>
-    </div><!-- /compact-only -->
 
-    <!-- Vue détaillée seulement : 7 jours -->
-    <div id="detail-only">
-
-    <!-- E. 7 jours -->
-    <section class="card" id="week-card" aria-labelledby="h-7">
-      <h2 id="h-7"><span class="h2-main">Prévisions sur 7 jours</span></h2>
-      <div id="week"></div>
-    </section>
-
-
-    </div><!-- /detail-only -->
 
     <!-- G. Vigilances -->
     <details class="card fold" id="warnings-fold">
@@ -326,13 +310,13 @@ try { if (localStorage.getItem("meteo.home") !== "no") { document.documentElemen
         <li><strong>« Situation actuelle »</strong> : valeurs calculées par un modèle pour l'heure en cours (pas un relevé de station). La <strong>probabilité</strong> affichée est le maximum horaire du jour, pas celle de l'heure en cours (c'est écrit dessous). Dessous, deux icônes donnent le <strong>lever</strong> (soleil jaune, flèche vers le haut) et le <strong>coucher</strong> (soleil orangé, flèche vers le bas) du soleil du jour, à l'heure du lieu ; près des pôles, la ligne dit si le soleil reste levé ou couché toute la journée. À leur droite, un rappel de la <strong>pression</strong> et de sa tendance : la même valeur que le bouton du baromètre, donc une mesure de station ou, précédée de « ≈ », la valeur du modèle.</li>
         <li><strong>Pastille rouge sur un jour</strong> : valeur hors du commun pour l'onglet affiché. Précipitations : 50 mm ou plus dans la journée, jusqu'à J+3 seulement (au-delà, la quantité n'est pas fiable). Vent : rafales de 90 km/h ou plus ; Température : maximale de 35 °C ou plus, ou minimale de −10 °C ou moins, jusqu'à J+6 (dernier jour affiché). Touchez la pastille pour l'explication et le lien vers les vigilances officielles. Ces seuils sont ceux de l'application, les mêmes partout dans le monde : <strong>ce n'est pas une vigilance officielle</strong>, et un jour sans pastille n'est pas un jour sans danger.</li>
         <li><strong>Infobulles</strong> : sur ordinateur, laissez la souris un instant sur un bouton pour savoir ce qu'il fait (elles ne s'affichent pas au toucher).</li>
-        <li><strong>Vue compacte</strong> : choisie dans le petit déroulant de la ligne du lieu (au centre ; sur téléphone, plus à droite, pour laisser la place aux noms longs ; son icône est celle de la vue en cours : deux cartes empilées pour la vue détaillée, des lignes serrées pour la vue compacte), elle condense la situation actuelle et les 24 heures, et remplace le détail des 7 jours par un pavé d'une ligne par jour, en deux blocs (4 jours, puis 3) séparés par une phrase qui dit ce qui change à partir de là, et terminé par le même résumé que dans la vue détaillée (maximales, jours de pluie). Les longueurs de barres se comparent d'un bout à l'autre des 7 jours (même échelle). Le petit « i » du pavé rappelle ce que signifient les chiffres. Le même déroulant ramène à la vue détaillée. C'est la vue affichée par défaut, sur tous les appareils ; si vous en choisissez une autre, votre choix est ensuite retenu sur l'appareil. Sur iPhone et iPad, c'est la seule vue : le déroulant n'y apparaît pas.</li>
+        <li><strong>Une seule présentation</strong>, la même sur tous les appareils : la situation actuelle, les 24 heures, puis les 7 jours, une ligne par jour, en deux blocs (aujourd'hui à J+3, puis J+4 à J+6) séparés par « Dès J+4 : fiabilité en baisse. », et terminés par un résumé (maximales, jours de pluie). Les longueurs de barres se comparent d'un bout à l'autre des 7 jours (même échelle). Le petit <strong>« i »</strong> des 24 heures rappelle comment lire une heure (« 18 h » : pluie de 17 h à 18 h ; température à 18 h) et ses barres ; celui des 7 jours, ce que signifient les chiffres. Sous chaque bloc, une ligne <strong>« Modèles »</strong> dit d'où viennent les valeurs affichées. Dans l'onglet Vent, un <strong>« ⚠ »</strong> au bout d'un jour signale des rafales max annoncées plus faibles que le vent max : c'est un écart de la source, signalé sous la liste et jamais corrigé.</li>
         <li><strong>Jour ou nuit</strong> : l'interface suit le réglage de votre appareil (apparence claire ou sombre) ; il n'y a rien à régler dans la page.</li>
         <li><strong>« — »</strong> veut dire « donnée absente ». Ce n'est jamais un zéro déguisé : un vrai « 0 mm » est affiché « 0 mm ».</li>
       </ul>
 
       <h3>D'où viennent les valeurs</h3>
-      <p>Chaque valeur est suivie du modèle qui l'a fournie (« ECMWF », « Météo-France »…). Pour la France, Météo-France (AROME et ARPEGE) fournit les premiers jours, jusqu'à environ J+3 ; au-delà, c'est ECMWF. Pour le Japon c'est la JMA, pour le Canada le modèle GEM, puis ECMWF. Au Japon, deux limites : la JMA ne fournit pas de vraies valeurs par quart d'heure (Open-Meteo les déduit des valeurs horaires, la frise de « Balade ? » y est donc moins précise) et ne prévoit pas les orages, comme GEM au Canada ; les rafales y viennent d'ECMWF. Le séparateur « Tendance — fiabilité moindre » apparaît à l'endroit où le modèle court s'arrête, au plus tard à J+5. Les 15 lignes de la vue détaillée ont la même présentation ; la confiance selon l'horizon (non calibrée) est dans « Comment lire ces valeurs ». Météo-France n'est jamais présenté comme source d'une valeur venant d'un autre modèle.</p>
+      <p>Sous la situation, sous les 24 heures et sous les 7 jours, une ligne « Modèles » nomme le modèle de chaque valeur affichée, avec le jour ou l'heure où il passe le relais (« Modèles : mm Météo-France jusqu'au mar 01/12, puis ECMWF · % ECMWF »). Pour la France, Météo-France (AROME et ARPEGE) fournit les premiers jours, jusqu'à environ J+3 ; au-delà, c'est ECMWF. Pour le Japon c'est la JMA, pour le Canada le modèle GEM, puis ECMWF. Au Japon, deux limites : la JMA ne fournit pas de vraies valeurs par quart d'heure (Open-Meteo les déduit des valeurs horaires, la frise de « Balade ? » y est donc moins précise) et ne prévoit pas les orages, comme GEM au Canada ; les rafales y viennent d'ECMWF. Le séparateur « Dès J+4 : fiabilité en baisse. » apparaît à l'endroit où le modèle court s'arrête (J+4 en France, J+5 au plus tard ailleurs). Météo-France n'est jamais présenté comme source d'une valeur venant d'un autre modèle.</p>
 
       <h3>Pourquoi 7 jours seulement</h3>
       <p>Une prévision jour par jour perd son sens au-delà d'une semaine : la page s'arrête à J+6. Déjà, à partir de J+4 (J+5 au plus tard selon le pays), une phrase signale que la fiabilité baisse : le modèle à maille fine s'arrête, un modèle plus grossier prend le relais. Mesuré sur 2,5 ans : à 7 jours, la température maximale garde un intérêt (erreur moyenne d'environ 2 °C, contre 3 °C pour la température habituelle de la saison), mais pas la quantité de pluie.</p>
@@ -442,7 +426,7 @@ try { if (localStorage.getItem("meteo.home") !== "no") { document.documentElemen
 
       <h3>Stockage et sécurité</h3>
       <ul>
-        <li>Le dernier lieu est retenu dans <code>localStorage</code> (<code>meteo.lastPlace</code> et, pour un lieu libre, <code>meteo.customPlace</code>), relu et revalidé à chaque fois ; un stockage absent ou corrompu retombe sur Bar-le-Duc. La vue détaillée ou compacte (<code>meteo.view</code>) y est aussi retenue ; sans choix, la vue compacte est affichée. Le mode sombre suit le système : rien n'est stocké pour lui. Ni cookie, ni suivi.</li>
+        <li>Le dernier lieu est retenu dans <code>localStorage</code> (<code>meteo.lastPlace</code> et, pour un lieu libre, <code>meteo.customPlace</code>), relu et revalidé à chaque fois ; un stockage absent ou corrompu retombe sur Bar-le-Duc. Le mode sombre suit le système : rien n'est stocké pour lui. Ni cookie, ni suivi.</li>
         <li>La position de l'appareil n'est gardée que sur l'appareil et arrondie à 0,01° : la dernière position de « Ma position » (<code>meteo.position</code>) et celle de chaque relevé de test (<code>meteo.journal</code>). L'écran d'accueil ne garde que votre choix de l'ouvrir ou non (<code>meteo.home</code>).</li>
         <li>Tout texte venant du réseau ou de la saisie est inséré avec <code>textContent</code>, jamais en HTML. La saisie d'un lieu est nettoyée et un lieu sans coordonnées ni fuseau valides est refusé.</li>
         <li>Les erreurs réseau ne sont jamais avalées : elles s'affichent, et les anciennes données restent signalées comme telles.</li>
@@ -458,7 +442,7 @@ try { if (localStorage.getItem("meteo.home") !== "no") { document.documentElemen
   </div>
 
   <div class="modal-foot">
-    <p>Par CilMac et Claude Opus 5.5 · <span id="info-updated" title="Heure de Paris, notée à la dernière modification des fichiers du site">dernière modification : <time id="info-date" datetime="2026-11-28T13:49Z" data-v="d3a518ec">28 novembre 2026 à 14:49</time></span></p>
+    <p>Par CilMac et Claude Opus 5.5 · <span id="info-updated" title="Heure de Paris, notée à la dernière modification des fichiers du site">dernière modification : <time id="info-date" datetime="2026-11-28T14:36Z" data-v="7d82f3f4">28 novembre 2026 à 15:36</time></span></p>
   </div>
 </dialog>
 
@@ -481,6 +465,6 @@ try { if (localStorage.getItem("meteo.home") !== "no") { document.documentElemen
   window.addEventListener("unhandledrejection", function (e) { show(String((e.reason && e.reason.message) || e.reason)); });
 })();
 </script>
-<script type="module" src="app.js?v=1da2a919"></script>
+<script type="module" src="app.js?v=bb5edb1a"></script>
 </body>
 </html>

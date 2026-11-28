@@ -6,16 +6,16 @@ import { initInfo } from "./info.js?v=ab3b754d";
 import { initBarometer, preloadDial, trendSign } from "./barometer.js?v=f58dbfb8";
 import { createSkyLayer, addDoubleTapZoom, createStationLayer } from "./skymap.js?v=8cd1dc38";
 import { parseMapPrefs, MAP_ZOOM, maxZoomFor } from "./weathermap.js?v=c631804d";
-import { initWalk } from "./walkui.js?v=1e5cad5d";
-import { buildHome, buildHomeNow, buildSunBand, wireHomePages, homeSteps, homeAlerts, HOME_STEPS, HOME_PAGES, homeLegend, buildLegend, homeMode, HOME_KEY } from "./home.js?v=54687578";
+import { initWalk } from "./walkui.js?v=01d06f7e";
+import { buildHome, buildHomeNow, buildSunBand, wireHomePages, homeSteps, homeAlerts, HOME_STEPS, HOME_PAGES, homeLegend, buildLegend, homeMode, HOME_KEY } from "./home.js?v=84db86b9";
 import { localToMs, fetchNextHour } from "./walk.js?v=a0f5668b";
 import { fetchObservedPressure, fetchPressureTrend, fetchObservedStorms, stormText, fetchObservedPrecip, precipText, pressureDisplay, TREND_WORD, fetchStationsForMap, distanceKm, STORM_WORDS, metarLines } from "./observation.js?v=9b23b237";
 import { getPosition, reverseGeocode, placeFromPosition, storedGeoPlace, formatCoords, deniedHelp, GEO_ID, GEO_MAX_AGE_MS } from "./geo.js?v=b6df63a8";
 import { shouldRefresh, STALE_MS, TRY_GAP_MS, RETRY_MS, QUIET_WAIT_MS } from "./refresh.js?v=beadd3fe";
 import { createLoader } from "./loading.js?v=72442cde";
-import { makeRecord, saveRecord, loadJournal, exportText, exportName } from "./journal.js?v=3dd59354";
-import { chooseView, DEFAULT_VIEW, isIOS } from "./device.js?v=804d2636";
-import { TABS, foldTip, buildPin, buildTopPlace, buildTopNow, buildCurrent, buildHourly, buildWeek, buildCompact, buildMini, extremeText, COMPACT_HELP_ITEMS, buildSources, buildWarnings, buildAttribution, warningsStatus, formatLocal, whereText } from "./weather-render.js?v=d9c33732";
+import { makeRecord, saveRecord, loadJournal, exportText, exportName } from "./journal.js?v=40881fc6";
+import { isIOS } from "./device.js?v=7c9d7ae7";
+import { TABS, foldTip, buildPin, buildTopPlace, buildTopNow, buildCurrent, buildHourly, hourHelpItems, buildCompact, buildMini, extremeText, COMPACT_HELP_ITEMS, buildSources, buildWarnings, buildAttribution, warningsStatus, formatLocal, whereText } from "./weather-render.js?v=429a970d";
 
 const $ = (id) => {
   const el = document.getElementById(id);
@@ -26,7 +26,7 @@ const $ = (id) => {
 const PLACE_KEY = "meteo.lastPlace", CUSTOM_KEY = "meteo.customPlace", POSITION_KEY = "meteo.position", TAB_DEFAULT = "precip";
 
 const loader = createLoader($("loader"));
-const state = { place: null, data: null, warnings: null, pressure: null, view: DEFAULT_VIEW, tab: TAB_DEFAULT, loading: false, searching: 0, loadId: 0, posCoords: null };
+const state = { place: null, data: null, warnings: null, pressure: null, tab: TAB_DEFAULT, loading: false, searching: 0, loadId: 0, posCoords: null };
 
 // Dernier « autre lieu » choisi, relu et revalidé (jamais pris tel quel dans le stockage) ; absent ou illisible : null.
 function readCustomPlace() {
@@ -93,8 +93,8 @@ function renderTabbed() {
   $("hourly").replaceChildren(buildHourly(state.data, state.tab));
   const newStrip = $("hourly").querySelector(".strip");
   if (newStrip) newStrip.scrollLeft = stripScroll.left;
-  $("week").replaceChildren(buildWeek(state.data, state.tab));
   $("compact").replaceChildren(buildCompact(state.data, state.tab));
+  fillHelp("hourly-help", hourHelpItems(state.tab)); // « i » des 24 heures : selon l'onglet
 }
 
 // Fuseau de l'appareil : la ligne de date ne nomme l'heure du lieu que s'il est différent.
@@ -851,51 +851,26 @@ async function autoRefresh({ retry = true } = {}) {
 document.addEventListener("visibilitychange", () => autoRefresh());
 window.addEventListener("pageshow", (e) => { if (e.persisted) autoRefresh(); }); // page ressortie de la mémoire du navigateur
 
-// Vue compacte (par défaut : 7 jours dans un pavé, jours 8 à 15 repliés) ou détaillée. Le choix est retenu sur l'appareil.
-const VIEW_KEY = "meteo.view";
-function applyView() {
-  const compact = state.view === "compact";
-  $("detail-only").hidden = compact; // situation et 24 h restent visibles dans les deux vues (condensées en compact)
-  $("compact-only").hidden = !compact;
-  $("content").classList.toggle("is-compact", compact);
-  // Le petit déroulant montre l'icône de la vue en cours.
-  $("view-select").value = state.view;
-  $("view-pick").dataset.view = state.view;
-}
-function setView(view) {
-  if (state.view === view) return;
-  state.view = view;
-  try { localStorage.setItem(VIEW_KEY, state.view); } catch { /* ignoré */ }
-  applyView();
-  window.scrollTo({ top: 0 });
-}
-{
-  // Choix mémorisé s'il existe ; sinon vue compacte.
-  let stored = null;
-  try { stored = localStorage.getItem(VIEW_KEY); } catch { /* stockage indisponible : vue par défaut */ }
-  state.view = chooseView(stored, isIOS());
-  // iOS : vue compacte seulement ; le déroulant disparaît et la ligne du haut se partage entre le lieu et la situation.
-  $("view-pick").hidden = isIOS();
-  document.querySelector(".top-row").classList.toggle("no-view-pick", isIOS());
-}
-{
+// Une seule vue depuis le 28/11/2026 (l'ancienne vue détaillée est retirée ; son choix mémorisé est effacé plus bas).
+// Petits « i » des 24 heures et des 7 jours : une liste courte qui s'ouvre et se ferme sous le titre.
+function fillHelp(id, items) {
   const ul = document.createElement("ul");
-  for (const t of COMPACT_HELP_ITEMS) { const li = document.createElement("li"); li.textContent = t; ul.append(li); }
-  $("compact-help").replaceChildren(ul);
+  for (const t of items) { const li = document.createElement("li"); li.textContent = t; ul.append(li); }
+  $(id).replaceChildren(ul);
+}
+fillHelp("compact-help", COMPACT_HELP_ITEMS);
+for (const [btn, box] of [["compact-info-btn", "compact-help"], ["hourly-info-btn", "hourly-help"]]) {
+  $(btn).addEventListener("click", () => {
+    const open = $(box).hidden; // hidden = fermé : un clic l'ouvre
+    $(box).hidden = !open;
+    $(btn).setAttribute("aria-expanded", String(open));
+  });
 }
 // Sections repliables (bouton à flèche seule) : l'infobulle dit ce que fera le clic, selon l'état.
 for (const d of document.querySelectorAll("details.fold")) {
   foldTip(d, `« ${(d.querySelector("h2 .h2-main") ?? d.querySelector("h2")).textContent.trim()} »`);
 }
-$("view-select").addEventListener("change", () => setView($("view-select").value));
-$("compact-info-btn").addEventListener("click", () => {
-  const open = $("compact-help").hidden; // hidden = fermé : un clic l'ouvre
-  $("compact-help").hidden = !open;
-  $("compact-info-btn").setAttribute("aria-expanded", String(open));
-});
-applyView();
-
-try { localStorage.removeItem("meteo.theme"); } catch { /* ignoré */ }
+try { localStorage.removeItem("meteo.theme"); localStorage.removeItem("meteo.view"); } catch { /* ignoré */ }
 {
   let flag = null;
   try { flag = localStorage.getItem(HOME_KEY); } catch { /* stockage indisponible */ }

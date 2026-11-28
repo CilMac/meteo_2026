@@ -3,7 +3,7 @@
 import { STEP_MS, stepKind, mmPerHour, GUST_WARN, LEVEL_WORD, localToMs } from "./walk.js?v=a0f5668b";
 import { trendSign } from "./barometer.js?v=f58dbfb8";
 import { next24h, modelShort } from "./weather-provider.js?v=9f2e113b";
-import { EXTREME, MINI_MM_FULL, RISK_PCT, LIKELY_PCT, probWord, vane, windFrom, minVisible, outlookSpan, isNum, num0, num1, deg, weatherInfo, isNight, sunTimes, hourLabel, extremeOf, modelsOf } from "./weather-render.js?v=d9c33732";
+import { EXTREME, MINI_MM_FULL, RISK_PCT, LIKELY_PCT, probWord, vane, windFrom, minVisible, outlookSpan, isNum, num0, num1, deg, weatherInfo, isNight, sunTimes, hourLabel, extremeOf, modelsOf } from "./weather-render.js?v=429a970d";
 
 export const HOME_HOURS = 4;
 export const HOME_STEPS = HOME_HOURS * 4; // pas de 15 minutes

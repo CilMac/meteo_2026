@@ -183,16 +183,14 @@ summary { min-height: 44px; display: flex; align-items: center; cursor: pointer;
 .hcell .hv1 { white-space: nowrap; } /* « 0,4 mm » jamais coupé entre le nombre et l'unité */
 
 /* E/F. jours */
-.week { list-style: none; margin: 0; padding: 0; }
-.day { display: grid; grid-template-columns: 52px 30px 1fr; grid-template-areas: "n i b" "n i v" ". . m"; column-gap: 8px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line); }
-.dname { grid-area: n; font-weight: 600; text-transform: capitalize; line-height: 1.3; } .dicon { grid-area: i; font-size: 1.4rem; }
-.day .hbar-box, .day .dbars { grid-area: b; } .dval { grid-area: v; font-size: 15px; font-weight: 600; line-height: 1.4; } .dmodel { grid-area: m; }
-.dmodel:empty { display: none; }
 .trend-sep { padding: 10px 14px; border-left: 4px solid var(--attention-border); border-radius: var(--radius-control); background: var(--attention); color: var(--attention-ink); font-weight: 600; }
 .trend-sep { margin: 12px 0 6px; font-size: 15px; }
 .hbar-box { position: relative; height: 10px; background: color-mix(in srgb, var(--line) 70%, transparent); border-radius: 5px; overflow: hidden; margin: 2px 0; }
 .hbar { position: absolute; left: 0; top: 0; height: 100%; border-radius: 5px; } .hbar.range { min-width: 6px; }
 .summary { margin: 12px 0 0; font-weight: 600; }
+/* ligne « Modèles » sous la situation, les 24 heures et les 7 jours (28/11/2026) ; alerte rafales < vent */
+.models-line { margin: 8px 0 0; } .current .models-line { margin: 6px 0 0; }
+.gust-warn { color: var(--extreme-text); font-weight: 700; } .gust-note { margin: 4px 0 0; }
 
 /* G. vigilances */
 .w-status { font-weight: 700; margin: 0 0 8px; }
@@ -207,13 +205,6 @@ a.official { display: inline-block; min-height: 44px; line-height: 44px; }
 .sources h2 { font-size: 17px; }
 .sources ul { margin: 8px 0 0; padding-left: 18px; font-size: 14px; color: var(--muted); }
 
-@media (max-width: 699px) { .dname { display: flex; align-items: center; min-height: 2.6em; } } /* « Auj. » aussi haut que « Mar 24/11 » sur deux lignes */
-@media (min-width: 700px) {
-  /* colonne des valeurs de largeur fixe : les barres des 15 jours ont toutes la même longueur */
-  .day { grid-template-columns: 84px 34px minmax(120px, 1fr) var(--day-val, 220px); grid-template-areas: "n i b v" ". . . m"; }
-  .week-wind { --day-val: 366px; } /* « vent max 105 · rafales max 130 km/h · secteur NO » sur une ligne */
-  .dname, .dval { white-space: nowrap; }
-}
 @media (max-width: 760px) {
   .shell { padding: 20px 16px 18px; }
   .card { padding: 18px; }
@@ -332,24 +323,20 @@ body:has(dialog.modal[open]) { overflow: hidden; }
 .day-alert { position: relative; margin: 0 -6px; padding: 1px 6px; border: 0; border-radius: 8px; background: var(--extreme); color: #fff; font: inherit; line-height: inherit; text-transform: inherit; text-align: left; cursor: pointer; box-shadow: inset 0 0 0 1px #0003, 0 1px 2px #0003; }
 .day-alert::after { content: ""; position: absolute; inset: -8px -6px; }
 .day-alert:hover { filter: brightness(1.08); } .day-alert:active { transform: translateY(1px); box-shadow: inset 0 0 0 1px #0003; }
-@media (max-width: 699px) { .dname .day-alert { width: min-content; } } /* vue détaillée sur téléphone : jour et date sur deux lignes, pastille au plus juste */
 dialog.extreme-modal { width: min(440px, calc(100vw - 24px)); }
 #extreme-links a { display: inline-block; padding: 6px 0; margin-right: 18px; }
 .c-name { font-weight: 600; text-transform: capitalize; font-size: 15px; white-space: nowrap; }
 .c-icon { font-size: 1.2rem; line-height: 1; text-align: center; }
 .c-val { font-size: 15px; font-weight: 600; text-align: right; white-space: nowrap; }
+.c-val.c-wind { white-space: normal; } /* vent : « raf. 25 » passe sous la vitesse si la ligne manque de place (320 px), jamais hors de la carte */
 @media (max-width: 420px) { .compact-day { grid-template-columns: 74px 24px minmax(24px, 1fr) minmax(0, auto); column-gap: 8px; } .c-name { font-size: 14px; } .c-val { font-size: 14px; } }
 
-/* ligne du haut : lieu à gauche, déroulant de vue (centré ; sur téléphone, aux deux tiers), situation à droite */
-.top-row { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 8px; min-height: 44px; margin: 0 0 8px; padding: 0 4px; }
-.top-row.no-view-pick { grid-template-columns: minmax(0, 1fr) max-content; } /* iOS : pas de déroulant de vue (vue compacte seulement) */
+/* ligne du haut : lieu à gauche, situation à droite (plus de déroulant de vue depuis le 28/11/2026) */
+.top-row { display: grid; grid-template-columns: minmax(0, 1fr) max-content; align-items: center; gap: 8px; min-height: 44px; margin: 0 0 8px; padding: 0 4px; }
 .top-cell-place { justify-self: start; min-width: 0; max-width: 100%; }
 .top-cell-now { justify-self: end; min-width: 0; max-width: 100%; }
 @media (max-width: 640px) {
   .top-desc { display: none; }
-  /* Téléphone : déroulant au-dessus de l'espace entre Température et Vent, pour laisser la place aux noms longs.
-     28 px = moitié du déroulant (23) + écart de grille (8) - décalage dû à la marge de la ligne et à l'écart des onglets (3). */
-  .top-row { grid-template-columns: minmax(0, calc(66.667% - 28px)) auto minmax(max-content, 1fr); }
 }
 /* séparateur de la vue compacte : plus haut, avec une courte explication */
 .compact-sep { height: auto; min-height: 44px; margin: 10px 0; padding: 10px 14px; border: 0; border-left: 4px solid var(--information-border); border-radius: var(--radius-control); background: var(--information); font-size: 14px; font-weight: 600; line-height: 1.45; }
@@ -383,14 +370,6 @@ dialog.extreme-modal { width: min(440px, calc(100vw - 24px)); }
 .is-compact .vbars .vbar-box { width: 11px; }
 .is-compact .hv1 { font-size: .85rem; } .is-compact .hv2 { font-size: 11px; }
 
-/* choix de la vue : petit déroulant (icône de la vue en cours + chevron) ; la liste native, invisible, le recouvre sur 44 px de haut */
-.view-pick { position: relative; display: inline-flex; align-items: center; justify-content: center; gap: 4px; width: 46px; height: 32px; border: 1px solid var(--line); border-radius: var(--radius-control); background: var(--surface); color: var(--ink); }
-.view-pick select { position: absolute; inset: -6px 0; width: 100%; height: 44px; min-height: 0; padding: 0; border: 0; opacity: 0; font-size: 16px; cursor: pointer; }
-.view-pick:hover { filter: brightness(.96); }
-.view-pick:has(select:focus-visible) { outline: 3px solid var(--focus); outline-offset: 3px; }
-.view-pick[data-view="detail"] .vb-compact, .view-pick[data-view="compact"] .vb-detail { display: none; }
-.vb-svg { fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
-.vb-chevron { color: var(--muted); stroke-width: 1.8; }
 
 /* fenêtre de chargement : petite carte au centre, non bloquante (les clics la traversent) */
 .loader { position: fixed; z-index: 40; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(340px, calc(100vw - 32px)); padding: 16px 18px; border: 1px solid var(--line); border-radius: var(--radius-panel); background: var(--surface); box-shadow: 0 16px 50px #1d302c40; pointer-events: none; }

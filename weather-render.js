@@ -122,13 +122,22 @@ export function vane(dir, small = false) {
 }
 
 // Provenance d'un groupe de valeurs : un seul libellé si tous les champs viennent du même modèle, sinon détail par champ.
-export function modelsLine(item, fields) {
-  const parts = fields.map(([label, key]) => [label, item[key]?.model]).filter(([, m]) => m);
-  if (!parts.length) return "";
-  const set = new Set(parts.map((p) => p[1]));
-  if (set.size === 1) return modelShort([...set][0]);
-  return parts.map(([l, m]) => `${l} : ${modelShort(m)}`).join(" · ");
+// Ligne « Modèles » (28/11/2026, vue unique) : chaque valeur affichée garde son modèle, en une ligne sous son bloc.
+// models : modèle de chaque valeur, dans l'ordre (null = valeur absente, ignorée) ; at(i) = « au mar 01/12 », « à 14 h »…
+export function modelRun(models, at) {
+  const runs = [];
+  models.forEach((m, i) => { if (!m) return; const last = runs.at(-1); if (last && last.m === m) last.i = i; else runs.push({ m, i }); });
+  if (!runs.length) return "—";
+  return runs.map((r, k) => (k < runs.length - 1 ? `${modelShort(r.m)} jusqu'${at(r.i)}` : modelShort(r.m))).join(", puis ");
 }
+// fields : [[étiquette, texte de modelRun]]. Même texte partout : un seul, sans étiquette.
+export function modelsText(fields) {
+  const texts = fields.map(([, t]) => t);
+  const one = texts.every((t) => t === texts[0]);
+  const body = one ? texts[0] : fields.map(([l, t]) => `${l} ${t}`).join(" · ");
+  return `${!one || body.includes(", puis ") ? "Modèles" : "Modèle"} : ${body}`;
+}
+const modelsP = (text) => h("p", { class: "muted small models-line", text });
 
 export const barPct = (v, max) => (isNum(v) && max > 0 ? Math.max(0, Math.min(100, (v / max) * 100)) : null);
 // Une valeur non nulle reste visible (4 % minimum) ; un vrai zéro donne une barre vide.
@@ -273,29 +282,35 @@ function h(tag, props = {}, ...children) {
   return el;
 }
 
-export function buildCurrent(data, now = new Date()) {
-  const c = data.current, d0 = data.daily[0], tz = data.location.timezone;
+export function buildCurrent(data) {
+  const c = data.current, d0 = data.daily[0];
   const night = c.time ? isNight(c.time, data.daily) : false;
   const info = weatherInfo(c.weatherCode, night);
   const outlook = rainOutlook(next24h(data), c.time ? c.time.slice(0, 10) : null);
   return h("div", { class: "card current" },
     h("div", { class: "cur-main" },
       h("span", { class: "cur-icon", "aria-hidden": "true", text: info.icon }),
-      h("span", { class: "cur-temp", text: deg(c.temp) }),
       h("div", {}, h("div", { class: "cur-desc", text: info.label }),
         h("div", { class: "muted", text: `Ressenti ${deg(c.apparent)}` }))),
-    h("p", { class: "muted small cur-note", text: c.time ? `Valeurs calculées pour ${hourLabel(c.time)} (modèle). Heure\u00a0locale\u00a0:\u00a0${formatLocal(now, tz, { hour: "2-digit", minute: "2-digit" })}.` : "Heure de la situation indisponible." }),
-    // Version courte (vue compacte) : l'origine « modèle » reste signalée.
+    // L'origine « modèle » reste signalée ; l'heure locale est sous la pression (whereText).
     h("p", { class: "muted small cur-note-short", text: c.time ? `Valeurs calculées pour ${hourLabel(c.time)} (modèle).` : "Heure de la situation indisponible." }),
     buildSun(sunTimes(c.time ? c.time.slice(0, 10) : d0.date, data.daily)),
     h("div", { class: "cur-grid" },
       // « Probabilité » partout (28/11/2026) ; le chiffre est le maximum horaire du jour, pas celui de l'heure : dit sous la valeur.
-      stat("precip", "Probabilité de pluie", "Probabilité", isNum(d0.precipProbMax.value) ? `${num0(d0.precipProbMax.value)} %` : "—", modelsLine(d0, [["", "precipProbMax"]]), "max horaire du jour"),
-      stat("temp", "Min / max du jour", "Min / max", `${deg(d0.tempMin.value)}\u00a0/ ${deg(d0.tempMax.value)}`, modelsLine(d0, [["min", "tempMin"], ["max", "tempMax"]])),
+      stat("precip", "Probabilité de pluie", "Probabilité", isNum(d0.precipProbMax.value) ? `${num0(d0.precipProbMax.value)} %` : "—", "max horaire du jour"),
+      stat("temp", "Min / max du jour", "Min / max", `${deg(d0.tempMin.value)}\u00a0/ ${deg(d0.tempMax.value)}`),
       // Vent écrit comme sur l'écran d'accueil (28/11/2026) : girouette, « 12 km/h », puis « raf. 25 · vent du sud-est ».
-      stat("wind", "Vent actuel", "Vent", [vane(c.windDir, true), `${num0(c.wind)}\u00a0km/h`], "",
+      stat("wind", "Vent actuel", "Vent", [vane(c.windDir, true), `${num0(c.wind)}\u00a0km/h`],
         `raf.\u00a0${num0(c.gust)}${windFrom(c.windDir) ? ` · vent ${windFrom(c.windDir)}` : ""}`)),
+    modelsP(curModels(d0)),
     outlook ? h("p", { class: "outlook", text: outlook }) : null);
+}
+// Modèles de la situation : probabilité et min / max du jour (la valeur actuelle elle-même est « calculée (modèle) », sans nom publié).
+export function curModels(d0) {
+  const at = () => "";
+  const mn = modelRun([d0.tempMin.model], at), mx = modelRun([d0.tempMax.model], at);
+  const temp = mn === mx ? [["min / max", mn]] : [["min", mn], ["max", mx]];
+  return modelsText([["%", modelRun([d0.precipProbMax.model], at)], ...temp]);
 }
 function buildSun(sun) {
   const one = (kind, name, time) => h("span", { class: `sun sun-${kind}` }, h("span", { class: "sr-only", text: `${name} du soleil : ` }), time);
@@ -303,11 +318,11 @@ function buildSun(sun) {
     sun.polar ?? [one("rise", "Lever", sun.rise), " ", one("set", "Coucher", sun.set)]);
 }
 // value : texte, ou liste de nœuds (girouette + texte) ; sub : précision toujours visible sous la valeur.
-function stat(family, label, shortLabel, value, model, sub = null) {
+function stat(family, label, shortLabel, value, sub = null) {
   return h("div", { class: `stat fam-${family}` },
     h("div", { class: "muted small stat-label" }, h("span", { class: "l-long", text: label }), h("span", { class: "l-short", text: shortLabel })),
     Array.isArray(value) ? h("div", { class: "stat-val" }, ...value) : h("div", { class: "stat-val", text: value }),
-    sub ? h("div", { class: "muted small stat-sub", text: sub }) : null, model ? h("div", { class: "tag", text: model }) : null);
+    sub ? h("div", { class: "muted small stat-sub", text: sub }) : null);
 }
 
 // Épingle rouge = position actuelle de l'appareil, et rien d'autre (page principale et vue 🥾).
@@ -463,13 +478,10 @@ export function buildHourly(data, tab) {
   wrap.append(strip);
 
   const fieldsByTab = {
-    precip: [["mm", "precip"], ["%", "precipProb"]], temp: [["T", "temp"], ["ressenti", "apparent"]], wind: [["vent", "wind"], ["rafales", "gust"]],
+    precip: [["mm", "precip"], ["%", "precipProb"]], temp: [["température", "temp"], ["ressenti", "apparent"]], wind: [["vent", "wind"], ["rafales", "gust"]],
   }[tab];
-  const labelOf = (k) => { const ms = new Set(hours.map((x) => x[k].model).filter(Boolean)); return ms.size ? [...ms].map(modelShort).join(" puis ") : null; };
-  const modelNotes = fieldsByTab.map(([l, k]) => `${l} : ${labelOf(k) ?? "indisponible"}`).join(" · ");
-  const notes = [`Pas de 1 h · ${modelNotes}.`, HOUR_NOTE[tab]];
-  if (tab === "precip") notes.push(`Barre verticale = mm d'eau, pleine à ${MINI_MM_FULL} mm (rouge et « + » au-delà) ; petite barre horizontale = probabilité.`);
-  wrap.append(h("p", { class: "muted small h-note", text: notes.join(" ") }));
+  const at = (i) => `à ${hourLabel(hours[i].time)}`;
+  wrap.append(modelsP(modelsText(fieldsByTab.map(([l, k]) => [l, modelRun(hours.map((x) => x[k].model), at)]))));
   // Données manquantes : toujours signalées, même en vue compacte.
   const warn = [];
   if (hours.length < 24) warn.push(`Données horaires disponibles seulement jusqu'à ${hourLabel(hours[hours.length - 1].time)}.`);
@@ -480,10 +492,19 @@ export function buildHourly(data, tab) {
 }
 // Ce que veut dire l'heure d'une colonne (convention d'Open-Meteo).
 export const HOUR_NOTE = {
-  precip: "« 18 h » : pluie et % de l'heure qui se termine à 18 h (17 h → 18 h).",
-  temp: "« 18 h » : température à 18 h.",
-  wind: "« 18 h » : vent à 18 h ; rafales = maximum de 17 h à 18 h.",
+  precip: "Pas de 1 h. « 18 h » : pluie et % de l'heure qui se termine à 18 h (de 17 h à 18 h).",
+  temp: "Pas de 1 h. « 18 h » : température et ressenti à 18 h.",
+  wind: "Pas de 1 h. « 18 h » : vent à 18 h ; rafales = maximum de 17 h à 18 h.",
 };
+// « i » des 24 heures (28/11/2026) : ce que disait la note sous le bandeau de la vue détaillée.
+export function hourHelpItems(tab) {
+  const bars = {
+    precip: `Barre verticale = mm d'eau, pleine à ${MINI_MM_FULL} mm (rouge et « + » au-delà) ; petite barre horizontale = probabilité.`,
+    temp: "Barre : place de la température entre la plus basse et la plus haute des 24 heures.",
+    wind: "Barre foncée = vent ; claire = rafales (même échelle pour les 24 heures).",
+  }[tab];
+  return [HOUR_NOTE[tab], bars];
+}
 function vbar(pct, color) {
   return h("div", { class: "vbar-box" }, pct === null ? null : h("div", { class: "vbar", style: { height: `${minVisible(pct)}%`, background: color } }));
 }
@@ -509,89 +530,18 @@ export function compactValue(v, tab) {
   return `${num0(d.windMax.value)} km/h raf. ${num0(d.gustMax.value)}`; // lexique du 28/11/2026 : comme l'écran d'accueil
 }
 export const COMPACT_SEP_TEXT = `Dès J+${COMPACT_BLOCKS[1][0]} : fiabilité en baisse.`;
+export const DAY_MM_FULL = 10; // jauge de mm du jour : voir dayMmGauge
 export const COMPACT_HELP_ITEMS = [
   "7 jours : J à J+3, puis J+4 à J+6. Au-delà, une prévision jour par jour n'est plus fiable.",
   `Pluie : mm et %. Les mm sont peu fiables dès J+${RAIN_MM_UNTIL + 1}, non fiables à 7 jours.`,
-  `Barres de pluie : petite verticale = mm du jour (pleine à 10 mm) ; horizontale = %.`,
-  "Le % est la probabilité horaire maximale du jour.",
-  "Températures : minimale / maximale.",
-  "Vent : maxima du jour.",
-  "Détails et modèles : vue détaillée.",
+  `Barres de pluie : petite verticale = mm du jour (pleine à ${DAY_MM_FULL} mm) ; horizontale = %.`,
+  "Le % est la probabilité horaire maximale du jour, pas celle de toute la journée.",
+  "mm et % peuvent venir de deux modèles (Météo-France ne publie pas de %) et se contredire : 0 mm avec 60 %.",
+  "Températures : minimale / maximale ; barres sur une échelle commune aux 7 jours.",
+  "Vent : maxima du jour, jamais des moyennes ; barre foncée = vent max, claire = rafales max.",
+  "Girouette : direction dominante du jour ; la pointe va où va le vent.",
+  "⚠ sur une ligne : rafales max inférieures au vent max, écart de la source, non corrigé.",
 ];
-
-// Lignes des 7 jours (vue détaillée) : barre, valeur, modèle ; séparateur à la frontière où le modèle court s'arrête.
-function buildPeriod(days, tab, { sectionLabel, summary }) {
-  const wrap = h("div", {});
-  const views = dayViews(days);
-  const tMins = views.map((v) => v.tmin).filter(isNum), tMaxs = views.map((v) => v.tmax).filter(isNum);
-  const gmin = Math.min(...tMins, ...tMaxs), gmax = Math.max(...tMins, ...tMaxs);
-  const wMax = scaleMax(days.map((d) => d.gustMax.value ?? d.windMax.value), 20);
-
-  const list = h("ol", { class: `week week-${tab}` });
-  let sep = false;
-  for (const v of views) {
-    const { d } = v;
-    // Même phrase que la vue compacte (28/11/2026), avec le jour réel de la frontière (J+4 en France, J+5 au plus tard ailleurs).
-    if (d.trend && !sep) { list.append(h("li", { class: "trend-sep", text: `Dès J+${d.dayIndex} : fiabilité en baisse.` })); sep = true; }
-    const info = weatherInfo(d.weatherCode.value, false);
-    // Même ligne pour les 7 jours : barre, valeur, le modèle. Le reste est dans « Comment lire ces valeurs ».
-    let bar, value, tag = [];
-    if (tab === "precip") {
-      bar = rainBars(v.mm, v.pct);
-      value = compactValue(v, "precip");
-      tag.push(modelsLine(d, [["mm", "precipSum"], ["%", "precipProbMax"]]));
-    } else if (tab === "temp") {
-      bar = rangeBar(v.tmin, v.tmax, gmin, gmax);
-      value = compactValue(v, "temp");
-      tag.push(modelsLine(d, [["min", "tempMin"], ["max", "tempMax"]]));
-    } else {
-      bar = h("div", { class: "hbar-box" },
-        isNum(d.gustMax.value) ? h("div", { class: "hbar", style: { width: `${minVisible(barPct(d.gustMax.value, wMax))}%`, background: "var(--wind-2)" } }) : null,
-        isNum(d.windMax.value) ? h("div", { class: "hbar over", style: { width: `${minVisible(barPct(d.windMax.value, wMax))}%`, background: "var(--wind)" } }) : null);
-      // Même forme que la situation actuelle (28/11/2026) : « max 20 km/h raf. 45 », girouette et direction dominante en mots.
-      const from = windFrom(d.windDirDominant.value);
-      value = [vane(d.windDirDominant.value, true), `max ${num0(d.windMax.value)} km/h raf. ${num0(d.gustMax.value)}${from ? ` · vent ${from}` : ""}`];
-      tag.push(modelsLine(d, [["vent", "windMax"], ["rafales", "gustMax"]]));
-      if (gustBelowWind(d)) tag.push("⚠ rafales max < vent max : écart de la source, non corrigé");
-    }
-    list.append(h("li", { class: "day" },
-      h("div", { class: "dname" }, dayName(d, tab)),
-      h("div", { class: "dicon", "aria-hidden": "true", title: info.label, text: info.icon }),
-      bar, Array.isArray(value) ? h("div", { class: "dval" }, ...value) : h("div", { class: "dval", text: value }), h("div", { class: "tag dmodel", text: tag.filter(Boolean).join(" · ") })));
-  }
-  wrap.append(list);
-  wrap.append(howTo(sectionLabel, howToItems(tab, {
-    sectionLabel,
-    hasLateMm: days.some((d) => d.dayIndex > RAIN_MM_UNTIL),
-    mixedRain: views.some((v) => mixedRainModels(v.d)),
-    confidence: confidenceText(days),
-  })));
-  const text = summary(days);
-  if (text) wrap.append(h("p", { class: "summary", text }));
-  return wrap;
-}
-
-// mm et % du même jour venus de deux modèles différents (en France : mm de Météo-France, % d'ECMWF).
-export const mixedRainModels = (d) => Boolean(d.precipSum.model && d.precipProbMax.model && d.precipSum.model !== d.precipProbMax.model);
-
-// « Comment lire ces valeurs » : une idée par ligne, adaptée à l'onglet et à ce qui est réellement affiché.
-export function howToItems(tab, { sectionLabel = "cette liste", hasLateMm = false, mixedRain = false, confidence = "" } = {}) {
-  const items = [];
-  if (tab === "precip") {
-    items.push(`Barres : horizontale = probabilité de pluie (%) ; petite verticale = mm du jour, pleine à ${DAY_MM_FULL} mm (rouge et « + » au-delà).`);
-    if (hasLateMm) items.push(`Les mm sont peu fiables dès J+${RAIN_MM_UNTIL + 1}, non fiables à 7 jours : un ordre de grandeur incertain.`);
-    items.push("Le % est la probabilité horaire maximale du jour, pas celle de toute la journée.");
-    if (mixedRain) items.push("mm et % de deux modèles (Météo-France ne publie pas de %) : ils peuvent se contredire, par exemple 0 mm avec 60 %.");
-  } else if (tab === "temp") {
-    items.push(`Barres : de la minimale à la maximale du jour (échelle propre à ${sectionLabel}).`);
-  } else {
-    items.push("Valeurs : maxima du jour, jamais des moyennes.");
-    items.push(`Barre foncée : vent max ; claire : rafales max (échelle propre à ${sectionLabel}).`);
-    items.push("Girouette et « vent du … » : d'où vient le vent (direction dominante du jour) ; la pointe va où va le vent.");
-  }
-  if (confidence) items.push(confidence);
-  return items;
-}
 
 // Infobulle d'un bloc repliable : dit ce que fera le clic, selon l'état (« Déplier les explications », « Replier les explications »).
 export function foldTip(details, what) {
@@ -634,39 +584,31 @@ export function buildCompact(data, tab) {
         h("span", { class: "c-icon", "aria-hidden": "true", title: info.label, text: info.icon }),
         bar, tab === "wind"
           // girouette de la direction dominante (sa direction en mots, pour le lecteur d'écran ; trop longue pour la ligne)
-          ? h("span", { class: "c-val" }, vane(d.windDirDominant.value, true), windFrom(d.windDirDominant.value) ? h("span", { class: "sr-only", text: `vent ${windFrom(d.windDirDominant.value)}, ` }) : null, compactValue(v, tab))
+          ? h("span", { class: "c-val c-wind" }, vane(d.windDirDominant.value, true), windFrom(d.windDirDominant.value) ? h("span", { class: "sr-only", text: `vent ${windFrom(d.windDirDominant.value)}, ` }) : null, compactValue(v, tab),
+            gustBelowWind(d) ? h("span", { class: "gust-warn", title: "Rafales max inférieures au vent max : écart de la source, non corrigé", text: "\u00a0⚠" }) : null)
           : h("span", { class: "c-val", text: compactValue(v, tab) })));
     }
   });
-  const text = weekSummary(firstWeek(data));
-  return h("div", {}, list, text ? h("p", { class: "summary", text }) : null);
+  const days = firstWeek(data);
+  const at = (i) => `au ${dayLabel(days[i].date)}`;
+  const fields = { precip: [["mm", "precipSum"], ["%", "precipProbMax"]], temp: [["min", "tempMin"], ["max", "tempMax"]], wind: [["vent", "windMax"], ["rafales", "gustMax"]] }[tab];
+  const models = modelsP(modelsText(fields.map(([l, k]) => [l, modelRun(days.map((d) => d[k].model), at)])));
+  // Règle du cahier : l'écart est signalé sur la ligne (⚠) et expliqué ici, jamais corrigé.
+  const odd = tab === "wind" ? days.filter(gustBelowWind) : [];
+  const warn = odd.length ? h("p", { class: "muted small gust-note", text: `⚠ ${odd.map((d) => dayLabel(d.date)).join(", ")} : rafales max inférieures au vent max (écart de la source, non corrigé).` }) : null;
+  const text = weekSummary(days);
+  return h("div", {}, list, models, warn, text ? h("p", { class: "summary", text }) : null);
 }
 
 // Cas observé à Montréal (GEM) : rafales max inférieures au vent max. Signalé, jamais retouché.
 export const gustBelowWind = (d) => isNum(d.windMax.value) && isNum(d.gustMax.value) && d.gustMax.value < d.windMax.value;
-
-// Étiquette d'horizon fixe, non calibrée (cahier 9).
-export function confidenceText(days) {
-  const groups = [];
-  for (const d of days) {
-    if (!d.confidence) continue;
-    const last = groups.at(-1);
-    if (last && last.c === d.confidence && d.dayIndex === last.to + 1) last.to = d.dayIndex;
-    else groups.push({ c: d.confidence, from: d.dayIndex, to: d.dayIndex });
-  }
-  if (!groups.length) return "";
-  return `Confiance selon l'horizon (non calibrée) : ${groups.map((g) => `${g.c} ${g.from === g.to ? `à J+${g.from}` : `J+${g.from} à J+${g.to}`}`).join(", ")}.`;
-}
-
-// 7 lignes (J à J+6) avec séparateur à la frontière calculée.
-export const buildWeek = (data, tab) => buildPeriod(firstWeek(data), tab, { sectionLabel: "ces 7 jours", summary: weekSummary });
 
 function hbar(pct, color) {
   return h("div", { class: "hbar-box" }, pct === null ? null : h("div", { class: "hbar", style: { width: `${minVisible(pct)}%`, background: color } }));
 }
 // Jauge de mm du jour (lignes de jours, onglet Précipitations, 23/11/2026) : verticale comme partout pour les mm, pleine à
 // DAY_MM_FULL (limite « modéré » / « fort » de rainClass), rouge et « + » au-delà. Donnée absente : fond gris vide.
-export const DAY_MM_FULL = 10;
+// (DAY_MM_FULL est déclarée plus haut, avant l'aide des 7 jours qui la cite.)
 function dayMmGauge(mm) {
   const over = isNum(mm) && mm > DAY_MM_FULL;
   return h("div", { class: "dmm", "aria-hidden": "true" }, isNum(mm)

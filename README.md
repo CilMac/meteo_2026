@@ -59,7 +59,7 @@ Fichiers à publier : `index.html`, `styles.css` et tous les fichiers `.js` de l
 | `weather-provider.js` | Appel Open-Meteo, normalisation, choix du modèle pour chaque valeur, frontière « tendance » |
 | `weather-render.js` | Rendu des sections et gestion des valeurs manquantes |
 | `places.js` | 8 favoris, géocodage, validation des lieux |
-| `device.js`, `loading.js` | Vue par défaut selon l'appareil (compacte sur iOS) ; petite fenêtre « chargement en cours » avec barre d'avancement (étapes réellement terminées) |
+| `device.js`, `loading.js` | Détection d'iOS (aide sur l'autorisation de position) ; petite fenêtre « chargement en cours » avec barre d'avancement (étapes réellement terminées) |
 | `info.js` | Fenêtre « i » (modale native `<dialog>` à deux onglets : fonctionnement, sous le capot) |
 | `warnings.js` | Vigilances (ECCC pour le Canada ; « non confirmée » ailleurs) |
 | `test-cors.html` | Page de test du lot 0 (CORS, horizons des modèles) |
@@ -87,6 +87,6 @@ Fichiers à publier : `index.html`, `styles.css` et tous les fichiers `.js` de l
 - **Autres pays** : « non confirmée » + lien OMM. Un lieu libre n'a qu'ECMWF comme modèle, hors France, Japon et Canada.
 - **Données sources incohérentes** : GEM donne parfois des rafales max inférieures au vent max (observé à Montréal). La page le signale sans corriger.
 - Les modèles ne rendent pas compte des microclimats (littoral d'Agay notamment).
-- La vue compacte condense la situation actuelle et les 24 heures et affiche les 7 jours dans un seul pavé, en deux blocs : J à J+3, puis J+4 à J+6 après « Dès J+4 : fiabilité en baisse. » ; c'est la vue par défaut (seule vue sur iOS) ; le choix de l'utilisateur est mémorisé (`device.js`).
+- Une seule vue (28/11/2026) : situation actuelle, 24 heures, puis 7 jours en deux blocs (J à J+3, puis J+4 à J+6 après « Dès J+4 : fiabilité en baisse. ») ; une ligne « Modèles » sous chaque bloc ; « ⚠ » quand les rafales max sont annoncées plus faibles que le vent max.
 - Pas de cache local : chaque validation ou « Actualiser » fait un appel.
 - Les pictogrammes sont des emoji : leur aspect dépend du système.
